@@ -1,0 +1,23 @@
+{% extends "admin/base.html" %}
+
+{#
+  HiHi Labs — Django Admin Footer Branding
+  Drop this file into your project's templates/admin/ directory.
+  Customize HIHI_PORTFOLIO_URL and HIHI_HOST_NAME below if needed.
+#}
+
+{% block footer %}
+{{ block.super }}
+<div style="text-align:center;padding:10px 24px 14px;border-top:1px solid rgba(255,255,255,.06);font-size:.78em;color:#555;font-family:'Courier New',monospace">
+  <a href="https://hihi.communityplaylist.com/portfolio.html" target="_blank"
+     style="color:#ff6b35;text-decoration:none;font-weight:700;font-size:1.1em"
+     title="HiHi Labs Portfolio">◉</a>
+  &nbsp;Built by
+  <a href="https://hihi.communityplaylist.com" target="_blank"
+     style="color:#ff6b35;text-decoration:none;font-weight:600">HiHi Labs</a>
+  &nbsp;·&nbsp;
+  Hosted at
+  <a href="https://communityplaylist.com" target="_blank"
+     style="color:#555;text-decoration:none">Community Playlist</a>
+</div>
+{% endblock %}
