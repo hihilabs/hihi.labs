@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 # Rise Audio Recording Addon — install / re-install after RiseCRM upgrades
+#
+# WHY THIS EXISTS:
+#   Built for music production project management. Clients and collaborators
+#   need to leave timestamped voice feedback on mixes, stems, and arrangements
+#   — the kind of nuanced sonic direction ("the kick needs more punch around
+#   200hz, the reverb tail is washing the snare") that is painful to type and
+#   ambiguous in text. One-click in-browser recording keeps the feedback in
+#   context on the task, no third-party tool or file transfer needed.
+#
 # Run from: the root of your RiseCRM installation
 #   bash /path/to/rise-audio-recording/install.sh
 # or with RISE_ROOT set:
