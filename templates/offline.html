@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline — HiHi Labs</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0c;
+      color: #e8e6f0;
+      font-family: 'DM Mono', monospace, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      text-align: center;
+      padding: 48px 32px;
+      max-width: 360px;
+    }
+    .icon { font-size: 56px; margin-bottom: 24px; }
+    h1 { font-size: 20px; color: #7c6af7; margin-bottom: 8px; }
+    p { font-size: 13px; color: #7c7a8e; line-height: 1.6; margin-bottom: 28px; }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #7c6af7;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    a { display: block; margin-top: 12px; font-size: 12px; color: #7c7a8e; text-decoration: none; }
+    a:hover { color: #e8e6f0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📡</div>
+    <h1>No Connection</h1>
+    <p>HiHi Labs needs a signal.<br>Cached pages are still available.</p>
+    <button onclick="window.location.reload()">Try Again</button>
+    <a href="/">← Back to Dashboard</a>
+  </div>
+</body>
+</html>

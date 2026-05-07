@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block title %}Inbox — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Inbox</div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'messaging:email_accounts' %}" class="btn btn-ghost btn-sm" title="Email accounts">
+      <i class="fa-solid fa-at"></i>
+    </a>
+    <button class="btn btn-primary btn-sm" onclick="showNewThread()">
+      <i class="fa-solid fa-pen-to-square"></i> Compose
+    </button>
+  </div>
+</div>
+
+{# Compose panel #}
+<div id="compose-panel" style="display:none;padding:0 24px 16px;">
+  <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">
+    <input class="form-control" id="msg-subject" placeholder="Subject" style="margin-bottom:8px;">
+    <textarea class="form-control" id="msg-body" placeholder="Message..." rows="4" style="margin-bottom:8px;"></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;color:var(--text-muted);">Internal message (team only)</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="hideCompose()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Tab bar: Messages / Notifications / Email #}
+<div style="display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 24px;">
+  <button class="inbox-tab active" onclick="showTab('threads', this)">
+    <i class="fa-solid fa-comments"></i> Messages
+    {% with total=threads|length %}{% if total %}<span class="badge">{{ total }}</span>{% endif %}{% endwith %}
+  </button>
+  <button class="inbox-tab" onclick="showTab('notifs', this)">
+    <i class="fa-solid fa-bell"></i> Notifications
+    {% if unread_notif %}<span class="badge">{{ unread_notif }}</span>{% endif %}
+  </button>
+  {% if email_accounts %}
+  <button class="inbox-tab" onclick="showTab('email', this)">
+    <i class="fa-solid fa-at"></i> Email
+    {% for acc in email_accounts %}<span style="font-size:11px;color:var(--text-muted);">{{ acc.label }}</span>{% endfor %}
+  </button>
+  {% endif %}
+</div>
+
+{# Threads list #}
+<div id="tab-threads" style="padding: 0 24px;">
+  {% for thread in threads %}
+  {% with unread=thread.unread_count|default:0 last=thread.last_message %}
+  <a href="{% url 'messaging:thread_detail' thread.pk %}" class="thread-row {% if unread %}thread-unread{% endif %}">
+    <div class="thread-source source-{{ thread.source }}">
+      {% if thread.source == 'gmail' %}<i class="fa-brands fa-google"></i>
+      {% elif thread.source == 'proton' %}<i class="fa-solid fa-shield"></i>
+      {% else %}<i class="fa-solid fa-comments"></i>{% endif %}
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+        <span style="font-weight:{% if unread %}600{% else %}400{% endif %};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          {{ thread.subject|default:"(no subject)" }}
+        </span>
+        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">{{ thread.updated_at|date:"M j" }}</span>
+      </div>
+      {% if last %}
+      <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {{ last.body|striptags|truncatechars:80 }}
+      </div>
+      {% endif %}
+    </div>
+    {% if unread %}<span class="badge" style="flex-shrink:0;">{{ unread }}</span>{% endif %}
+  </a>
+  {% endwith %}
+  {% empty %}
+  <div class="empty-state" style="padding:60px 0;">
+    <i class="fa-solid fa-inbox"></i>
+    <p>No messages yet.</p>
+  </div>
+  {% endfor %}
+</div>
+
+{# Notifications list #}
+<div id="tab-notifs" style="display:none;padding:0 24px;">
+  {% if unread_notif %}
+  <div style="padding:12px 0;display:flex;justify-content:flex-end;">
+    <button class="btn btn-ghost btn-sm" onclick="markAllRead()">Mark all read</button>
+  </div>
+  {% endif %}
+  {% for n in notifications %}
+  <div class="notif-row {% if not n.read %}notif-unread{% endif %}" onclick="markRead({{ n.pk }}, '{{ n.link }}')">
+    <div class="notif-icon type-{{ n.type }}">
+      {% if n.type == 'invoice_paid' %}<i class="fa-solid fa-circle-check"></i>
+      {% elif n.type == 'message' %}<i class="fa-solid fa-comment"></i>
+      {% elif n.type == 'timer_stopped' %}<i class="fa-solid fa-clock"></i>
+      {% elif 'subscription' in n.type %}<i class="fa-solid fa-rocket"></i>
+      {% else %}<i class="fa-solid fa-bell"></i>{% endif %}
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:{% if not n.read %}600{% else %}400{% endif %};font-size:13px;">{{ n.title }}</div>
+      {% if n.body %}<div style="font-size:12px;color:var(--text-muted);">{{ n.body }}</div>{% endif %}
+    </div>
+    <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;">{{ n.created_at|date:"M j" }}</span>
+  </div>
+  {% empty %}
+  <div class="empty-state" style="padding:60px 0;">
+    <i class="fa-solid fa-bell-slash"></i>
+    <p>No notifications.</p>
+  </div>
+  {% endfor %}
+</div>
+
+{% if email_accounts %}
+<div id="tab-email" style="display:none;padding:0 24px 24px;">
+  {% for acc in email_accounts %}
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
+    <div>
+      <div style="font-weight:500;">{{ acc.label }}</div>
+      <div style="font-size:12px;color:var(--text-muted);">{{ acc.email_address }} · {{ acc.get_provider_display }}</div>
+      {% if acc.last_synced %}<div style="font-size:11px;color:var(--text-muted);">Last synced {{ acc.last_synced|date:"M j, g:i a" }}</div>{% endif %}
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="syncAccount({{ acc.pk }}, this)">
+      <i class="fa-solid fa-rotate"></i> Sync
+    </button>
+  </div>
+  {% endfor %}
+  <div style="margin-top:16px;">
+    <a href="{% url 'messaging:email_accounts' %}" class="btn btn-ghost btn-sm">
+      <i class="fa-solid fa-plus"></i> Add email account
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+function showTab(name, btn) {
+  document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.inbox-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).style.display = 'block';
+  btn.classList.add('active');
+}
+
+function showNewThread() {
+  document.getElementById('compose-panel').style.display = 'block';
+  document.getElementById('msg-subject').focus();
+}
+function hideCompose() {
+  document.getElementById('compose-panel').style.display = 'none';
+}
+
+async function sendMessage() {
+  const subject = document.getElementById('msg-subject').value.trim();
+  const body = document.getElementById('msg-body').value.trim();
+  if (!body) return;
+  const res = await fetch('/messaging/thread/new/', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({subject, body, recipients: []}),
+  });
+  if (res.ok) {
+    const {id} = await res.json();
+    window.location = `/messaging/thread/${id}/`;
+  }
+}
+
+async function markRead(id, link) {
+  await fetch(`/messaging/notifications/${id}/read/`, {method:'POST',headers:{'X-CSRFToken':CSRF}});
+  if (link) window.location = link;
+}
+
+async function markAllRead() {
+  await fetch('/messaging/notifications/read-all/', {method:'POST',headers:{'X-CSRFToken':CSRF}});
+  location.reload();
+}
+
+async function syncAccount(id, btn) {
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  const res = await fetch(`/messaging/email-accounts/${id}/sync/`, {method:'POST',headers:{'X-CSRFToken':CSRF}});
+  const data = await res.json();
+  if (data.ok) { alert(`Synced ${data.synced} new messages.`); location.reload(); }
+  else { alert('Sync error: ' + data.error); btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync'; }
+}
+</script>
+{% endblock %}

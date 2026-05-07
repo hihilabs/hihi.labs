@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Documents — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Documents</div>
+  <a href="{% url 'ai:templates' %}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> New from template</a>
+</div>
+
+{% if docs %}
+<div style="padding: 20px 24px; display: flex; flex-direction: column; gap: 8px;">
+  {% for doc in docs %}
+  <div style="display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;">
+    <i class="fa-solid fa-file-lines" style="color:var(--accent);"></i>
+    <a href="{% url 'ai:document' doc.pk %}" style="flex:1;color:var(--text);font-size:13px;">{{ doc.title }}</a>
+    <span style="font-size:11px;color:var(--text-muted);">{{ doc.created_at|date:"M j" }}</span>
+    <button onclick="deleteDoc({{ doc.pk }}, this)" class="btn btn-ghost btn-sm"><i class="fa-solid fa-trash"></i></button>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <i class="fa-solid fa-file-lines"></i>
+  <p>No documents yet. Generate one from a <a href="{% url 'ai:templates' %}">template</a>.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function deleteDoc(id, btn) {
+  if (!confirm('Delete?')) return;
+  const res = await fetch(`/ai/documents/${id}/delete/`, {
+    method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'},
+  });
+  if (res.ok) btn.closest('div').remove();
+}
+</script>
+{% endblock %}

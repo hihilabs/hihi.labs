@@ -1,0 +1,38 @@
+# Secrets & environment
+.env
+*.env
+
+# Database
+db.sqlite3
+*.sqlite3
+
+# Media uploads
+media/
+
+# Logs
+logs/
+
+# Static build output
+staticfiles/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~

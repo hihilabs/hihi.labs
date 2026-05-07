@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% block title %}{{ track.title }} — HiHi Labs{% endblock %}
+
+{% block extra_css %}
+<script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div style="min-width:0;">
+    <div class="page-title" style="font-size:15px;">{{ track.title }}</div>
+    <div style="font-size:12px;color:var(--text-muted);display:flex;gap:12px;margin-top:2px;">
+      {% if track.duration_s %}<span><i class="fa-solid fa-clock"></i> {{ track.duration_display }}</span>{% endif %}
+      {% if track.bpm %}<span><i class="fa-solid fa-drum"></i> {{ track.bpm }} BPM</span>{% endif %}
+      {% if track.key %}<span><i class="fa-solid fa-music"></i> {{ track.key }}</span>{% endif %}
+      {% if track.project %}
+        <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:{{ track.project.color }};"></span> {{ track.project.name }}</span>
+      {% endif %}
+    </div>
+  </div>
+  <a href="{% url 'sound:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+</div>
+
+{# Waveform player #}
+<div style="padding:0 24px;">
+  <div class="ws-wrap">
+    <div id="waveform"></div>
+
+    {# Comment marker overlay #}
+    <div id="marker-layer" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></div>
+
+    {# Floating comment input #}
+    <div id="comment-input-bar" style="display:none;position:absolute;bottom:-54px;background:var(--bg3);border:1px solid var(--teal);border-radius:8px;padding:8px 10px;display:none;gap:8px;align-items:center;z-index:10;min-width:280px;">
+      <span id="ci-time" style="font-size:11px;color:var(--teal);font-family:var(--font-mono);white-space:nowrap;"></span>
+      <input id="ci-body" class="form-control" placeholder="Add note at this timestamp…" style="flex:1;font-size:12px;padding:4px 8px;">
+      <button class="btn btn-primary btn-sm" onclick="submitComment()"><i class="fa-solid fa-check"></i></button>
+      <button class="btn btn-ghost btn-sm" onclick="closeCommentBar()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </div>
+
+  {# Transport controls #}
+  <div class="ws-controls">
+    <button class="ws-btn" onclick="ws.skip(-10)" title="−10s"><i class="fa-solid fa-backward-step"></i></button>
+    <button class="ws-btn ws-play" id="play-btn" onclick="ws.playPause()">
+      <i class="fa-solid fa-play" id="play-icon"></i>
+    </button>
+    <button class="ws-btn" onclick="ws.skip(10)" title="+10s"><i class="fa-solid fa-forward-step"></i></button>
+    <span id="current-time" class="ws-time">0:00</span>
+    <div class="ws-vol-wrap">
+      <i class="fa-solid fa-volume-low" style="color:var(--text-muted);font-size:12px;"></i>
+      <input type="range" min="0" max="1" step="0.05" value="1" oninput="ws.setVolume(this.value)"
+             style="width:80px;accent-color:var(--teal);">
+    </div>
+    <span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">
+      click waveform to add note
+    </span>
+  </div>
+</div>
+
+{# Comment list #}
+<div style="padding:20px 24px 32px;max-width:760px;">
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:12px;">
+    Notes <span id="comment-count">({{ comments|length }})</span>
+  </div>
+  <div id="comment-list">
+    {% for c in comments %}
+    <div class="comment-item" id="ci-{{ c.pk }}" onclick="ws.seekTo({{ c.timestamp_s }} / ws.getDuration())">
+      <span class="comment-ts">{{ c.timestamp_display }}</span>
+      <span class="comment-body">{{ c.body }}</span>
+      <span class="comment-user">{{ c.user.get_short_name|default:c.user.username }}</span>
+      <button class="btn-icon danger comment-del" onclick="deleteComment({{ track.pk }}, {{ c.pk }}, event)">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    {% empty %}
+    <div id="no-comments" style="font-size:13px;color:var(--text-muted);">
+      No notes yet — click the waveform while playing to add one.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+const TRACK_ID = {{ track.pk }};
+const AUDIO_URL = '{{ track.audio_file.url }}';
+const EXISTING_COMMENTS = {{ comments_json|safe }};
+
+// ── WaveSurfer init ───────────────────────────────────────────────────────────
+const ws = WaveSurfer.create({
+  container: '#waveform',
+  waveColor: '#3a3a4e',
+  progressColor: 'var(--teal)',
+  cursorColor: 'var(--accent)',
+  height: 80,
+  barWidth: 2,
+  barGap: 1,
+  barRadius: 2,
+  url: AUDIO_URL,
+});
+
+ws.on('ready', () => {
+  // Report duration back if server has 0
+  const dur = ws.getDuration();
+  if (dur > 0) {
+    fetch(`/sound/${TRACK_ID}/update/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({duration_s: dur}),
+    });
+  }
+  drawMarkers();
+});
+
+ws.on('play',  () => { document.getElementById('play-icon').className = 'fa-solid fa-pause'; });
+ws.on('pause', () => { document.getElementById('play-icon').className = 'fa-solid fa-play'; });
+ws.on('finish',() => { document.getElementById('play-icon').className = 'fa-solid fa-play'; });
+
+ws.on('timeupdate', t => {
+  const m = Math.floor(t / 60), s = Math.floor(t % 60);
+  document.getElementById('current-time').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+});
+
+// ── Click waveform → open comment bar ────────────────────────────────────────
+let pendingTs = 0;
+document.getElementById('waveform').addEventListener('click', e => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const ratio = (e.clientX - rect.left) / rect.width;
+  pendingTs = ratio * ws.getDuration();
+  const m = Math.floor(pendingTs / 60), s = Math.floor(pendingTs % 60);
+  document.getElementById('ci-time').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  const bar = document.getElementById('comment-input-bar');
+  bar.style.display = 'flex';
+  bar.style.left = Math.min(e.clientX - rect.left, rect.width - 300) + 'px';
+  document.getElementById('ci-body').value = '';
+  document.getElementById('ci-body').focus();
+});
+
+function closeCommentBar() {
+  document.getElementById('comment-input-bar').style.display = 'none';
+}
+
+document.getElementById('ci-body').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitComment();
+  if (e.key === 'Escape') closeCommentBar();
+});
+
+// ── Submit comment ────────────────────────────────────────────────────────────
+async function submitComment() {
+  const body = document.getElementById('ci-body').value.trim();
+  if (!body) return;
+  const res = await fetch(`/sound/${TRACK_ID}/comments/add/`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({timestamp_s: pendingTs, body}),
+  });
+  if (res.ok) {
+    const c = await res.json();
+    addCommentToDOM(c);
+    addMarker(c.timestamp_s, c.id);
+    closeCommentBar();
+    document.getElementById('no-comments')?.remove();
+  }
+}
+
+function addCommentToDOM(c) {
+  const list = document.getElementById('comment-list');
+  const div = document.createElement('div');
+  div.className = 'comment-item';
+  div.id = `ci-${c.id}`;
+  div.onclick = () => ws.seekTo(c.timestamp_s / ws.getDuration());
+  div.innerHTML = `
+    <span class="comment-ts">${c.timestamp_display}</span>
+    <span class="comment-body">${c.body}</span>
+    <span class="comment-user">${c.user}</span>
+    <button class="btn-icon danger comment-del" onclick="deleteComment(${TRACK_ID}, ${c.id}, event)">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  `;
+  // insert in timestamp order
+  const items = [...list.querySelectorAll('.comment-item')];
+  const after = items.find(el => parseFloat(el.querySelector('.comment-ts').dataset.ts || 0) > c.timestamp_s);
+  if (after) list.insertBefore(div, after);
+  else list.appendChild(div);
+  updateCount(1);
+}
+
+async function deleteComment(trackId, commentId, e) {
+  e.stopPropagation();
+  await fetch(`/sound/${trackId}/comments/${commentId}/delete/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF},
+  });
+  document.getElementById(`ci-${commentId}`)?.remove();
+  removeMarker(commentId);
+  updateCount(-1);
+}
+
+function updateCount(delta) {
+  const el = document.getElementById('comment-count');
+  const n = parseInt(el.textContent.replace(/\D/g, '')) + delta;
+  el.textContent = `(${n})`;
+}
+
+// ── Waveform markers ──────────────────────────────────────────────────────────
+function drawMarkers() {
+  {% for c in comments %}
+  addMarker({{ c.timestamp_s }}, {{ c.pk }});
+  {% endfor %}
+}
+
+function addMarker(ts, id) {
+  const dur = ws.getDuration();
+  if (!dur) return;
+  const pct = (ts / dur) * 100;
+  const layer = document.getElementById('marker-layer');
+  const dot = document.createElement('div');
+  dot.className = 'comment-marker';
+  dot.id = `marker-${id}`;
+  dot.style.left = pct + '%';
+  dot.title = formatTs(ts);
+  dot.style.pointerEvents = 'all';
+  dot.onclick = (e) => { e.stopPropagation(); ws.seekTo(ts / dur); document.getElementById(`ci-${id}`)?.scrollIntoView({behavior:'smooth'}); };
+  layer.appendChild(dot);
+}
+
+function removeMarker(id) {
+  document.getElementById(`marker-${id}`)?.remove();
+}
+
+function formatTs(s) {
+  return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Subscription — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Subscription</div>
+  <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-primary btn-sm">Change Plan</a>
+</div>
+
+<div style="padding: 0 24px 32px; max-width: 600px;">
+
+  {% if sub %}
+  <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:20px;font-weight:700;">{{ sub.plan.name }}</div>
+      <span class="status-badge status-{{ sub.status }}">{{ sub.get_status_display }}</span>
+    </div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">${{ sub.plan.price_usd }}/month · via {{ sub.get_gateway_display }}</div>
+    {% if sub.current_period_end %}
+    <div style="font-size:12px;color:var(--text-muted);">Renews {{ sub.current_period_end|date:"M j, Y" }}</div>
+    {% endif %}
+    <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;">
+      {% for f in sub.plan.features %}
+      <span style="background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:999px;font-size:11px;padding:3px 10px;">{{ f }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:40px 0;">
+    <i class="fa-solid fa-rocket"></i>
+    <p>No active subscription.</p>
+    <a href="{% url 'subscriptions:upgrade' %}" class="btn btn-primary">Choose a plan</a>
+  </div>
+  {% endif %}
+
+  {% if payments %}
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;">Payment History</div>
+  {% for pmt in payments %}
+  <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid var(--border);">
+    <span style="color:var(--text-muted);">{{ pmt.created_at|date:"M j, Y" }}</span>
+    <span>{{ pmt.get_gateway_display }}</span>
+    <span>
+      {% if pmt.amount_usd %}${{ pmt.amount_usd }}{% else %}{{ pmt.amount_crypto }} {{ pmt.currency }}{% endif %}
+    </span>
+    <span class="status-badge status-{% if pmt.status == 'confirmed' %}paid{% elif pmt.status == 'pending' %}sent{% else %}void{% endif %}">{{ pmt.status }}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+</div>
+{% endblock %}

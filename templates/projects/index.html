@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Projects — HiHi Labs{% endblock %}
+
+{% block content %}
+
+{% if running %}
+<div class="timer-bar" id="timer-bar">
+  <div class="timer-bar-dot"></div>
+  <span id="timer-project">{{ running.project.name }}{% if running.task %} · {{ running.task.title }}{% endif %}</span>
+  <span id="timer-clock" class="timer-clock">--:--:--</span>
+  <button class="btn btn-danger btn-sm" onclick="stopTimer()"><i class="fa-solid fa-stop"></i> Stop</button>
+</div>
+{% endif %}
+
+<div class="page-header">
+  <div class="page-title">Projects</div>
+  <button class="btn btn-primary" onclick="showNewProject()"><i class="fa-solid fa-plus"></i> New</button>
+</div>
+
+<div style="padding: 16px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+  {% for p in projects %}
+  <a href="{% url 'projects:detail' p.pk %}" class="project-card" style="--project-color: {{ p.color }}">
+    <div class="project-card-accent"></div>
+    <div class="project-card-body">
+      <div class="project-name">{{ p.name }}</div>
+      {% if p.client %}<div class="project-client">{{ p.client }}</div>{% endif %}
+      <div class="project-stats">
+        <span><i class="fa-solid fa-clock"></i> {{ p.total_hours }}h total</span>
+        {% if p.unbilled_hours > 0 %}
+        <span class="unbilled"><i class="fa-solid fa-file-invoice-dollar"></i> {{ p.unbilled_hours }}h unbilled</span>
+        {% endif %}
+        <span class="status-dot status-{{ p.status }}">{{ p.get_status_display }}</span>
+      </div>
+      <div class="project-tasks-count">
+        {{ p.tasks.count }} tasks · {{ p.tasks.filter.count }}
+      </div>
+    </div>
+  </a>
+  {% empty %}
+  <div class="empty-state" style="grid-column:1/-1;">
+    <i class="fa-solid fa-folder-open"></i>
+    <p>No projects yet. <button class="btn btn-ghost btn-sm" onclick="showNewProject()">Create one.</button></p>
+  </div>
+  {% endfor %}
+</div>
+
+{# New project modal #}
+<div id="new-project-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px 24px;width:400px;max-width:90vw;">
+    <div style="font-family:var(--font-ui);font-size:16px;font-weight:600;margin-bottom:20px;">New Project</div>
+    <div class="form-group">
+      <label class="form-label">Project Name</label>
+      <input class="form-control" id="np-name" type="text" placeholder="e.g. HiHi Labs">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Client (optional)</label>
+      <input class="form-control" id="np-client" type="text" placeholder="e.g. FCKRY LLC">
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+      <div style="flex:1;">
+        <label class="form-label">Hourly Rate</label>
+        <input class="form-control" id="np-rate" type="number" value="150">
+      </div>
+      <div>
+        <label class="form-label">Color</label>
+        <input type="color" id="np-color" value="#7c6af7" style="width:40px;height:36px;border:none;background:none;cursor:pointer;">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="hideNewProject()">Cancel</button>
+      <button class="btn btn-primary" onclick="createProject()">Create</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+// Timer
+{% if running %}
+const startedAt = new Date('{{ running.started_at.isoformat }}');
+const clock = document.getElementById('timer-clock');
+
+function updateClock() {
+  const secs = Math.floor((Date.now() - startedAt) / 1000);
+  const h = Math.floor(secs / 3600).toString().padStart(2, '0');
+  const m = Math.floor((secs % 3600) / 60).toString().padStart(2, '0');
+  const s = (secs % 60).toString().padStart(2, '0');
+  clock.textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+{% endif %}
+
+async function stopTimer() {
+  const res = await fetch("{% url 'projects:timer_stop' %}", {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({}),
+  });
+  if (res.ok) location.reload();
+}
+
+// New project modal
+function showNewProject() {
+  const m = document.getElementById('new-project-modal');
+  m.style.display = 'flex';
+  document.getElementById('np-name').focus();
+}
+function hideNewProject() {
+  document.getElementById('new-project-modal').style.display = 'none';
+}
+document.getElementById('new-project-modal')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideNewProject();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideNewProject(); });
+
+async function createProject() {
+  const name = document.getElementById('np-name').value.trim();
+  if (!name) return;
+  const res = await fetch("{% url 'projects:create' %}", {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      name,
+      client: document.getElementById('np-client').value.trim(),
+      hourly_rate: document.getElementById('np-rate').value,
+      color: document.getElementById('np-color').value,
+    }),
+  });
+  const data = await res.json();
+  if (data.ok) window.location = data.url;
+}
+</script>
+{% endblock %}

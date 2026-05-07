@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}Sound — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title"><i class="fa-solid fa-waveform-lines" style="color:var(--teal);margin-right:8px;"></i>Sound</div>
+  <button class="btn btn-primary btn-sm" onclick="document.getElementById('upload-panel').style.display='block'">
+    <i class="fa-solid fa-upload"></i> Upload
+  </button>
+</div>
+
+{# Upload panel #}
+<div id="upload-panel" style="display:none;padding:0 24px 16px;">
+  <div style="background:var(--bg3);border:1px solid var(--teal);border-radius:10px;padding:16px;">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:12px;">Upload Track</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <input class="form-control" id="up-title" placeholder="Title">
+      <div style="display:flex;gap:8px;">
+        <input class="form-control" id="up-bpm" placeholder="BPM" type="number" style="width:80px;">
+        <select class="form-control" id="up-key">
+          <option value="">Key</option>
+          {% for val, label in track_keys %}
+          {% if val %}<option value="{{ val }}">{{ label }}</option>{% endif %}
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <input class="form-control" id="up-tags" placeholder="Tags (comma-separated)">
+      <select class="form-control" id="up-project">
+        <option value="">No project</option>
+        {% for p in projects %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div id="drop-zone" class="drop-zone" onclick="document.getElementById('up-file').click()">
+      <i class="fa-solid fa-music" style="font-size:24px;color:var(--teal);margin-bottom:8px;"></i>
+      <div>Drop audio file here or click to browse</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">MP3 · WAV · OGG · M4A · FLAC</div>
+      <input type="file" id="up-file" accept="audio/*" style="display:none;" onchange="fileSelected(this)">
+    </div>
+    <div id="up-filename" style="font-size:12px;color:var(--teal);margin-top:6px;display:none;"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('upload-panel').style.display='none'">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="uploadTrack()">
+        <i class="fa-solid fa-upload"></i> Upload
+      </button>
+    </div>
+    <div id="up-progress" style="display:none;margin-top:10px;">
+      <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
+        <div id="up-bar" style="height:100%;background:var(--teal);width:0%;transition:width 0.2s;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Track library #}
+<div style="padding:0 24px 32px;">
+  {% if tracks %}
+  <div class="track-grid">
+    {% for track in tracks %}
+    <a href="{% url 'sound:track_detail' track.pk %}" class="track-card">
+      <div class="track-wave-thumb">
+        <i class="fa-solid fa-waveform-lines"></i>
+      </div>
+      <div class="track-info">
+        <div class="track-title">{{ track.title }}</div>
+        <div class="track-meta">
+          {% if track.duration_s %}<span>{{ track.duration_display }}</span>{% endif %}
+          {% if track.bpm %}<span>{{ track.bpm }} BPM</span>{% endif %}
+          {% if track.key %}<span>{{ track.key }}</span>{% endif %}
+        </div>
+        {% if track.tag_list %}
+        <div class="track-tags">
+          {% for tag in track.tag_list %}<span class="track-tag">{{ tag }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        {% if track.project %}
+        <div style="font-size:11px;margin-top:6px;">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:{{ track.project.color }};margin-right:4px;"></span>
+          {{ track.project.name }}
+        </div>
+        {% endif %}
+      </div>
+      <div class="track-actions" onclick="event.preventDefault()">
+        <button class="btn-icon danger" onclick="deleteTrack({{ track.pk }}, event)">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:80px 0;">
+    <i class="fa-solid fa-waveform-lines" style="color:var(--teal);"></i>
+    <p>No tracks yet.</p>
+    <button class="btn btn-primary" onclick="document.getElementById('upload-panel').style.display='block'">
+      Upload your first track
+    </button>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+// Drag and drop
+const dz = document.getElementById('drop-zone');
+dz?.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz?.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz?.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('audio/')) setFile(f);
+});
+
+let selectedFile = null;
+function fileSelected(input) { setFile(input.files[0]); }
+function setFile(f) {
+  selectedFile = f;
+  const fn = document.getElementById('up-filename');
+  fn.textContent = f.name;
+  fn.style.display = 'block';
+  if (!document.getElementById('up-title').value) {
+    document.getElementById('up-title').value = f.name.replace(/\.[^.]+$/, '');
+  }
+}
+
+async function uploadTrack() {
+  if (!selectedFile) { alert('Choose an audio file first.'); return; }
+  const fd = new FormData();
+  fd.append('audio', selectedFile);
+  fd.append('title', document.getElementById('up-title').value.trim() || selectedFile.name);
+  fd.append('bpm', document.getElementById('up-bpm').value);
+  fd.append('key', document.getElementById('up-key').value);
+  fd.append('tags', document.getElementById('up-tags').value);
+  fd.append('project_id', document.getElementById('up-project').value);
+
+  const prog = document.getElementById('up-progress');
+  const bar = document.getElementById('up-bar');
+  prog.style.display = 'block';
+
+  const xhr = new XMLHttpRequest();
+  xhr.upload.addEventListener('progress', e => {
+    if (e.lengthComputable) bar.style.width = (e.loaded / e.total * 100) + '%';
+  });
+  xhr.onload = () => {
+    if (xhr.status === 200) {
+      const d = JSON.parse(xhr.responseText);
+      window.location = `/sound/${d.id}/`;
+    } else {
+      alert('Upload failed.'); prog.style.display = 'none';
+    }
+  };
+  xhr.open('POST', '/sound/upload/');
+  xhr.setRequestHeader('X-CSRFToken', CSRF);
+  xhr.send(fd);
+}
+
+async function deleteTrack(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this track?')) return;
+  await fetch(`/sound/${id}/delete/`, { method: 'POST', headers: {'X-CSRFToken': CSRF} });
+  location.reload();
+}
+</script>
+{% endblock %}

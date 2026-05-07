@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block title %}Upgrade — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Choose a Plan</div>
+  {% if sub %}<span class="status-badge status-{{ sub.status }}">{{ sub.plan.name }} · {{ sub.get_status_display }}</span>{% endif %}
+</div>
+
+<div style="padding: 0 24px 32px;">
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px;">
+    {% for plan in plans %}
+    <div class="plan-card {% if sub and sub.plan.pk == plan.pk %}plan-current{% endif %}" onclick="selectPlan({{ plan.pk }}, '{{ plan.tier }}', '{{ plan.price_usd }}', '{{ plan.price_sol }}', '{{ plan.price_hnt }}')">
+      <div class="plan-name">{{ plan.name }}</div>
+      <div class="plan-price">${{ plan.price_usd }}<span style="font-size:12px;font-weight:400;color:var(--text-muted);">/mo</span></div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+        {{ plan.price_sol }} SOL · {{ plan.price_hnt }} HNT
+      </div>
+      <ul class="plan-features">
+        {% for f in plan.features %}
+        <li><i class="fa-solid fa-check" style="color:var(--green);margin-right:6px;"></i>{{ f|title }}</li>
+        {% endfor %}
+      </ul>
+      {% if sub and sub.plan.pk == plan.pk %}
+      <div style="margin-top:12px;font-size:11px;color:var(--accent);text-align:center;">Current plan</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {# Payment panel — shown after selecting a plan #}
+  <div id="payment-panel" style="display:none;max-width:480px;">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:16px;">
+      Pay for <strong id="pay-plan-name"></strong>
+    </div>
+
+    <div class="pay-tabs">
+      <button class="pay-tab active" onclick="showPayTab('stripe', this)">
+        <i class="fa-brands fa-stripe"></i> Card / Google Pay / Apple Pay
+      </button>
+      <button class="pay-tab" onclick="showPayTab('phantom', this)">
+        👻 Phantom / SOL
+      </button>
+      <button class="pay-tab" onclick="showPayTab('helium', this)">
+        🔮 Helium / HNT
+      </button>
+    </div>
+
+    {# Stripe tab #}
+    <div id="tab-stripe" class="pay-tab-content">
+      {% if stripe_pub_key %}
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+        Includes Google Pay &amp; Apple Pay — just click the button below and choose your method.
+      </p>
+      <button class="btn btn-primary" style="width:100%;" onclick="checkoutStripe()">
+        <i class="fa-solid fa-credit-card"></i> Continue to Checkout — $<span id="stripe-price"></span>/mo
+      </button>
+      {% else %}
+      <p style="color:var(--text-muted);font-size:13px;">Stripe not configured yet. Add <code>STRIPE_PUBLISHABLE_KEY</code> and <code>STRIPE_SECRET_KEY</code> to your .env.</p>
+      {% endif %}
+    </div>
+
+    {# Phantom tab #}
+    <div id="tab-phantom" class="pay-tab-content" style="display:none;">
+      {% if phantom_address %}
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">Send <strong id="ph-sol-amount"></strong> SOL to:</p>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:var(--font-mono);font-size:12px;word-break:break-all;margin-bottom:12px;">
+        {{ phantom_address }}
+      </div>
+      <a id="phantom-deeplink" href="#" class="btn btn-primary" style="width:100%;margin-bottom:8px;" target="_blank">
+        👻 Open in Phantom Wallet
+      </a>
+      <input class="form-control" id="ph-tx-sig" placeholder="Paste transaction signature after sending" style="margin-bottom:8px;">
+      <input class="form-control" id="ph-wallet" placeholder="Your wallet address" style="margin-bottom:8px;">
+      <button class="btn btn-primary" style="width:100%;" onclick="submitPhantom()">Verify &amp; Activate</button>
+      {% else %}
+      <p style="color:var(--text-muted);font-size:13px;">Add <code>PHANTOM_WALLET_ADDRESS</code> to .env to enable SOL payments.</p>
+      {% endif %}
+    </div>
+
+    {# Helium tab #}
+    <div id="tab-helium" class="pay-tab-content" style="display:none;">
+      {% if helium_address %}
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">Send <strong id="hnt-amount"></strong> HNT to:</p>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:var(--font-mono);font-size:12px;word-break:break-all;margin-bottom:12px;">
+        {{ helium_address }}
+      </div>
+      <input class="form-control" id="hnt-tx-hash" placeholder="Paste transaction hash after sending" style="margin-bottom:8px;">
+      <input class="form-control" id="hnt-wallet" placeholder="Your Helium wallet address" style="margin-bottom:8px;">
+      <button class="btn btn-primary" style="width:100%;" onclick="submitHelium()">Submit Payment</button>
+      <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Your account will be activated within 1 hour after we verify the transaction.</p>
+      {% else %}
+      <p style="color:var(--text-muted);font-size:13px;">Add <code>HELIUM_WALLET_ADDRESS</code> to .env to enable HNT payments.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+let selectedPlan = null;
+
+function selectPlan(id, tier, priceUsd, priceSol, priceHnt) {
+  selectedPlan = {id, tier, priceUsd, priceSol, priceHnt};
+  document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('plan-selected'));
+  event.currentTarget.classList.add('plan-selected');
+  document.getElementById('pay-plan-name').textContent = tier.charAt(0).toUpperCase() + tier.slice(1) + ' ($' + priceUsd + '/mo)';
+  document.getElementById('stripe-price').textContent = priceUsd;
+  document.getElementById('payment-panel').style.display = 'block';
+  const phantom_addr = '{{ phantom_address }}';
+  document.getElementById('ph-sol-amount').textContent = priceSol;
+  document.getElementById('phantom-deeplink').href = `https://phantom.app/ul/send?to=${phantom_addr}&amount=${priceSol}`;
+  document.getElementById('hnt-amount').textContent = priceHnt;
+  document.getElementById('payment-panel').scrollIntoView({behavior:'smooth'});
+}
+
+function showPayTab(name, btn) {
+  document.querySelectorAll('.pay-tab-content').forEach(t => t.style.display = 'none');
+  document.querySelectorAll('.pay-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).style.display = 'block';
+  btn.classList.add('active');
+}
+
+async function checkoutStripe() {
+  if (!selectedPlan) return;
+  const res = await fetch('/subscriptions/stripe/session/', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({plan_id: selectedPlan.id}),
+  });
+  const data = await res.json();
+  if (data.session_url) window.location = data.session_url;
+  else alert(data.error || 'Stripe not configured yet.');
+}
+
+async function submitPhantom() {
+  if (!selectedPlan) return;
+  const sig = document.getElementById('ph-tx-sig').value.trim();
+  const wallet = document.getElementById('ph-wallet').value.trim();
+  if (!sig || !wallet) { alert('Please fill in the signature and wallet address.'); return; }
+  const res = await fetch('/subscriptions/phantom/submit/', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({plan_id: selectedPlan.id, tx_signature: sig, wallet_address: wallet}),
+  });
+  const data = await res.json();
+  if (data.ok) { alert('✅ Verified! Activating your plan...'); window.location = '/subscriptions/'; }
+  else alert('❌ ' + (data.error || 'Verification failed'));
+}
+
+async function submitHelium() {
+  if (!selectedPlan) return;
+  const hash = document.getElementById('hnt-tx-hash').value.trim();
+  const wallet = document.getElementById('hnt-wallet').value.trim();
+  if (!hash) { alert('Please paste the transaction hash.'); return; }
+  const res = await fetch('/subscriptions/helium/submit/', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({plan_id: selectedPlan.id, tx_hash: hash, wallet_address: wallet}),
+  });
+  const data = await res.json();
+  if (data.ok) alert('⏳ ' + data.message);
+  else alert('❌ ' + (data.error || 'Error'));
+}
+</script>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Templates — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Templates <small>claude sonnet/haiku</small></div>
+</div>
+
+{% for cat in categories %}
+{% if cat.templates.all %}
+<div class="category-label"><i class="{{ cat.icon }}"></i> {{ cat.name }}</div>
+<div class="templates-grid">
+  {% for tmpl in cat.templates.all %}
+  {% if tmpl.active %}
+  <a href="{% url 'ai:template_run' tmpl.pk %}" class="template-card">
+    <div class="template-icon"><i class="{{ tmpl.icon }}"></i></div>
+    <div class="template-name">{{ tmpl.name }}</div>
+    <div class="template-desc">{{ tmpl.description|truncatechars:90 }}</div>
+    {% if tmpl.use_smart_model %}<span class="badge badge-accent" style="margin-top:8px;">Sonnet</span>{% endif %}
+  </a>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% if not categories %}
+<div class="empty-state">
+  <i class="fa-solid fa-wand-magic-sparkles"></i>
+  <p>No templates yet. Add them in <a href="/admin/claude_ai/prompttemplate/add/">admin</a>.</p>
+</div>
+{% endif %}
+{% endblock %}

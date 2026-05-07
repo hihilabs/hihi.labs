@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% block title %}Expenses — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title"><i class="fa-solid fa-receipt" style="color:var(--teal);margin-right:8px;"></i>Expenses</div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <select class="form-control" style="width:auto;font-size:13px;" onchange="location.href='?year='+this.value+'&cat={{ cat_filter }}'">
+      {% for y in year_list %}
+      <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+    <a href="{% url 'tax:expense_csv' %}?year={{ year }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-download"></i> CSV</a>
+    <button class="btn btn-primary btn-sm" onclick="toggleAddForm()"><i class="fa-solid fa-plus"></i> Add</button>
+  </div>
+</div>
+
+{# Add form #}
+<div id="add-form" style="display:none;padding:0 24px 16px;">
+  <div style="background:var(--bg3);border:1px solid var(--teal);border-radius:10px;padding:16px;">
+    <div style="display:grid;grid-template-columns:120px 1fr 1fr;gap:8px;margin-bottom:8px;">
+      {% now "Y-m-d" as today_str %}
+      <input class="form-control" id="exp-date" type="date" value="{{ today_str }}">
+      <input class="form-control" id="exp-vendor" placeholder="Vendor / payee">
+      <input class="form-control" id="exp-desc" placeholder="Description (optional)">
+    </div>
+    <div style="display:grid;grid-template-columns:120px 1fr 120px;gap:8px;margin-bottom:12px;">
+      <input class="form-control" id="exp-amount" type="number" step="0.01" placeholder="Amount $">
+      <select class="form-control" id="exp-cat">
+        {% for val, label in categories %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:0 8px;">
+        <input type="checkbox" id="exp-deductible" checked style="width:16px;height:16px;accent-color:var(--green);">
+        <span style="font-size:12px;color:var(--text-muted);">Deductible</span>
+      </label>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="toggleAddForm()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="addExpense()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+  </div>
+</div>
+
+{# Category filter pills #}
+<div style="padding:0 24px 12px;display:flex;flex-wrap:wrap;gap:6px;">
+  <a href="?year={{ year }}" class="exp-filter-pill{% if not cat_filter %} active{% endif %}">All</a>
+  {% for val, label in categories %}
+  <a href="?year={{ year }}&cat={{ val }}" class="exp-filter-pill{% if cat_filter == val %} active{% endif %}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="tax-layout">
+  {# Expense table #}
+  <div class="exp-table-wrap">
+    <table class="exp-table" id="exp-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Vendor</th>
+          <th>Description</th>
+          <th>Category</th>
+          <th style="text-align:right;">Amount</th>
+          <th style="text-align:center;">Ded.</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="exp-tbody">
+        {% for e in expenses %}
+        <tr class="exp-row" id="exp-{{ e.pk }}">
+          <td class="exp-date">{{ e.date|date:"M d" }}</td>
+          <td class="exp-vendor">{{ e.vendor }}</td>
+          <td class="exp-desc">{{ e.description|default:"—" }}</td>
+          <td><span class="exp-cat-badge">{{ e.get_category_display }}</span></td>
+          <td class="exp-amount">${{ e.amount }}</td>
+          <td style="text-align:center;">
+            <button class="ded-toggle {% if e.is_deductible %}ded-on{% else %}ded-off{% endif %}"
+                    onclick="toggleDed({{ e.pk }}, this)"
+                    title="{% if e.is_deductible %}Deductible — click to remove{% else %}Not deductible — click to mark{% endif %}">
+              {% if e.is_deductible %}<i class="fa-solid fa-check"></i>{% else %}<i class="fa-solid fa-minus"></i>{% endif %}
+            </button>
+          </td>
+          <td>
+            <button class="btn-icon danger" onclick="deleteExpense({{ e.pk }})"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr id="exp-empty">
+          <td colspan="7" style="text-align:center;padding:60px 0;color:var(--text-muted);">
+            <i class="fa-solid fa-receipt" style="font-size:32px;margin-bottom:12px;display:block;opacity:0.3;"></i>
+            No expenses for {{ year }}.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Summary sidebar #}
+  <aside class="exp-sidebar">
+    <div class="exp-summary-card">
+      <div class="exp-summary-title">{{ year }} Summary</div>
+      <div class="exp-summary-row">
+        <span>Total spent</span>
+        <span class="exp-summary-val">${{ total_all|floatformat:2 }}</span>
+      </div>
+      <div class="exp-summary-row" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
+        <span style="color:var(--green);">Deductible</span>
+        <span class="exp-summary-val" style="color:var(--green);">${{ total_deductible|floatformat:2 }}</span>
+      </div>
+    </div>
+
+    <div class="exp-summary-card" style="margin-top:12px;">
+      <div class="exp-summary-title">By Category</div>
+      {% for cat_key, cat_data in by_cat.items %}
+      <div class="exp-cat-row">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+          <span class="exp-cat-name">{{ cat_key|capfirst }}</span>
+          <span class="exp-cat-total">${{ cat_data.total|floatformat:2 }}</span>
+        </div>
+        {% if total_all %}
+        <div class="exp-cat-bar-wrap">
+          <div class="exp-cat-bar" style="width:{{ cat_data.total|default:0 }}px;" data-total="{{ cat_data.total }}" data-max="{{ total_all }}"></div>
+        </div>
+        {% endif %}
+        {% if cat_data.deductible %}
+        <div style="font-size:11px;color:var(--green);">${{ cat_data.deductible|floatformat:2 }} ded.</div>
+        {% endif %}
+      </div>
+      {% empty %}
+      <p style="color:var(--text-muted);font-size:12px;padding:8px 0;">No data yet.</p>
+      {% endfor %}
+    </div>
+
+    <a href="{% url 'tax:expense_csv' %}?year={{ year }}" class="btn btn-ghost btn-sm" style="width:100%;text-align:center;margin-top:12px;">
+      <i class="fa-solid fa-file-csv"></i> Export CSV
+    </a>
+  </aside>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+// Scale the category bars relative to max total
+document.querySelectorAll('.exp-cat-bar').forEach(bar => {
+  const total = parseFloat(bar.dataset.total) || 0;
+  const max   = parseFloat(bar.dataset.max)   || 1;
+  bar.style.width = Math.round((total / max) * 100) + '%';
+});
+
+function toggleAddForm() {
+  const f = document.getElementById('add-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if (f.style.display === 'block') document.getElementById('exp-vendor').focus();
+}
+
+async function addExpense() {
+  const vendor = document.getElementById('exp-vendor').value.trim();
+  const amount = document.getElementById('exp-amount').value.trim();
+  if (!vendor || !amount) { alert('Vendor and amount required.'); return; }
+  const res = await fetch('/tax/add/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({
+      vendor,
+      amount: parseFloat(amount),
+      date: document.getElementById('exp-date').value || null,
+      description: document.getElementById('exp-desc').value.trim(),
+      category: document.getElementById('exp-cat').value,
+      is_deductible: document.getElementById('exp-deductible').checked,
+    }),
+  });
+  if (res.ok) location.reload();
+  else alert('Error adding expense.');
+}
+
+async function deleteExpense(id) {
+  if (!confirm('Delete this expense?')) return;
+  await fetch(`/tax/${id}/delete/`, { method: 'POST', headers: {'X-CSRFToken': CSRF} });
+  const row = document.getElementById(`exp-${id}`);
+  row?.remove();
+}
+
+async function toggleDed(id, btn) {
+  const res = await fetch(`/tax/${id}/toggle/`, { method: 'POST', headers: {'X-CSRFToken': CSRF} });
+  const data = await res.json();
+  if (data.is_deductible) {
+    btn.className = 'ded-toggle ded-on';
+    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+    btn.title = 'Deductible — click to remove';
+  } else {
+    btn.className = 'ded-toggle ded-off';
+    btn.innerHTML = '<i class="fa-solid fa-minus"></i>';
+    btn.title = 'Not deductible — click to mark';
+  }
+}
+</script>
+{% endblock %}

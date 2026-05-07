@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Time Log — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Time Log <small>{{ entries|length }} entries</small></div>
+  <a href="{% url 'projects:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Projects</a>
+</div>
+
+{% if unbilled %}
+<div style="background:rgba(255,193,7,0.08);border:1px solid rgba(255,193,7,0.2);border-radius:8px;margin:12px 24px;padding:12px 16px;font-size:13px;">
+  <i class="fa-solid fa-triangle-exclamation" style="color:var(--yellow);"></i>
+  <strong style="color:var(--yellow);">{{ unbilled|length }} unbilled entries</strong>
+  — ready to generate invoice line items.
+  <a href="{% url 'ai:template_run' 1 %}" style="margin-left:8px;">Run template →</a>
+</div>
+{% endif %}
+
+<div style="padding: 0 24px;">
+  {% for entry in entries %}
+  <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
+    <span style="color:var(--text-muted);width:80px;">{{ entry.started_at|date:"M j" }}</span>
+    <span style="font-weight:500;flex:1;">{{ entry.project.name }}</span>
+    {% if entry.task %}<span style="color:var(--text-muted);">{{ entry.task.title|truncatechars:40 }}</span>{% endif %}
+    <span style="color:var(--accent);width:60px;text-align:right;">{{ entry.duration_display }}</span>
+    {% if entry.billed %}
+    <span class="badge badge-muted">billed</span>
+    {% else %}
+    <span class="badge badge-accent">unbilled</span>
+    {% endif %}
+    <button onclick="delEntry({{ entry.pk }}, this)" class="btn btn-ghost btn-sm"><i class="fa-solid fa-trash"></i></button>
+  </div>
+  {% empty %}
+  <div class="empty-state"><i class="fa-solid fa-clock"></i><p>No time entries yet.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function delEntry(id, btn) {
+  if (!confirm('Delete entry?')) return;
+  await fetch(`/projects/time-log/${id}/delete/`, {method:'POST',headers:{'X-CSRFToken':'{{ csrf_token }}'}});
+  btn.closest('div').remove();
+}
+</script>
+{% endblock %}

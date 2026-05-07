@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% block title %}Servers — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title"><i class="fa-solid fa-server" style="color:var(--teal);margin-right:8px;"></i>Servers</div>
+  <button class="btn btn-primary btn-sm" onclick="toggleAddForm()">
+    <i class="fa-solid fa-plus"></i> Add Server
+  </button>
+</div>
+
+{# Add form #}
+<div id="add-form" style="display:none;padding:0 24px 16px;">
+  <div style="background:var(--bg3);border:1px solid var(--teal);border-radius:10px;padding:16px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin-bottom:8px;">
+      <input class="form-control" id="sv-name" placeholder="Name (e.g. Unraid)">
+      <input class="form-control" id="sv-host" placeholder="Host / IP">
+      <input class="form-control" id="sv-port" placeholder="Port" type="number" value="22">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 120px 48px;gap:8px;margin-bottom:8px;">
+      <input class="form-control" id="sv-user" placeholder="SSH user" value="root">
+      <input class="form-control" id="sv-tags" placeholder="Tags (comma-separated)">
+      <select class="form-control" id="sv-icon">
+        {% for val, label in icons %}<option value="fa-{{ val|slice:'3:' }}">{{ label }}</option>{% endfor %}
+      </select>
+      <input type="color" id="sv-color" value="#7c6af7" style="width:100%;height:38px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;">
+    </div>
+    <textarea class="form-control" id="sv-notes" placeholder="Notes…" rows="2" style="margin-bottom:10px;"></textarea>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="toggleAddForm()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="addServer()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+  </div>
+</div>
+
+{# Server cards #}
+<div style="padding:0 24px 32px;">
+  <div class="server-grid" id="server-grid">
+    {% for s in servers %}
+    <div class="server-card" id="sv-{{ s.pk }}" style="--sv-color:{{ s.color }};">
+      <div class="server-header">
+        <div class="server-icon"><i class="fa-solid {{ s.icon }}"></i></div>
+        <div style="flex:1;min-width:0;">
+          <div class="server-name">{{ s.name }}</div>
+          <div class="server-host">{{ s.ssh_user }}@{{ s.host }}{% if s.port != 22 %}:{{ s.port }}{% endif %}</div>
+        </div>
+        <button class="btn-icon danger" onclick="deleteServer({{ s.pk }})"><i class="fa-solid fa-trash"></i></button>
+      </div>
+      {% if s.tag_list %}
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin:8px 0;">
+        {% for tag in s.tag_list %}<span class="track-tag">{{ tag }}</span>{% endfor %}
+      </div>
+      {% endif %}
+      {% if s.notes %}
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">{{ s.notes }}</div>
+      {% endif %}
+      <div class="server-actions">
+        <a href="{{ s.ssh_url }}" class="btn btn-primary btn-sm" style="background:var(--sv-color);border-color:var(--sv-color);">
+          <i class="fa-solid fa-terminal"></i> Connect
+        </a>
+        <button class="btn btn-ghost btn-sm" onclick="copyCmd('{{ s.ssh_command }}')" title="Copy SSH command">
+          <i class="fa-solid fa-copy"></i>
+        </button>
+        <code style="font-size:11px;color:var(--text-muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          {{ s.ssh_command }}
+        </code>
+      </div>
+    </div>
+    {% empty %}
+    <div class="empty-state" id="empty-servers" style="padding:80px 0;grid-column:1/-1;">
+      <i class="fa-solid fa-server"></i>
+      <p>No servers yet.</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+function toggleAddForm() {
+  const f = document.getElementById('add-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if (f.style.display === 'block') document.getElementById('sv-name').focus();
+}
+
+async function addServer() {
+  const name = document.getElementById('sv-name').value.trim();
+  const host = document.getElementById('sv-host').value.trim();
+  if (!name || !host) { alert('Name and host required.'); return; }
+  const res = await fetch('/servers/add/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({
+      name, host,
+      ssh_user: document.getElementById('sv-user').value.trim() || 'root',
+      port: parseInt(document.getElementById('sv-port').value) || 22,
+      tags: document.getElementById('sv-tags').value.trim(),
+      notes: document.getElementById('sv-notes').value.trim(),
+      icon: document.getElementById('sv-icon').value,
+      color: document.getElementById('sv-color').value,
+    }),
+  });
+  if (res.ok) location.reload();
+}
+
+async function deleteServer(id) {
+  if (!confirm('Remove this server?')) return;
+  await fetch(`/servers/${id}/delete/`, { method: 'POST', headers: {'X-CSRFToken': CSRF} });
+  document.getElementById(`sv-${id}`)?.remove();
+}
+
+function copyCmd(cmd) {
+  navigator.clipboard.writeText(cmd).then(() => {
+    const btn = event.currentTarget;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+    setTimeout(() => btn.innerHTML = '<i class="fa-solid fa-copy"></i>', 1500);
+  });
+}
+</script>
+{% endblock %}

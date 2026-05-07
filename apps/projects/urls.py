@@ -1,0 +1,24 @@
+from django.urls import path
+from . import views
+
+app_name = 'projects'
+
+urlpatterns = [
+    path('', views.project_index, name='index'),
+    path('new/', views.project_create, name='create'),
+    path('<int:pk>/', views.project_detail, name='detail'),
+    path('<int:pk>/update/', views.project_update, name='update'),
+
+    # Tasks
+    path('<int:project_pk>/tasks/new/', views.task_create, name='task_create'),
+    path('tasks/<int:pk>/update/', views.task_update, name='task_update'),
+    path('tasks/<int:pk>/delete/', views.task_delete, name='task_delete'),
+    path('tasks/<int:pk>/suggest/', views.task_suggest, name='task_suggest'),
+
+    # Timer
+    path('timer/start/', views.timer_start, name='timer_start'),
+    path('timer/stop/', views.timer_stop, name='timer_stop'),
+    path('timer/status/', views.timer_status, name='timer_status'),
+    path('time-log/', views.time_log, name='time_log'),
+    path('time-log/<int:pk>/delete/', views.time_entry_delete, name='time_entry_delete'),
+]

@@ -1,0 +1,43 @@
+import json
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render
+from django.views.decorators.http import require_POST
+from .models import Server
+
+
+@login_required
+def index(request):
+    servers = Server.objects.filter(owner=request.user)
+    return render(request, 'servers/index.html', {
+        'servers': servers,
+        'icons': Server.ICONS,
+    })
+
+
+@login_required
+@require_POST
+def server_add(request):
+    data = json.loads(request.body)
+    s = Server.objects.create(
+        owner=request.user,
+        name=data.get('name', '').strip(),
+        host=data.get('host', '').strip(),
+        ssh_user=data.get('ssh_user', 'root').strip(),
+        port=int(data.get('port', 22)),
+        tags=data.get('tags', '').strip(),
+        notes=data.get('notes', '').strip(),
+        icon=data.get('icon', 'fa-server'),
+        color=data.get('color', '#7c6af7'),
+    )
+    return JsonResponse({
+        'id': s.pk, 'name': s.name, 'host': s.host,
+        'ssh_url': s.ssh_url(), 'ssh_command': s.ssh_command(),
+    })
+
+
+@login_required
+@require_POST
+def server_delete(request, pk):
+    get_object_or_404(Server, pk=pk, owner=request.user).delete()
+    return JsonResponse({'ok': True})

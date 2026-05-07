@@ -1,0 +1,10 @@
+django>=5.2,<6.0
+gunicorn
+anthropic>=0.40.0
+openai>=1.0.0
+whitenoise
+python-dotenv
+pillow
+requests
+stripe
+mutagen

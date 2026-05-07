@@ -1,0 +1,353 @@
+{% extends 'base.html' %}
+{% block title %}{{ conv.title|default:"New Chat" }} — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+
+  <aside class="chat-sidebar">
+    <div class="chat-sidebar-header">
+      <a href="{% url 'ai:chat_new' %}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">
+        <i class="fa-solid fa-plus"></i> New chat
+      </a>
+    </div>
+    <div class="chat-list">
+      {% for c in conversations %}
+      <a href="{% url 'ai:chat' c.pk %}"
+         class="chat-list-item {% if c.pk == conv.pk %}active{% endif %}"
+         title="{{ c.title|default:'New conversation' }}">
+        {{ c.title|default:"New conversation"|truncatechars:28 }}
+      </a>
+      {% endfor %}
+    </div>
+  </aside>
+
+  <div class="chat-main">
+    <div class="chat-messages" id="chat-messages">
+      {% if not messages %}
+      <div class="empty-state" style="margin:auto;">
+        <i class="fa-solid fa-comments"></i>
+        <p>Start a conversation. Type <kbd>/</kbd> for commands.</p>
+      </div>
+      {% endif %}
+      {% for msg in messages %}
+      <div class="msg {{ msg.role }}">
+        <div class="msg-bubble" id="msg-{{ msg.pk }}">{{ msg.content }}</div>
+      </div>
+      {% endfor %}
+      <div class="typing-indicator" id="typing">
+        <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        <span id="typing-label">thinking</span>
+      </div>
+    </div>
+
+    <div class="chat-input-wrap" style="position:relative;">
+      <div id="slash-menu" class="slash-menu" style="display:none;"></div>
+      <div class="chat-input-area">
+        <textarea class="chat-input" id="chat-input" placeholder="Ask anything… or type / for commands" rows="1"></textarea>
+        <button class="btn btn-primary" id="send-btn" onclick="sendMessage()">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CONV_ID   = {{ conv.pk }};
+const SEND_URL  = "{% url 'ai:chat_send' conv.pk %}";
+const STREAM_URL = "{% url 'ai:chat_stream' conv.pk %}";
+const CSRF      = "{{ csrf_token }}";
+
+const input    = document.getElementById('chat-input');
+const msgsEl   = document.getElementById('chat-messages');
+const typing   = document.getElementById('typing');
+const typingLbl = document.getElementById('typing-label');
+const slashMenu = document.getElementById('slash-menu');
+let isStreaming = false;
+let slashIdx    = -1;
+
+// ── Slash commands ────────────────────────────────────────────────────────────
+
+const COMMANDS = [
+  { name: 'projects',  icon: 'fa-list-check',         desc: 'List projects + hours',          msg: 'List my projects with current status and hours.' },
+  { name: 'tasks',     icon: 'fa-circle-check',        desc: 'Open tasks across projects',     msg: 'Show all open and in-progress tasks across every project.' },
+  { name: 'timer',     icon: 'fa-stopwatch',           desc: 'Active timer status',            msg: 'Show my active timer.' },
+  { name: 'servers',   icon: 'fa-server',              desc: 'List servers',                   msg: 'List my servers.' },
+  { name: 'files',     icon: 'fa-folder-tree',         desc: 'List project files',             msg: 'List the top-level files and directories in the hihilabs project.' },
+  { name: 'read',      icon: 'fa-file-code',           desc: '/read <path>  — read a file',    msg: 'Read the file: ', fill: true },
+  { name: 'write',     icon: 'fa-pen-to-square',       desc: '/write <path> — edit a file',   msg: 'Edit the file: ', fill: true },
+  { name: 'new',       icon: 'fa-plus',                desc: '/new project|task <name>',       msg: 'Create a new ', fill: true },
+  { name: 'help',      icon: 'fa-circle-question',     desc: 'Show slash commands',            action: 'help' },
+  { name: 'clear',     icon: 'fa-trash-can',           desc: 'Clear chat display',             action: 'clear' },
+];
+
+function filteredCmds(q) {
+  if (!q) return COMMANDS;
+  return COMMANDS.filter(c => c.name.startsWith(q));
+}
+
+function renderSlashMenu(q) {
+  const cmds = filteredCmds(q);
+  if (!cmds.length) { hideSlash(); return; }
+  slashIdx = -1;
+  slashMenu.innerHTML = cmds.map((c, i) =>
+    `<div class="slash-item" data-idx="${i}" onmousedown="pickCmd(${i})">
+      <i class="fa-solid ${c.icon} slash-icon"></i>
+      <span class="slash-name">/${c.name}</span>
+      <span class="slash-desc">${c.desc}</span>
+    </div>`
+  ).join('');
+  slashMenu._cmds = cmds;
+  slashMenu.style.display = 'block';
+}
+
+function hideSlash() {
+  slashMenu.style.display = 'none';
+  slashMenu._cmds = null;
+  slashIdx = -1;
+}
+
+function pickCmd(idx) {
+  const cmds = slashMenu._cmds;
+  if (!cmds || idx >= cmds.length) return;
+  const c = cmds[idx];
+  hideSlash();
+
+  if (c.action === 'help') { showHelp(); return; }
+  if (c.action === 'clear') { clearChat(); return; }
+
+  if (c.fill) {
+    input.value = c.msg;
+    input.focus();
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+    return;
+  }
+  // auto-send shortcut commands
+  input.value = c.msg;
+  sendMessage();
+}
+
+function showHelp() {
+  const lines = COMMANDS.map(c => `<code>/${c.name}</code> — ${c.desc}`).join('<br>');
+  appendSystem(`<strong>Slash commands</strong><br><br>${lines}`);
+}
+
+function clearChat() {
+  document.querySelectorAll('.msg').forEach(el => el.remove());
+  const empty = document.querySelector('.empty-state');
+  if (!empty) {
+    const e = document.createElement('div');
+    e.className = 'empty-state';
+    e.style.margin = 'auto';
+    e.innerHTML = '<i class="fa-solid fa-comments"></i><p>Start a conversation. Type <kbd>/</kbd> for commands.</p>';
+    msgsEl.insertBefore(e, typing);
+  }
+}
+
+// ── Input handling ────────────────────────────────────────────────────────────
+
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+
+  const val = input.value;
+  if (val.startsWith('/')) {
+    const q = val.slice(1).toLowerCase().split(' ')[0];
+    renderSlashMenu(q);
+  } else {
+    hideSlash();
+  }
+});
+
+input.addEventListener('keydown', e => {
+  if (slashMenu.style.display !== 'none') {
+    const cmds = slashMenu._cmds || [];
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      slashIdx = Math.min(slashIdx + 1, cmds.length - 1);
+      highlightSlash();
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      slashIdx = Math.max(slashIdx - 1, -1);
+      highlightSlash();
+      return;
+    }
+    if (e.key === 'Escape') { hideSlash(); return; }
+    if (e.key === 'Tab' || (e.key === 'Enter' && slashIdx >= 0)) {
+      e.preventDefault();
+      pickCmd(slashIdx >= 0 ? slashIdx : 0);
+      return;
+    }
+  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+function highlightSlash() {
+  document.querySelectorAll('.slash-item').forEach((el, i) => {
+    el.classList.toggle('active', i === slashIdx);
+  });
+  const active = slashMenu.querySelector('.slash-item.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+// ── Message rendering ─────────────────────────────────────────────────────────
+
+function scrollBottom() { msgsEl.scrollTop = msgsEl.scrollHeight; }
+scrollBottom();
+
+// Render existing messages as markdown on load
+document.querySelectorAll('.msg.assistant .msg-bubble').forEach(el => {
+  el.innerHTML = renderMarkdown(el.textContent);
+});
+
+function appendMsg(role, text) {
+  const wrap = document.createElement('div');
+  wrap.className = `msg ${role}`;
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
+  msgsEl.insertBefore(wrap, typing);
+  scrollBottom();
+  return bubble;
+}
+
+function appendSystem(html) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg system';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerHTML = html;
+  wrap.appendChild(bubble);
+  msgsEl.insertBefore(wrap, typing);
+  scrollBottom();
+}
+
+let _toolPill = null;
+
+function showToolPill(name) {
+  if (_toolPill) _toolPill.remove();
+  _toolPill = document.createElement('div');
+  _toolPill.className = 'tool-pill';
+  _toolPill.innerHTML = `<i class="fa-solid fa-gear fa-spin"></i> ${name}`;
+  msgsEl.insertBefore(_toolPill, typing);
+  scrollBottom();
+}
+
+function removeToolPill() {
+  if (_toolPill) { _toolPill.remove(); _toolPill = null; }
+}
+
+// ── Send ──────────────────────────────────────────────────────────────────────
+
+async function sendMessage() {
+  if (isStreaming) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  hideSlash();
+  isStreaming = true;
+
+  document.querySelector('.empty-state')?.remove();
+
+  appendMsg('user', text);
+  typing.classList.add('visible');
+  typingLbl.textContent = 'thinking';
+  scrollBottom();
+
+  await fetch(SEND_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({message: text}),
+  });
+
+  const assistantBubble = appendMsg('assistant', '');
+  typing.classList.remove('visible');
+
+  const es = new EventSource(STREAM_URL);
+  es.onmessage = e => {
+    if (e.data === '[DONE]') {
+      es.close();
+      isStreaming = false;
+      removeToolPill();
+      assistantBubble.innerHTML = renderMarkdown(assistantBubble.textContent);
+      scrollBottom();
+      return;
+    }
+    const chunk = JSON.parse(e.data);
+    if (chunk.t !== undefined) {
+      assistantBubble.textContent += chunk.t;
+      scrollBottom();
+    } else if (chunk.tool_call) {
+      typingLbl.textContent = chunk.tool_call;
+      typing.classList.add('visible');
+      showToolPill(chunk.tool_call);
+    } else if (chunk.tool_done) {
+      removeToolPill();
+      typing.classList.remove('visible');
+      typingLbl.textContent = 'thinking';
+    }
+  };
+  es.onerror = () => {
+    es.close();
+    isStreaming = false;
+    removeToolPill();
+    typing.classList.remove('visible');
+  };
+}
+
+// ── Markdown renderer ─────────────────────────────────────────────────────────
+
+function renderMarkdown(text) {
+  // escape HTML first
+  let s = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // fenced code blocks
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code${lang ? ` class="lang-${lang}"` : ''}>${code.trimEnd()}</code></pre>`
+  );
+  // inline code
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  // headers
+  s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // bold / italic
+  s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // hr
+  s = s.replace(/^---+$/gm, '<hr>');
+  // unordered lists (batch into <ul>)
+  s = s.replace(/((?:^[ \t]*[-*+] .+\n?)+)/gm, block => {
+    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*[-*+] /, '')}</li>`).join('');
+    return `<ul>${items}</ul>`;
+  });
+  // ordered lists
+  s = s.replace(/((?:^[ \t]*\d+\. .+\n?)+)/gm, block => {
+    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*\d+\. /, '')}</li>`).join('');
+    return `<ol>${items}</ol>`;
+  });
+  // paragraphs — double newlines
+  s = s.split(/\n{2,}/).map(para => {
+    para = para.trim();
+    if (!para) return '';
+    if (/^<(h[1-3]|ul|ol|pre|hr)/.test(para)) return para;
+    return `<p>${para.replace(/\n/g, '<br>')}</p>`;
+  }).join('\n');
+
+  return s;
+}
+</script>
+{% endblock %}

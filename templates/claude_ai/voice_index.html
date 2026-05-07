@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}Voice Notes — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Voice Notes <small>whisper transcription</small></div>
+</div>
+
+<div class="voice-recorder">
+  <button class="record-btn" id="record-btn" onclick="toggleRecord()">
+    <i class="fa-solid fa-microphone" id="record-icon"></i>
+  </button>
+  <div class="record-timer" id="timer">0:00</div>
+  <div class="record-status" id="record-status">Tap to record a thought</div>
+
+  <div id="processing" style="display:none;color:var(--text-muted);font-size:13px;margin-top:12px;">
+    <i class="fa-solid fa-spinner fa-spin"></i> Transcribing...
+  </div>
+
+  <div class="transcript-box" id="transcript-box" style="display:none;"></div>
+
+  <div id="note-actions" style="display:none;margin-top:12px;gap:8px;justify-content:center;display:none;">
+    <button onclick="copyTranscript()" class="btn btn-ghost btn-sm"><i class="fa-solid fa-copy"></i> Copy</button>
+    <button onclick="resetRecorder()" class="btn btn-ghost btn-sm"><i class="fa-solid fa-rotate"></i> New recording</button>
+  </div>
+</div>
+
+{% if notes %}
+<div style="padding: 0 24px 20px; display: flex; flex-direction: column; gap: 8px;">
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:4px 0;">Previous notes</div>
+  {% for note in notes %}
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;display:flex;gap:12px;align-items:flex-start;">
+    <i class="fa-solid fa-microphone" style="color:var(--accent);margin-top:2px;"></i>
+    <div style="flex:1;">
+      <div style="font-size:13px;white-space:pre-wrap;">{{ note.transcript|default:"(no transcript)" }}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">{{ note.created_at|date:"M j, g:i a" }}</div>
+    </div>
+    <button onclick="deleteNote({{ note.pk }}, this)" class="btn btn-ghost btn-sm"><i class="fa-solid fa-trash"></i></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let mediaRecorder, chunks = [], timerInterval, seconds = 0, lastTranscript = '';
+
+function toggleRecord() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+async function startRecording() {
+  const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+  mediaRecorder = new MediaRecorder(stream, {mimeType: 'audio/webm'});
+  chunks = [];
+  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+  mediaRecorder.onstop = () => { transcribe(new Blob(chunks, {type:'audio/webm'})); };
+  mediaRecorder.start();
+
+  document.getElementById('record-btn').classList.add('recording');
+  document.getElementById('record-icon').className = 'fa-solid fa-stop';
+  document.getElementById('record-status').textContent = 'Recording... tap to stop';
+  seconds = 0;
+  timerInterval = setInterval(() => {
+    seconds++;
+    const m = Math.floor(seconds/60), s = seconds%60;
+    document.getElementById('timer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  }, 1000);
+}
+
+function stopRecording() {
+  clearInterval(timerInterval);
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach(t => t.stop());
+  document.getElementById('record-btn').classList.remove('recording');
+  document.getElementById('record-icon').className = 'fa-solid fa-microphone';
+  document.getElementById('record-status').textContent = 'Processing...';
+}
+
+async function transcribe(blob) {
+  document.getElementById('processing').style.display = 'block';
+  const form = new FormData();
+  form.append('audio', blob, 'recording.webm');
+  form.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+  const res = await fetch("{% url 'ai:voice_transcribe' %}", {method: 'POST', body: form});
+  document.getElementById('processing').style.display = 'none';
+
+  if (res.ok) {
+    const data = await res.json();
+    lastTranscript = data.transcript;
+    const box = document.getElementById('transcript-box');
+    box.textContent = lastTranscript;
+    box.style.display = 'block';
+    const actions = document.getElementById('note-actions');
+    actions.style.display = 'flex';
+    document.getElementById('record-status').textContent = 'Transcribed — tap to record again';
+  } else {
+    document.getElementById('record-status').textContent = 'Transcription failed. Check OpenAI key.';
+  }
+}
+
+function copyTranscript() {
+  navigator.clipboard.writeText(lastTranscript);
+}
+
+function resetRecorder() {
+  document.getElementById('transcript-box').style.display = 'none';
+  document.getElementById('note-actions').style.display = 'none';
+  document.getElementById('timer').textContent = '0:00';
+  document.getElementById('record-status').textContent = 'Tap to record a thought';
+  lastTranscript = '';
+}
+
+async function deleteNote(id, btn) {
+  await fetch(`/ai/voice/${id}/delete/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+  });
+  btn.closest('div').remove();
+}
+</script>
+{% endblock %}

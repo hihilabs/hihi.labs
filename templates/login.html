@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HiHi Labs — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@700&display=swap" rel="stylesheet">
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo">
+      <span style="color:var(--accent)">hi</span><span style="color:var(--text-muted)">hi</span>
+      <span style="font-size:14px;color:var(--text-muted);font-family:var(--font-mono);margin-left:8px;font-weight:400;">labs</span>
+    </div>
+    {% if form.errors %}
+    <div style="background:rgba(244,67,54,0.1);border:1px solid var(--red);border-radius:6px;padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:16px;">
+      Invalid credentials.
+    </div>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-control" type="text" name="username" autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-control" type="password" name="password">
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;">
+        Sign in
+      </button>
+    </form>
+  </div>
+</div>
+</body>
+</html>

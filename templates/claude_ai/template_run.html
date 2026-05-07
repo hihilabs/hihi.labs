@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}{{ tmpl.name }} — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <i class="{{ tmpl.icon }}"></i> {{ tmpl.name }}
+    {% if tmpl.use_smart_model %}<span class="badge badge-accent" style="margin-left:8px;">Sonnet</span>{% endif %}
+  </div>
+  <a href="{% url 'ai:templates' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
+</div>
+
+{% if not streaming %}
+<div class="form-wrap">
+  {% if tmpl.description %}
+  <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">{{ tmpl.description }}</p>
+  {% endif %}
+
+  <form method="post" id="tmpl-form">
+    {% csrf_token %}
+    {% for var in tmpl.variables %}
+    <div class="form-group">
+      <label class="form-label">{{ var.label }}</label>
+      {% if var.type == 'textarea' %}
+      <textarea class="form-control" name="{{ var.name }}" rows="4" required></textarea>
+      {% else %}
+      <input class="form-control" type="text" name="{{ var.name }}" required>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-bolt"></i> Generate</button>
+  </form>
+</div>
+
+{% else %}
+{# Streaming output #}
+<div style="padding: 0 24px;">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+    <div class="typing-dot" style="display:inline-block;"></div>
+    <span style="font-size:12px;color:var(--text-muted);" id="status-msg">Generating...</span>
+  </div>
+  <div class="doc-output" id="doc-output" style="margin:0 0 16px;"></div>
+  <div id="actions" style="display:none;gap:8px;display:flex;">
+    <button onclick="copyDoc()" class="btn btn-ghost btn-sm"><i class="fa-solid fa-copy"></i> Copy</button>
+    <a href="{% url 'ai:documents' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-folder"></i> My Docs</a>
+    <a href="{% url 'ai:template_run' tmpl.pk %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-rotate"></i> Run again</a>
+  </div>
+</div>
+
+<script>
+const STREAM_URL = "{% url 'ai:template_stream' tmpl.pk %}?prompt={{ prompt|urlencode }}";
+const output = document.getElementById('doc-output');
+const status = document.getElementById('status-msg');
+const actions = document.getElementById('actions');
+let full = '';
+
+const es = new EventSource(STREAM_URL);
+es.onmessage = e => {
+  if (e.data === '[DONE]') {
+    es.close();
+    status.textContent = 'Done.';
+    actions.style.display = 'flex';
+    return;
+  }
+  const chunk = JSON.parse(e.data);
+  full += chunk.t;
+  output.textContent = full;
+};
+es.onerror = () => { es.close(); status.textContent = 'Error — check API key.'; };
+
+function copyDoc() {
+  navigator.clipboard.writeText(full);
+}
+</script>
+{% endif %}
+{% endblock %}

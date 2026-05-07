@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block title %}New Invoice — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">New Invoice</div>
+  <a href="{% url 'billing:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+</div>
+
+<div style="padding: 0 24px 32px; max-width: 640px;">
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Client</div>
+    <input class="form-control" id="client-name" placeholder="Client name" style="margin-bottom:8px;">
+    <input class="form-control" id="client-email" placeholder="Client email (optional)" style="margin-bottom:8px;">
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Invoice Details</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);">Invoice #</label>
+        <input class="form-control" id="inv-number" value="" style="margin-top:4px;" readonly>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text-muted);">Net days</label>
+        <select class="form-control" id="due-days" style="margin-top:4px;">
+          <option value="7">Net 7</option>
+          <option value="14" selected>Net 14</option>
+          <option value="30">Net 30</option>
+          <option value="0">Due on receipt</option>
+        </select>
+      </div>
+    </div>
+    <textarea class="form-control" id="inv-notes" placeholder="Notes / payment instructions..." rows="2"></textarea>
+  </div>
+
+  {% if projects %}
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Pull from Projects</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
+      Check projects to auto-add their unbilled hours as line items.
+    </div>
+    {% for p in projects %}
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+      <input type="checkbox" class="project-check" value="{{ p.pk }}"
+             data-name="{{ p.name }}" data-rate="{{ p.hourly_rate }}" data-hours="{{ p.unbilled_hours }}"
+             {% if p.unbilled_hours > 0 %}checked{% endif %}
+             style="width:16px;height:16px;accent-color:var(--accent);">
+      <span style="flex:1;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ p.color }};margin-right:6px;"></span>
+        {{ p.name }}
+      </span>
+      <span style="font-size:12px;color:{% if p.unbilled_hours > 0 %}var(--yellow){% else %}var(--text-muted){% endif %};">
+        {{ p.unbilled_hours }}h unbilled
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="sidebar-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="sidebar-section-title" style="margin:0;">Manual Lines</div>
+      <button class="btn btn-ghost btn-sm" onclick="addManualLine()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+    <div id="manual-lines"></div>
+  </div>
+
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:20px;">
+    <div style="display:flex;justify-content:space-between;font-size:13px;">
+      <span>Estimated total</span>
+      <span id="preview-total" style="font-weight:600;font-size:15px;">$0.00</span>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" style="width:100%;" onclick="createInvoice()">
+    <i class="fa-solid fa-file-invoice-dollar"></i> Create Invoice
+  </button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+// load next invoice number
+fetch('/billing/new/', {headers:{'X-Requested-With':'XMLHttpRequest'}})
+  .catch(()=>{});
+
+// pre-fill number from data attr
+document.getElementById('inv-number').value = '{{ next_number }}';
+
+function updatePreview() {
+  let total = 0;
+  document.querySelectorAll('.project-check:checked').forEach(cb => {
+    total += parseFloat(cb.dataset.hours || 0) * parseFloat(cb.dataset.rate || 0);
+  });
+  document.querySelectorAll('.manual-row').forEach(row => {
+    const q = parseFloat(row.querySelector('.ml-qty').value) || 0;
+    const r = parseFloat(row.querySelector('.ml-rate').value) || 0;
+    total += q * r;
+  });
+  document.getElementById('preview-total').textContent = '$' + total.toFixed(2);
+}
+
+document.querySelectorAll('.project-check').forEach(cb => cb.addEventListener('change', updatePreview));
+updatePreview();
+
+let manualIdx = 0;
+function addManualLine() {
+  const idx = manualIdx++;
+  const div = document.createElement('div');
+  div.className = 'manual-row';
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 80px 80px 28px;gap:6px;margin-bottom:6px;';
+  div.innerHTML = `
+    <input class="form-control ml-desc" placeholder="Description">
+    <input class="form-control ml-qty" placeholder="Qty" type="number" step="0.01" value="1">
+    <input class="form-control ml-rate" placeholder="Rate" type="number" step="0.01">
+    <button class="btn-icon danger" onclick="this.closest('.manual-row').remove();updatePreview()"><i class="fa-solid fa-xmark"></i></button>
+  `;
+  div.querySelectorAll('input').forEach(i => i.addEventListener('input', updatePreview));
+  document.getElementById('manual-lines').appendChild(div);
+}
+
+async function createInvoice() {
+  const clientName = document.getElementById('client-name').value.trim();
+  if (!clientName) { alert('Client name required'); return; }
+  const projectIds = [...document.querySelectorAll('.project-check:checked')].map(c => parseInt(c.value));
+  const manualLines = [...document.querySelectorAll('.manual-row')].map(row => ({
+    description: row.querySelector('.ml-desc').value.trim(),
+    quantity: parseFloat(row.querySelector('.ml-qty').value) || 1,
+    rate: parseFloat(row.querySelector('.ml-rate').value) || 0,
+  })).filter(l => l.description);
+
+  const res = await fetch('/billing/new/', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({
+      client_name: clientName,
+      client_email: document.getElementById('client-email').value.trim(),
+      notes: document.getElementById('inv-notes').value.trim(),
+      due_days: parseInt(document.getElementById('due-days').value),
+      project_ids: projectIds,
+      manual_lines: manualLines,
+    }),
+  });
+  if (res.ok) {
+    const {id} = await res.json();
+    window.location = `/billing/${id}/`;
+  }
+}
+</script>
+{% endblock %}

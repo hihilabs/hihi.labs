@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block title %}{{ thread.subject|default:"Message" }} — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header" style="border-bottom:1px solid var(--border);">
+  <div style="min-width:0;">
+    <div class="page-title" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      {% if thread.source == 'gmail' %}
+        <span style="color:var(--teal);font-size:12px;margin-right:6px;">◈ gmail</span>
+      {% elif thread.source == 'proton' %}
+        <span style="color:var(--accent);font-size:12px;margin-right:6px;">◈ proton</span>
+      {% endif %}
+      {{ thread.subject|default:"(no subject)" }}
+    </div>
+  </div>
+  <a href="{% url 'messaging:inbox' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+</div>
+
+<div id="message-list" style="padding:0;max-width:860px;">
+
+{% for msg in messages %}
+
+{% if thread.source == 'internal' %}
+  {# ── Internal: chat bubble style ─────────────────────────────── #}
+  <div class="int-msg {% if msg.sender == request.user %}int-mine{% endif %}">
+    <div class="int-meta">
+      <span class="int-sender">{{ msg.sender.get_short_name|default:msg.sender.username }}</span>
+      <span class="int-time">{{ msg.sent_at|date:"M j · g:i a" }}</span>
+    </div>
+    <div class="int-body">{{ msg.body|linebreaksbr }}</div>
+  </div>
+
+{% else %}
+  {# ── Email: terminal block style ─────────────────────────────── #}
+  <div class="email-msg esrc-{{ thread.source }}">
+    <div class="email-hdr">
+      <div class="email-from">
+        <span class="email-arrow">▸</span>
+        <span class="email-addr">{{ msg.from_email|default:msg.sender.email|default:msg.sender.username }}</span>
+      </div>
+      <span class="email-date">{{ msg.sent_at|date:"M j · g:i a" }}</span>
+    </div>
+    <div class="email-rule"></div>
+    <pre class="email-body">{{ msg.body|urlize }}</pre>
+  </div>
+
+{% endif %}
+
+{% endfor %}
+
+</div>
+
+{% if thread.source == 'internal' %}
+<div class="reply-bar">
+  <textarea class="form-control" id="reply-body" placeholder="Reply… (Ctrl+Enter to send)" rows="2"
+    style="flex:1;resize:none;" onkeydown="replyKeydown(event)"></textarea>
+  <button class="btn btn-primary" onclick="sendReply()">
+    <i class="fa-solid fa-paper-plane"></i>
+  </button>
+</div>
+
+{% elif thread.source == 'gmail' %}
+<div class="reply-bar">
+  <span style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);flex:1;">
+    <span style="color:var(--teal);margin-right:6px;">◈</span>gmail thread
+  </span>
+  <a href="https://mail.google.com/mail/u/0/#search/rfc822msgid%3A{{ thread.external_thread_id|urlencode }}"
+     target="_blank" class="btn btn-ghost btn-sm" style="border-color:var(--teal);color:var(--teal);">
+    <i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Gmail
+  </a>
+  <a href="https://mail.google.com/mail/u/0/#inbox?compose=new&subject=Re%3A+{{ thread.subject|urlencode }}"
+     target="_blank" class="btn btn-primary btn-sm" style="background:var(--teal);border-color:var(--teal);color:#0a0a0c;">
+    <i class="fa-solid fa-reply"></i> Reply in Gmail
+  </a>
+</div>
+
+{% elif thread.source == 'proton' %}
+<div class="reply-bar">
+  <span style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);flex:1;">
+    <i class="fa-solid fa-shield" style="color:#6d4aff;margin-right:6px;"></i>proton encrypted
+  </span>
+  <a href="https://mail.proton.me" target="_blank" class="btn btn-ghost btn-sm"
+     style="border-color:var(--accent);color:var(--accent);">
+    <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Proton Mail
+  </a>
+</div>
+
+{% else %}
+<div class="reply-bar">
+  <span style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">
+    ▸ external email — reply in your mail client
+  </span>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+const THREAD_ID = {{ thread.pk }};
+
+function replyKeydown(e) {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendReply();
+}
+
+async function sendReply() {
+  const body = document.getElementById('reply-body')?.value.trim();
+  if (!body) return;
+  const res = await fetch(`/messaging/thread/${THREAD_ID}/reply/`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({body}),
+  });
+  if (res.ok) {
+    const msg = await res.json();
+    const list = document.getElementById('message-list');
+    const div = document.createElement('div');
+    div.className = 'int-msg int-mine';
+    div.innerHTML = `
+      <div class="int-meta">
+        <span class="int-sender">${msg.sender}</span>
+        <span class="int-time">${msg.sent_at}</span>
+      </div>
+      <div class="int-body">${msg.body.replace(/\n/g,'<br>')}</div>
+    `;
+    list.appendChild(div);
+    document.getElementById('reply-body').value = '';
+    div.scrollIntoView({behavior:'smooth'});
+  }
+}
+</script>
+{% endblock %}

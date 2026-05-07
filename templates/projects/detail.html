@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% block title %}{{ project.name }} — HiHi Labs{% endblock %}
+
+{% block content %}
+
+{% if running %}
+<div class="timer-bar" id="timer-bar">
+  <div class="timer-bar-dot"></div>
+  <span id="timer-project">{{ running.project.name }}{% if running.task %} · {{ running.task.title }}{% endif %}</span>
+  <span id="timer-clock" class="timer-clock">--:--:--</span>
+  <button class="btn btn-danger btn-sm" onclick="stopTimer()"><i class="fa-solid fa-stop"></i> Stop</button>
+</div>
+{% endif %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title" style="--project-color:{{ project.color }}">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ project.color }};margin-right:8px;"></span>
+      {{ project.name }}
+      {% if project.client %}<small>{{ project.client }}</small>{% endif %}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-ghost btn-sm" onclick="startTimer({{ project.pk }})">
+      <i class="fa-solid fa-play"></i> Start timer
+    </button>
+    <a href="{% url 'projects:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+  </div>
+</div>
+
+<div style="padding: 12px 24px; display: flex; gap: 16px; flex-wrap: wrap;">
+  <div class="stat-chip"><i class="fa-solid fa-clock"></i> {{ project.total_hours }}h logged</div>
+  <div class="stat-chip unbilled"><i class="fa-solid fa-file-invoice-dollar"></i> {{ project.unbilled_hours }}h unbilled @ ${{ project.hourly_rate }}/hr</div>
+  <div class="stat-chip"><i class="fa-solid fa-list-check"></i> {{ tasks.count }} tasks</div>
+</div>
+
+<div style="padding: 0 24px 24px; display: grid; grid-template-columns: 1fr 300px; gap: 20px;">
+
+  {# Task board #}
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Tasks</div>
+      <button class="btn btn-ghost btn-sm" onclick="showAddTask()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+
+    <div id="add-task-row" style="display:none;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;">
+        <input class="form-control" id="new-task-input" placeholder="Task title..." style="flex:1;">
+        <select class="form-control" id="new-task-priority" style="width:100px;">
+          <option value="normal">Normal</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+          <option value="low">Low</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="addTask()">Add</button>
+        <button class="btn btn-ghost btn-sm" onclick="hideAddTask()">✕</button>
+      </div>
+    </div>
+
+    <div id="task-list">
+      {% for task in tasks %}
+      <div class="task-row {% if task.status == 'done' %}task-done{% endif %}" data-id="{{ task.pk }}" data-status="{{ task.status }}">
+        <div class="task-check" onclick="toggleTaskDone({{ task.pk }}, this)">
+          {% if task.status == 'done' %}<i class="fa-solid fa-circle-check" style="color:var(--green)"></i>
+          {% else %}<i class="fa-regular fa-circle"></i>{% endif %}
+        </div>
+        <div class="task-body" onclick="openTask({{ task.pk }})">
+          <div class="task-title">{{ task.title }}</div>
+          {% if task.claude_suggestion %}
+          <div class="task-suggestion"><i class="fa-solid fa-sparkles"></i> {{ task.claude_suggestion }}</div>
+          {% endif %}
+        </div>
+        <div class="task-meta">
+          <span class="priority-dot priority-{{ task.priority }}">{{ task.get_priority_display }}</span>
+          {% if task.total_hours > 0 %}<span style="font-size:11px;color:var(--text-muted);">{{ task.total_hours }}h</span>{% endif %}
+          <button class="btn-icon" onclick="startTimerTask({{ project.pk }}, {{ task.pk }}, '{{ task.title|escapejs }}')"><i class="fa-solid fa-play"></i></button>
+          <button class="btn-icon" onclick="suggestNext({{ task.pk }}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+          <button class="btn-icon danger" onclick="deleteTask({{ task.pk }}, this)"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+      {% empty %}
+      <div class="empty-state" style="padding:30px 0;">
+        <i class="fa-solid fa-list-check"></i>
+        <p>No tasks yet.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Sidebar: recent time + quick timer #}
+  <div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Quick Timer</div>
+      <input class="form-control" id="timer-desc" placeholder="What are you working on?" style="margin-bottom:8px;">
+      <button class="btn btn-primary" style="width:100%;" onclick="startTimer({{ project.pk }})">
+        <i class="fa-solid fa-play"></i> Start
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Recent Time</div>
+      {% for entry in entries %}
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border);">
+        <span style="color:var(--text-muted);">{{ entry.started_at|date:"M j" }}</span>
+        <span>{{ entry.duration_display }}</span>
+        {% if not entry.billed %}<span style="color:var(--yellow);font-size:10px;">unbilled</span>{% endif %}
+      </div>
+      {% empty %}
+      <div style="font-size:12px;color:var(--text-muted);padding:8px 0;">No entries yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+const PROJECT_ID = {{ project.pk }};
+
+{% if running %}
+const startedAt = new Date('{{ running.started_at.isoformat }}');
+const clock = document.getElementById('timer-clock');
+function updateClock() {
+  const secs = Math.floor((Date.now() - startedAt) / 1000);
+  const h = String(Math.floor(secs / 3600)).padStart(2,'0');
+  const m = String(Math.floor((secs % 3600) / 60)).padStart(2,'0');
+  const s = String(secs % 60).padStart(2,'0');
+  clock.textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+{% endif %}
+
+async function stopTimer() {
+  await fetch("{% url 'projects:timer_stop' %}", {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'}, body: '{}',
+  });
+  location.reload();
+}
+
+async function startTimer(projectId, taskId, taskTitle) {
+  const desc = document.getElementById('timer-desc')?.value || taskTitle || '';
+  const body = {project_id: projectId, description: desc};
+  if (taskId) body.task_id = taskId;
+  const res = await fetch("{% url 'projects:timer_start' %}", {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  });
+  if (res.ok) location.reload();
+}
+
+function startTimerTask(projectId, taskId, taskTitle) {
+  startTimer(projectId, taskId, taskTitle);
+}
+
+function showAddTask() {
+  document.getElementById('add-task-row').style.display = 'block';
+  document.getElementById('new-task-input').focus();
+}
+function hideAddTask() {
+  document.getElementById('add-task-row').style.display = 'none';
+}
+
+async function addTask() {
+  const title = document.getElementById('new-task-input').value.trim();
+  if (!title) return;
+  const res = await fetch(`/projects/${PROJECT_ID}/tasks/new/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({title, priority: document.getElementById('new-task-priority').value}),
+  });
+  if (res.ok) location.reload();
+}
+document.getElementById('new-task-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTask();
+  if (e.key === 'Escape') hideAddTask();
+});
+
+async function toggleTaskDone(id, el) {
+  const row = el.closest('.task-row');
+  const isDone = row.dataset.status === 'done';
+  const newStatus = isDone ? 'todo' : 'done';
+  await fetch(`/projects/tasks/${id}/update/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({status: newStatus}),
+  });
+  location.reload();
+}
+
+async function deleteTask(id, btn) {
+  if (!confirm('Delete task?')) return;
+  await fetch(`/projects/tasks/${id}/delete/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF},
+  });
+  btn.closest('.task-row').remove();
+}
+
+async function suggestNext(id, btn) {
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  const res = await fetch(`/projects/tasks/${id}/suggest/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF},
+  });
+  if (res.ok) {
+    const data = await res.json();
+    const row = btn.closest('.task-row');
+    let sug = row.querySelector('.task-suggestion');
+    if (!sug) {
+      sug = document.createElement('div');
+      sug.className = 'task-suggestion';
+      row.querySelector('.task-body').appendChild(sug);
+    }
+    sug.innerHTML = `<i class="fa-solid fa-sparkles"></i> ${data.suggestion}`;
+  }
+  btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
+}
+
+function openTask(id) {
+  // TODO: slide-out task panel
+}
+
+// ` hotkey: start/stop timer
+document.addEventListener('keydown', e => {
+  if (e.key === '`' && !e.ctrlKey && !e.metaKey && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) {
+    e.preventDefault();
+    {% if running %}stopTimer();{% else %}startTimer(PROJECT_ID);{% endif %}
+  }
+});
+</script>
+{% endblock %}

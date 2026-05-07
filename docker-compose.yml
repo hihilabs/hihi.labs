@@ -1,0 +1,34 @@
+services:
+  hihilabs:
+    build: .
+    image: hihilabs
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - hihilabs_db:/app/data
+      - ./media:/app/media
+      - ./logs:/app/logs
+      # live source mounts — gunicorn --reload picks up .py changes instantly
+      - ./apps:/app/apps
+      - ./templates:/app/templates
+      - ./hihilabs:/app/hihilabs
+      # workspace for dev tools (read/write via Claude)
+      - ./:/workspace
+      # docker socket for rebuild tool
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hihilabs.rule=Host(`hihilabs.xyz`) || Host(`www.hihilabs.xyz`) || Host(`hihilabs.communityplaylist.com`)"
+      - "traefik.http.routers.hihilabs.entrypoints=websecure"
+      - "traefik.http.routers.hihilabs.tls=true"
+      - "traefik.http.routers.hihilabs.tls.certresolver=letsencrypt"
+      - "traefik.http.services.hihilabs.loadbalancer.server.port=8000"
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    external: true
+
+volumes:
+  hihilabs_db:

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Billing — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Billing</div>
+  <a href="{% url 'billing:invoice_new' %}" class="btn btn-primary btn-sm">
+    <i class="fa-solid fa-plus"></i> New Invoice
+  </a>
+</div>
+
+<div style="padding: 12px 24px; display: flex; gap: 16px; flex-wrap: wrap;">
+  <div class="stat-chip"><i class="fa-solid fa-clock"></i> ${{ outstanding|floatformat:2 }} outstanding</div>
+  <div class="stat-chip"><i class="fa-solid fa-circle-check"></i> ${{ paid_total|floatformat:2 }} collected</div>
+  {% if unbilled_projects %}
+  <div class="stat-chip unbilled">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    {{ unbilled_projects|length }} project{{ unbilled_projects|length|pluralize }} with unbilled time
+  </div>
+  {% endif %}
+</div>
+
+{% if unbilled_projects %}
+<div style="padding: 0 24px 16px;">
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Unbilled Time</div>
+    {% for p in unbilled_projects %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ p.color }};display:inline-block;"></span>
+        {{ p.name }}{% if p.client %} · <span style="color:var(--text-muted);font-size:12px;">{{ p.client }}</span>{% endif %}
+      </span>
+      <span style="font-size:13px;color:var(--yellow);">{{ p.unbilled_hours }}h · ${{ p.hourly_rate }}/hr</span>
+    </div>
+    {% endfor %}
+    <div style="margin-top:10px;">
+      <a href="{% url 'billing:invoice_new' %}" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-file-invoice-dollar"></i> Generate Invoice
+      </a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div style="padding: 0 24px 32px;">
+  {% for inv in invoices %}
+  <a href="{% url 'billing:invoice_detail' inv.pk %}" class="invoice-row status-{{ inv.status }}">
+    <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+      <span class="invoice-num">{{ inv.number }}</span>
+      <div style="min-width:0;">
+        <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ inv.client_name }}</div>
+        <div style="font-size:11px;color:var(--text-muted);">{{ inv.issued_date|date:"M j, Y" }}{% if inv.due_date %} · due {{ inv.due_date|date:"M j" }}{% endif %}</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="font-size:15px;font-weight:600;">${{ inv.total|floatformat:2 }}</span>
+      <span class="status-badge status-{{ inv.status }}">{{ inv.get_status_display }}</span>
+    </div>
+  </a>
+  {% empty %}
+  <div class="empty-state" style="padding:60px 0;">
+    <i class="fa-solid fa-file-invoice-dollar"></i>
+    <p>No invoices yet.</p>
+    <a href="{% url 'billing:invoice_new' %}" class="btn btn-primary">Create first invoice</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

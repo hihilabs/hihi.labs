@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block title %}Modules — HiHi Labs{% endblock %}
+
+{% block extra_css %}
+<style>
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  padding: 0 24px 40px;
+}
+.module-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color .15s;
+}
+.module-card:hover { border-color: var(--mc-color); }
+.module-card-top {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.module-icon {
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--mc-color) 15%, transparent);
+  color: var(--mc-color);
+}
+.module-meta { flex: 1; min-width: 0; }
+.module-name {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.module-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.badge-type {
+  font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 3px;
+  background: color-mix(in srgb, var(--mc-color) 15%, transparent);
+  color: var(--mc-color);
+  border: 1px solid color-mix(in srgb, var(--mc-color) 35%, transparent);
+}
+.badge-status-live    { font-size: 9px; letter-spacing: .1em; padding: 2px 8px; border-radius: 3px; background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--green); border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); }
+.badge-status-beta    { font-size: 9px; letter-spacing: .1em; padding: 2px 8px; border-radius: 3px; background: color-mix(in srgb, var(--yellow) 12%, transparent); color: var(--yellow); border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent); }
+.badge-status-wip     { font-size: 9px; letter-spacing: .1em; padding: 2px 8px; border-radius: 3px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); color: var(--text-muted); border: 1px solid var(--border); }
+.module-body { padding: 14px 20px; flex: 1; }
+.module-desc { font-size: 12px; color: var(--text-muted); line-height: 1.7; margin-bottom: 12px; }
+.module-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.module-tag {
+  font-size: 9px; letter-spacing: .08em;
+  padding: 2px 7px; border-radius: 3px;
+  background: var(--bg2); color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.module-actions {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 8px;
+}
+.module-platform {
+  font-size: 10px; color: var(--text-muted);
+  margin-left: auto; align-self: center;
+}
+
+/* filter bar */
+.filter-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 24px 20px;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+  padding: 5px 14px; border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted);
+  cursor: pointer; transition: all .15s; text-decoration: none;
+}
+.filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+.filter-btn.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <i class="fa-solid fa-cubes" style="color:var(--accent);margin-right:8px;"></i>Modules
+  </div>
+  <span style="font-size:11px;color:var(--text-muted);">{{ modules|length }} module{{ modules|length|pluralize }}</span>
+</div>
+
+<div class="filter-bar">
+  <a href="{% url 'modules:index' %}" class="filter-btn {% if not type_filter %}active{% endif %}">all</a>
+  {% for t in types %}
+  <a href="{% url 'modules:index' %}?type={{ t }}" class="filter-btn {% if type_filter == t %}active{% endif %}">{{ t }}</a>
+  {% endfor %}
+</div>
+
+<div class="module-grid">
+  {% for m in modules %}
+  <div class="module-card" style="--mc-color:{{ m.color }};">
+    <div class="module-card-top">
+      <div class="module-icon"><i class="fa-solid {{ m.icon }}"></i></div>
+      <div class="module-meta">
+        <div class="module-name">{{ m.name }}</div>
+        <div class="module-badges">
+          <span class="badge-type">{{ m.type }}</span>
+          <span class="badge-status-{{ m.status }}">{{ m.status }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="module-body">
+      <div class="module-desc">{{ m.description }}</div>
+      <div class="module-tags">
+        {% for tag in m.tags %}<span class="module-tag">{{ tag }}</span>{% endfor %}
+      </div>
+    </div>
+    <div class="module-actions">
+      {% if m.live_url %}
+      <a href="{{ m.live_url }}" target="_blank" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
+      </a>
+      {% endif %}
+      {% if m.source_url %}
+      <a href="{{ m.source_url }}" class="btn btn-ghost btn-sm" download>
+        <i class="fa-solid fa-download"></i> Source
+      </a>
+      {% endif %}
+      <span class="module-platform"><i class="fa-solid fa-microchip" style="margin-right:4px;"></i>{{ m.platform }}</span>
+    </div>
+  </div>
+  {% empty %}
+  <div class="empty-state" style="grid-column:1/-1;padding:80px 0;">
+    <i class="fa-solid fa-cubes"></i>
+    <p>No modules match this filter.</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

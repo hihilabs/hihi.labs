@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#7c6af7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="HiHi Labs">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<nav class="sidenav">
+  <div class="sidenav-logo">
+    <span class="logo-hi">hi</span><span class="logo-hi2">hi</span>
+    <span class="logo-tag">labs</span>
+  </div>
+  <ul class="sidenav-links">
+    <li><a href="{% url 'ai:index' %}" class="{% if request.resolver_match.app_name == 'ai' and 'chat' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="fa-solid fa-comments"></i> Chat
+    </a></li>
+    <li><a href="{% url 'ai:templates' %}" class="{% if 'template' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-wand-magic-sparkles"></i> Templates
+    </a></li>
+    <li><a href="{% url 'ai:documents' %}" class="{% if 'documents' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-file-lines"></i> Documents
+    </a></li>
+    <li><a href="{% url 'ai:voice' %}" class="{% if 'voice' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-microphone"></i> Voice Notes
+    </a></li>
+    <li class="sidenav-divider"></li>
+    <li><a href="{% url 'projects:index' %}">
+      <i class="fa-solid fa-list-check"></i> Projects
+    </a></li>
+    <li><a href="{% url 'billing:index' %}">
+      <i class="fa-solid fa-file-invoice-dollar"></i> Billing
+    </a></li>
+    <li><a href="{% url 'messaging:inbox' %}" class="{% if 'messaging' in request.path %}active{% endif %}" style="position:relative;">
+      <i class="fa-solid fa-inbox"></i> Messages
+      <span id="nav-msg-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--accent);color:#fff;border-radius:999px;font-size:10px;padding:1px 5px;min-width:16px;text-align:center;"></span>
+    </a></li>
+    <li><a href="{% url 'sound:index' %}" class="{% if 'sound' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-waveform-lines"></i> Sound
+    </a></li>
+    <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-server"></i> Servers
+    </a></li>
+    <li><a href="{% url 'modules:index' %}" class="{% if 'modules' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-cubes"></i> Modules
+    </a></li>
+    <li><a href="{% url 'tax:index' %}" class="{% if 'tax' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-receipt"></i> Expenses
+    </a></li>
+    <li><a href="{% url 'subscriptions:upgrade' %}" class="{% if 'subscriptions' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-rocket"></i> Plans
+    </a></li>
+  </ul>
+  <div class="sidenav-footer">
+    {% if user.is_authenticated %}
+    <span class="user-tag">{{ user.get_short_name|default:user.username }}</span>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <button id="pwa-bell"
+              onclick="togglePush(this)"
+              title="Enable notifications"
+              style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;transition:color 0.15s;"
+              >🔔</button>
+      <button data-pwa-install
+              onclick="pwaInstall()"
+              style="display:none;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;transition:color 0.15s;"
+              title="Install app">⬇</button>
+      <a href="{% url 'logout' %}" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i></a>
+    </div>
+    {% endif %}
+  </div>
+</nav>
+
+{% if user.is_authenticated %}
+<nav class="mobile-tabs">
+  <a href="{% url 'ai:index' %}" class="mobile-tab {% if request.resolver_match.app_name == 'ai' %}active{% endif %}">
+    <i class="fa-solid fa-comments"></i><span>Chat</span>
+  </a>
+  <a href="{% url 'ai:templates' %}" class="mobile-tab {% if 'templates' in request.path %}active{% endif %}">
+    <i class="fa-solid fa-wand-magic-sparkles"></i><span>Templates</span>
+  </a>
+  <a href="{% url 'projects:index' %}" class="mobile-tab {% if request.resolver_match.app_name == 'projects' %}active{% endif %}">
+    <i class="fa-solid fa-list-check"></i><span>Projects</span>
+  </a>
+  <a href="{% url 'ai:voice' %}" class="mobile-tab {% if 'voice' in request.path %}active{% endif %}">
+    <i class="fa-solid fa-microphone"></i><span>Voice</span>
+  </a>
+  <a href="{% url 'billing:index' %}" class="mobile-tab">
+    <i class="fa-solid fa-file-invoice-dollar"></i><span>Billing</span>
+  </a>
+</nav>
+{% endif %}
+
+<main class="content">
+  {% block content %}{% endblock %}
+</main>
+
+{% block extra_js %}{% endblock %}
+
+<script>
+// Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', {scope: '/'})
+      .then(r => console.log('[SW] registered', r.scope))
+      .catch(e => console.warn('[SW] failed', e));
+  });
+}
+
+// Install prompt
+let _deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredInstall = e;
+  document.querySelectorAll('[data-pwa-install]').forEach(el => el.style.removeProperty('display'));
+});
+window.addEventListener('appinstalled', () => {
+  _deferredInstall = null;
+  document.querySelectorAll('[data-pwa-install]').forEach(el => el.style.display = 'none');
+});
+function pwaInstall() {
+  if (!_deferredInstall) return;
+  _deferredInstall.prompt();
+  _deferredInstall.userChoice.then(c => { if (c.outcome === 'accepted') _deferredInstall = null; });
+}
+
+// Push
+async function subscribePush() {
+  if (!('PushManager' in window)) return;
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') return;
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) return;
+  try {
+    const {key} = await fetch('/push/vapid-key/').then(r => r.json());
+    const sub   = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key),
+    });
+    await fetch('/push/subscribe/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+      body: JSON.stringify(sub),
+    });
+  } catch(e) { console.warn('[Push]', e); }
+}
+
+async function unsubscribePush() {
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  if (!sub) return;
+  await sub.unsubscribe();
+  await fetch('/push/unsubscribe/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+    body: JSON.stringify({endpoint: sub.endpoint}),
+  });
+}
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+function getCookie(name) {
+  return document.cookie.split(';').map(c=>c.trim())
+    .find(c=>c.startsWith(name+'='))?.split('=')[1] || '';
+}
+
+// Update bell on load
+document.addEventListener('DOMContentLoaded', () => {
+  const bell = document.getElementById('pwa-bell');
+  if (!bell || !('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    bell.style.color = 'var(--accent)';
+    bell.title = 'Push on — click to disable';
+  }
+});
+
+// Unread badge polling
+{% if user.is_authenticated %}
+async function pollUnread() {
+  try {
+    const d = await fetch('/messaging/unread/').then(r => r.json());
+    const badge = document.getElementById('nav-msg-badge');
+    const total = (d.messages || 0) + (d.notifications || 0);
+    if (badge) { badge.textContent = total; badge.style.display = total ? 'inline' : 'none'; }
+  } catch(e) {}
+}
+pollUnread();
+setInterval(pollUnread, 60000);
+{% endif %}
+
+async function togglePush(btn) {
+  if (!('PushManager' in window)) return;
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    await unsubscribePush();
+    btn.style.color = '';
+    btn.title = 'Enable notifications';
+  } else {
+    await subscribePush();
+    if (Notification.permission === 'granted') {
+      btn.style.color = 'var(--accent)';
+      btn.title = 'Push on — click to disable';
+    }
+  }
+}
+</script>
+</body>
+</html>

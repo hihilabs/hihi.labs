@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Chat — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Chat <small>claude haiku</small></div>
+  <a href="{% url 'ai:chat_new' %}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> New</a>
+</div>
+
+{% if conversations %}
+<div style="padding: 20px 24px; display: flex; flex-direction: column; gap: 8px;">
+  {% for conv in conversations %}
+  <div style="display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;">
+    <a href="{% url 'ai:chat' conv.pk %}" style="flex:1;color:var(--text);font-size:13px;">
+      {{ conv.title|default:"Untitled conversation" }}
+    </a>
+    <span style="font-size:11px;color:var(--text-muted);">{{ conv.updated_at|date:"M j" }}</span>
+    <button onclick="deleteConv({{ conv.pk }}, this)" class="btn btn-ghost btn-sm">
+      <i class="fa-solid fa-trash"></i>
+    </button>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <i class="fa-solid fa-comments"></i>
+  <p>No conversations yet. <a href="{% url 'ai:chat_new' %}">Start one.</a></p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function deleteConv(id, btn) {
+  if (!confirm('Delete this conversation?')) return;
+  const res = await fetch(`/ai/chat/${id}/delete/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+  });
+  if (res.ok) btn.closest('div').remove();
+}
+</script>
+{% endblock %}
