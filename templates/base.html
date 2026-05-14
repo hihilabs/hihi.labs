@@ -55,6 +55,9 @@
     <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path %}active{% endif %}">
       <i class="fa-solid fa-server"></i> Servers
     </a></li>
+    <li><a href="{% url 'workers:index' %}" class="{% if 'workers' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-microchip"></i> Workers
+    </a></li>
     <li><a href="{% url 'modules:index' %}" class="{% if 'modules' in request.path %}active{% endif %}">
       <i class="fa-solid fa-cubes"></i> Modules
     </a></li>

@@ -1,0 +1,395 @@
+{% extends 'base.html' %}
+{% block title %}Workers — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <i class="fa-solid fa-microchip" style="color:var(--teal);margin-right:8px;"></i>Workers
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-ghost btn-sm" onclick="refreshStatus()" title="Refresh">
+      <i class="fa-solid fa-arrows-rotate"></i>
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="toggleClientForm()">
+      <i class="fa-solid fa-plus"></i> Add Client
+    </button>
+  </div>
+</div>
+
+{# Add client form #}
+<div id="client-form" style="display:none;padding:0 24px 16px;">
+  <div style="background:var(--bg3);border:1px solid var(--teal);border-radius:10px;padding:16px;">
+    <div style="display:grid;grid-template-columns:1fr 80px 80px 48px;gap:8px;margin-bottom:8px;">
+      <input class="form-control" id="cf-name" placeholder="Client name (e.g. OmegaMEP)">
+      <input class="form-control" id="cf-gpu" type="number" value="50" min="0" max="100" placeholder="GPU pri">
+      <input class="form-control" id="cf-api" type="number" value="50" min="0" max="100" placeholder="API pri">
+      <input type="color" id="cf-color" value="#7c6af7" style="width:100%;height:38px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;">
+    </div>
+    <textarea class="form-control" id="cf-notes" placeholder="Notes…" rows="1" style="margin-bottom:10px;"></textarea>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="toggleClientForm()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="addClient()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+  </div>
+</div>
+
+{# Queue stats bar #}
+<div style="padding:0 24px 16px;display:flex;gap:12px;flex-wrap:wrap;">
+  <div class="wk-stat" style="--c:#58a6ff"><span id="stat-queued">{{ queue_counts.queued }}</span><label>Queued</label></div>
+  <div class="wk-stat" style="--c:#3fb950"><span id="stat-running">{{ queue_counts.running }}</span><label>Running</label></div>
+  <div class="wk-stat" style="--c:#d29922"><span id="stat-done">{{ queue_counts.done }}</span><label>Done today</label></div>
+  <div class="wk-stat" style="--c:#f85149"><span id="stat-error">{{ queue_counts.error }}</span><label>Errors</label></div>
+</div>
+
+{# Worker node cards #}
+<div style="padding:0 24px 8px;">
+  <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">
+    <i class="fa-solid fa-circle-nodes me-1"></i>Compute Nodes
+  </div>
+  <div id="worker-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;">
+    {% for w in workers %}
+    <div class="wk-node-card" id="wk-{{ w.pk }}" data-online="{{ w.online|yesno:'1,0' }}">
+      <div class="wk-node-accent" style="background:{{ w.online|yesno:'#3fb950,#30363d' }}"></div>
+      <div style="padding:12px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-weight:600;font-size:.9rem;">{{ w.name }}</div>
+            <div style="font-size:.7rem;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;">
+              <span class="wk-type-badge">{{ w.get_worker_type_display }}</span>
+              <span style="color:{{ w.online|yesno:'#3fb950,#6e7681' }}">
+                ● {{ w.online|yesno:'Online,Offline' }}
+              </span>
+              {% if w.ip %}<span style="color:var(--text-muted)">{{ w.ip }}</span>{% endif %}
+            </div>
+          </div>
+          <button class="btn-icon danger" onclick="deleteWorker({{ w.pk }})" style="font-size:.75rem;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        {% if w.gpu %}
+        <div style="font-size:.7rem;color:var(--teal);margin-top:6px;">
+          <i class="fa-solid fa-microchip me-1"></i>{{ w.gpu }}
+        </div>
+        {% endif %}
+        <div class="wk-activity" id="wk-act-{{ w.pk }}">
+          <span style="color:var(--text-muted);font-size:.73rem;">
+            <i class="fa-solid fa-circle-check me-1"></i>Idle
+          </span>
+        </div>
+        <div class="wk-bars" id="wk-bars-{{ w.pk }}">
+          {% if w.cpu_pct is not None %}
+          <div class="wk-bar-row">
+            <span>CPU</span>
+            <div class="wk-bar"><div class="wk-bar-fill" style="width:{{ w.cpu_pct|floatformat:0 }}%;background:#d29922"></div></div>
+            <span>{{ w.cpu_pct|floatformat:0 }}%</span>
+          </div>
+          {% endif %}
+          {% if w.mem_pct is not None %}
+          <div class="wk-bar-row">
+            <span>RAM</span>
+            <div class="wk-bar"><div class="wk-bar-fill" style="width:{{ w.mem_pct|floatformat:0 }}%;background:#3fb950"></div></div>
+            <span>{{ w.mem_pct|floatformat:0 }}%</span>
+          </div>
+          {% endif %}
+          {% if w.vram_total %}
+          <div class="wk-bar-row">
+            <span>VRAM</span>
+            <div class="wk-bar"><div class="wk-bar-fill" style="width:{% widthratio w.vram_used w.vram_total 100 %}%;background:#a371f7"></div></div>
+            <span>{{ w.vram_used }}/{{ w.vram_total }}MB</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div style="color:var(--text-muted);font-size:.85rem;padding:24px 0;">
+      No workers have reported in yet. Workers call <code>/workers/api/heartbeat/</code> to register.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# Clients priority panel #}
+<div style="padding:16px 24px 8px;">
+  <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">
+    <i class="fa-solid fa-users me-1"></i>Clients &amp; Priority
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">
+    {% for c in clients %}
+    <div class="wk-client-card" style="border-left:4px solid {{ c.color }};">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div>
+          <div style="font-weight:600;font-size:.88rem;">{{ c.name }}</div>
+          <div style="font-size:.68rem;color:var(--text-muted);">{{ c.slug }}</div>
+        </div>
+        <button class="btn-icon danger" onclick="deleteClient({{ c.pk }})"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div>
+          <div style="font-size:.65rem;color:var(--text-muted);margin-bottom:2px;">GPU Priority</div>
+          <input type="range" min="0" max="100" value="{{ c.gpu_priority }}"
+                 oninput="this.nextElementSibling.textContent=this.value"
+                 onchange="updateClient({{ c.pk }}, 'gpu_priority', this.value)"
+                 style="width:100%;accent-color:{{ c.color }}">
+          <span style="font-size:.7rem;color:var(--text-muted);">{{ c.gpu_priority }}</span>
+        </div>
+        <div>
+          <div style="font-size:.65rem;color:var(--text-muted);margin-bottom:2px;">API Priority</div>
+          <input type="range" min="0" max="100" value="{{ c.api_priority }}"
+                 oninput="this.nextElementSibling.textContent=this.value"
+                 onchange="updateClient({{ c.pk }}, 'api_priority', this.value)"
+                 style="width:100%;accent-color:{{ c.color }}">
+          <span style="font-size:.7rem;color:var(--text-muted);">{{ c.api_priority }}</span>
+        </div>
+      </div>
+      {% if c.notes %}<div style="font-size:.7rem;color:var(--text-muted);margin-top:6px;">{{ c.notes }}</div>{% endif %}
+    </div>
+    {% empty %}
+    <div style="color:var(--text-muted);font-size:.85rem;">No clients yet.</div>
+    {% endfor %}
+  </div>
+</div>
+
+{# Live job queue #}
+<div style="padding:16px 24px 32px;">
+  <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">
+    <i class="fa-solid fa-list-check me-1"></i>Job Queue
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="wk-table" id="job-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Client</th><th>Type</th><th>Label</th>
+          <th>Priority</th><th>Status</th><th>Worker</th><th>Age</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for j in recent_jobs %}
+        <tr id="job-{{ j.pk }}" class="job-row status-{{ j.status }}">
+          <td style="color:var(--text-muted);font-size:.75rem;">{{ j.pk }}</td>
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:5px;">
+              <span style="width:8px;height:8px;border-radius:50%;background:{{ j.client.color }};flex-shrink:0;"></span>
+              {{ j.client.name }}
+            </span>
+          </td>
+          <td><code style="font-size:.72rem;">{{ j.job_type.slug|default:"—" }}</code></td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ j.label|default:"—" }}</td>
+          <td>
+            <span class="wk-pri pri-{{ j.priority }}">
+              {{ j.get_priority_display }}
+            </span>
+          </td>
+          <td><span class="wk-status st-{{ j.status }}">{{ j.get_status_display }}</span></td>
+          <td style="font-size:.75rem;color:var(--text-muted);">{{ j.worker.name|default:"—" }}</td>
+          <td style="font-size:.72rem;color:var(--text-muted);" class="job-age" data-ts="{{ j.created_at.isoformat }}">—</td>
+          <td>
+            {% if j.status == 'queued' %}
+            <button class="btn-icon danger" onclick="cancelJob({{ j.pk }})" title="Cancel">
+              <i class="fa-solid fa-ban"></i>
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:40px 0;">No jobs yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+.wk-stat { display:flex;flex-direction:column;align-items:center;background:var(--bg3);border:1px solid var(--border);border-top:3px solid var(--c);border-radius:8px;padding:10px 20px;min-width:80px; }
+.wk-stat span { font-size:1.6rem;font-weight:700;color:var(--c); }
+.wk-stat label { font-size:.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em; }
+
+.wk-node-card { background:var(--bg3);border:1px solid var(--border);border-radius:10px;overflow:hidden;position:relative; }
+.wk-node-accent { height:3px;width:100%; }
+.wk-type-badge { padding:1px 7px;border-radius:10px;background:rgba(88,166,255,.12);color:#58a6ff;border:1px solid rgba(88,166,255,.25); }
+.wk-activity { margin:8px 0 6px;padding:7px 10px;background:var(--bg2);border-radius:6px;min-height:34px; }
+.wk-bars { margin-top:6px; }
+.wk-bar-row { display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:.67rem;color:var(--text-muted); }
+.wk-bar-row span:first-child { width:36px;flex-shrink:0; }
+.wk-bar-row span:last-child  { width:46px;text-align:right;flex-shrink:0; }
+.wk-bar { flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden; }
+.wk-bar-fill { height:100%;border-radius:2px;transition:width .3s; }
+
+.wk-client-card { background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px; }
+
+.wk-table { width:100%;border-collapse:collapse;font-size:.82rem; }
+.wk-table th { text-align:left;padding:6px 10px;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);border-bottom:1px solid var(--border); }
+.wk-table td { padding:8px 10px;border-bottom:1px solid var(--border); }
+.wk-table tr:last-child td { border-bottom:none; }
+.wk-table tr:hover td { background:var(--bg3); }
+
+.wk-pri { font-size:.68rem;padding:2px 7px;border-radius:10px;font-weight:600; }
+.pri-1  { background:rgba(110,118,129,.15);color:#6e7681; }
+.pri-5  { background:rgba(88,166,255,.15);color:#58a6ff; }
+.pri-10 { background:rgba(210,153,34,.15);color:#d29922; }
+.pri-20 { background:rgba(248,81,73,.2);color:#f85149; }
+
+.wk-status { font-size:.68rem;padding:2px 8px;border-radius:10px; }
+.st-queued  { background:rgba(88,166,255,.15);color:#58a6ff; }
+.st-claimed, .st-running { background:rgba(63,185,80,.15);color:#3fb950; }
+.st-done    { background:rgba(110,118,129,.12);color:#6e7681; }
+.st-error   { background:rgba(248,81,73,.15);color:#f85149; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+function toggleClientForm() {
+  const f = document.getElementById('client-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if (f.style.display === 'block') document.getElementById('cf-name').focus();
+}
+
+async function addClient() {
+  const name = document.getElementById('cf-name').value.trim();
+  if (!name) { alert('Client name required.'); return; }
+  const res = await fetch('/workers/clients/add/', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({
+      name,
+      gpu_priority: document.getElementById('cf-gpu').value,
+      api_priority: document.getElementById('cf-api').value,
+      color: document.getElementById('cf-color').value,
+      notes: document.getElementById('cf-notes').value.trim(),
+    }),
+  });
+  if (res.ok) location.reload();
+}
+
+async function updateClient(pk, field, value) {
+  await fetch(`/workers/clients/${pk}/update/`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({[field]: parseInt(value)}),
+  });
+}
+
+async function deleteClient(pk) {
+  if (!confirm('Remove this client?')) return;
+  await fetch(`/workers/clients/${pk}/delete/`, {method:'POST',headers:{'X-CSRFToken':CSRF}});
+  location.reload();
+}
+
+async function deleteWorker(pk) {
+  if (!confirm('Remove this worker node record?')) return;
+  await fetch(`/workers/nodes/${pk}/delete/`, {method:'POST',headers:{'X-CSRFToken':CSRF}});
+  location.reload();
+}
+
+async function cancelJob(pk) {
+  if (!confirm('Cancel this job?')) return;
+  await fetch(`/workers/jobs/${pk}/cancel/`, {method:'POST',headers:{'X-CSRFToken':CSRF}});
+  document.getElementById(`job-${pk}`)?.remove();
+}
+
+// ── Live polling ──────────────────────────────────────────────────────────────
+
+function fmtAge(s) {
+  if (s < 60)   return `${s}s`;
+  if (s < 3600) return `${Math.floor(s/60)}m`;
+  return `${Math.floor(s/3600)}h`;
+}
+
+function _workerCard(w) {
+  const accent  = w.worker_type === 'ocr' ? '#a371f7' : w.worker_type === 'labeler' ? '#d29922' : '#3fb950';
+  const statusC = w.online ? '#3fb950' : '#6e7681';
+  const typMap  = {pull:'Pull Worker', ocr:'OCR Server', labeler:'Labeler', hybrid:'Hybrid'};
+
+  // Activity
+  const job = w.current_job || {};
+  let act = `<span style="color:var(--text-muted);font-size:.73rem;"><i class="fa-solid fa-circle-check me-1"></i>Idle</span>`;
+  if (w.active_jobs > 0 && job.project) {
+    const pct = job.total > 0 ? Math.round(job.progress / job.total * 100) : 0;
+    act = `<div style="font-size:.72rem;">
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:#58a6ff;"><i class="fa-solid fa-arrow-rotate-right fa-spin me-1"></i>${(job.phase||'processing').replace(/_/g,' ')}</span>
+        <span style="color:#e6edf3;">${pct}%</span>
+      </div>
+      <div style="font-weight:500;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${job.project||''}</div>
+      <div style="height:3px;background:#21262d;border-radius:2px;margin-top:5px;">
+        <div style="height:3px;background:#58a6ff;width:${pct}%;border-radius:2px;transition:width .3s;"></div>
+      </div>
+    </div>`;
+  }
+
+  // Bars
+  let bars = '';
+  if (w.cpu_pct != null)  bars += _bar('CPU', w.cpu_pct, '#d29922');
+  if (w.mem_pct != null)  bars += _bar('RAM', w.mem_pct, '#3fb950');
+  if (w.vram_total)       bars += _bar('VRAM', Math.round(w.vram_used/w.vram_total*100), '#a371f7', `${w.vram_used}/${w.vram_total}MB`);
+
+  const age = w.age_s != null ? fmtAge(w.age_s) + ' ago' : '';
+
+  return `<div class="wk-node-card" id="wk-${w.id}">
+    <div class="wk-node-accent" style="background:${accent}"></div>
+    <div style="padding:12px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-weight:600;font-size:.9rem;">${w.name}</div>
+          <div style="font-size:.7rem;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="wk-type-badge">${typMap[w.worker_type]||w.worker_type}</span>
+            <span style="color:${statusC}">● ${w.online?'Online':'Offline'}</span>
+            ${w.ip?`<span style="color:var(--text-muted)">${w.ip}</span>`:''}
+            ${age?`<span style="color:var(--text-muted)">${age}</span>`:''}
+          </div>
+          ${w.gpu?`<div style="font-size:.7rem;color:var(--teal);margin-top:5px;"><i class="fa-solid fa-microchip me-1"></i>${w.gpu}</div>`:''}
+        </div>
+        <button class="btn-icon danger" onclick="deleteWorker(${w.id})" style="font-size:.75rem;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="wk-activity">${act}</div>
+      ${bars?`<div class="wk-bars">${bars}</div>`:''}
+    </div>
+  </div>`;
+}
+
+function _bar(label, pct, color, valLabel) {
+  const p = Math.min(100, Math.max(0, Math.round(pct)));
+  return `<div class="wk-bar-row">
+    <span>${label}</span>
+    <div class="wk-bar"><div class="wk-bar-fill" style="width:${p}%;background:${color}"></div></div>
+    <span>${valLabel || p+'%'}</span>
+  </div>`;
+}
+
+async function refreshStatus() {
+  const res  = await fetch('/workers/api/status/');
+  const data = await res.json();
+
+  // Update worker cards
+  const grid = document.getElementById('worker-grid');
+  if (data.workers.length) {
+    grid.innerHTML = data.workers.map(_workerCard).join('');
+  }
+
+  // Update queue stat badges
+  let queued = 0, running = 0;
+  data.queue.forEach(j => {
+    if (j.status === 'queued') queued++;
+    else running++;
+  });
+  document.getElementById('stat-queued').textContent  = queued;
+  document.getElementById('stat-running').textContent = running;
+}
+
+// Age labels
+function updateAges() {
+  document.querySelectorAll('.job-age[data-ts]').forEach(el => {
+    const ts  = new Date(el.dataset.ts);
+    const age = Math.round((Date.now() - ts) / 1000);
+    el.textContent = fmtAge(age);
+  });
+}
+
+setInterval(refreshStatus, 10000);
+setInterval(updateAges, 30000);
+updateAges();
+</script>
+{% endblock %}

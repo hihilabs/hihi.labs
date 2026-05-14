@@ -20,6 +20,7 @@ urlpatterns = [
     path('subscriptions/', include('apps.subscriptions.urls', namespace='subscriptions')),
     path('messaging/', include('apps.messaging.urls', namespace='messaging')),
     path('modules/', include('apps.modules.urls', namespace='modules')),
+    path('workers/', include('apps.workers.urls', namespace='workers')),
     # PWA
     path('sw.js',           core_views.service_worker,   name='service_worker'),
     path('offline/',        core_views.offline,          name='offline'),
