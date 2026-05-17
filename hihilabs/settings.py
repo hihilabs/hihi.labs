@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'apps.messaging',
     'apps.modules',
     'apps.workers',
+    'apps.ops',
 ]
 
 MIDDLEWARE = [
