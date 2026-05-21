@@ -89,6 +89,23 @@
 
   {# Sidebar: recent time + quick timer #}
   <div>
+    {% if project.url %}
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Project Link</div>
+      <a href="{{ project.url }}" target="_blank" rel="noopener"
+         style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--primary);text-decoration:none;word-break:break-all;">
+        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px;flex-shrink:0;"></i>
+        {{ project.url }}
+      </a>
+    </div>
+    {% endif %}
+    {% if project.description %}
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">About</div>
+      <p style="font-size:12px;color:var(--text-muted);margin:0;line-height:1.6;">{{ project.description }}</p>
+    </div>
+    {% endif %}
+
     <div class="sidebar-section">
       <div class="sidebar-section-title">Quick Timer</div>
       <input class="form-control" id="timer-desc" placeholder="What are you working on?" style="margin-bottom:8px;">
