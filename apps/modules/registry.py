@@ -77,7 +77,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Web',
         'live_url':    'https://communityplaylist.com/events/',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/templates/events/event_list.html',
+        'source_url':  'https://github.com/hihilabs/cp-events',
         'tags':        ['leaflet', 'map', 'hybrid-view', 'gps', 'django'],
     },
     {
@@ -90,7 +90,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Web → PWA → Mobile',
         'live_url':    'https://communityplaylist.com/events/player/',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/templates/events/_player.html',
+        'source_url':  'https://github.com/hihilabs/cp-player',
         'tags':        ['audio', 'plex', 'youtube', 'shuffle', 'queue', 'pwa', 'capacitor-ready'],
     },
     {
@@ -103,7 +103,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Web',
         'live_url':    'https://communityplaylist.com/events/example/flyer/',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/templates/events/event_flyer.html',
+        'source_url':  'https://github.com/hihilabs/cp-flyer',
         'tags':        ['pil', 'html2canvas', 'social', 'bluesky', 'instagram'],
     },
     {
@@ -116,7 +116,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Web',
         'live_url':    '',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/board/social.py',
+        'source_url':  'https://github.com/hihilabs/cp-social',
         'tags':        ['buffer', 'bluesky', 'discord', 'pil', 'instagram', 'automation'],
     },
     {
@@ -129,7 +129,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Web',
         'live_url':    'https://wiki.communityplaylist.com',
-        'source_url':  'https://github.com/khildren/communityplaylist/tree/main/wiki',
+        'source_url':  'https://github.com/hihilabs/cp-wiki',
         'tags':        ['d3', 'graph', 'taxonomy', 'musicbrainz', 'django-app'],
     },
     {
@@ -142,7 +142,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Web',
         'live_url':    'https://communityplaylist.com/promoters/',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/events/models.py',
+        'source_url':  'https://github.com/hihilabs/cp-artists',
         'tags':        ['profiles', 'vinyl', 'record-shop', 'solana'],
     },
     {
@@ -155,7 +155,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Web',
         'live_url':    'https://communityplaylist.com/board/',
-        'source_url':  'https://github.com/khildren/communityplaylist/tree/main/board',
+        'source_url':  'https://github.com/hihilabs/cp-board',
         'tags':        ['community', 'forum', 'bluesky', 'discord', 'moderation'],
     },
     {
@@ -168,7 +168,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Web',
         'live_url':    '',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/board/social.py',
+        'source_url':  'https://github.com/hihilabs/cp-discord',
         'tags':        ['discord', 'webhooks', 'sync', 'automation'],
     },
     {
@@ -181,7 +181,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Web',
         'live_url':    'https://communityplaylist.com/ops/',
-        'source_url':  'https://github.com/khildren/communityplaylist/tree/main/ops',
+        'source_url':  'https://github.com/hihilabs/cp-ops',
         'tags':        ['django-app', 'ops', 'deploy', 'tickets', 'staff-only'],
     },
     {
@@ -194,7 +194,7 @@ MODULES = [
         'status':      'beta',
         'platform':    'Web',
         'live_url':    '',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/events/models.py',
+        'source_url':  'https://github.com/hihilabs/cp-video',
         'tags':        ['youtube', 'twitch', 'video', 'embed'],
     },
     {
@@ -207,7 +207,7 @@ MODULES = [
         'status':      'live',
         'platform':    'Unraid Docker',
         'live_url':    '',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/wiki/management/commands/sync_genre_wiki.py',
+        'source_url':  'https://github.com/hihilabs/cp-genres',
         'tags':        ['genres', 'taxonomy', 'edit-music', 'management-command'],
     },
     {
@@ -220,7 +220,7 @@ MODULES = [
         'status':      'beta',
         'platform':    'Web',
         'live_url':    'https://communityplaylist.com/spaces/',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/events/models.py',
+        'source_url':  'https://github.com/hihilabs/cp-spaces',
         'tags':        ['mutual-aid', 'community', 'spaces', 'kofi'],
     },
     {
@@ -233,7 +233,7 @@ MODULES = [
         'status':      'beta',
         'platform':    'Web',
         'live_url':    'https://communityplaylist.com/shelter/',
-        'source_url':  'https://github.com/khildren/communityplaylist/blob/main/events/models.py',
+        'source_url':  'https://github.com/hihilabs/cp-shelter',
         'tags':        ['mutual-aid', 'shelter', 'housing', 'community'],
     },
     {
