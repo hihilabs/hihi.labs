@@ -168,6 +168,47 @@ DEFINITIONS = [
         ),
         "input_schema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "search_files",
+        "description": (
+            "Search for a string or pattern across the project source files (Python, HTML, JS, CSS, etc). "
+            "Returns matching lines with file paths and line numbers. Use this to find where something is "
+            "defined or used before editing it."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Text or regex to search for"},
+                "path": {"type": "string", "description": "Subdirectory to search in (default '.')"},
+                "case_sensitive": {"type": "boolean", "description": "Default true"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "git_status",
+        "description": "Show current git status — which files are modified, staged, or untracked.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "git_diff",
+        "description": "Show a git diff of all unstaged changes, so you can see exactly what was modified.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "git_commit",
+        "description": (
+            "Stage all modified/new files and create a git commit. "
+            "Use after a set of related edits is complete and tested."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "Commit message describing the change"},
+            },
+            "required": ["message"],
+        },
+    },
 ]
 
 
@@ -409,7 +450,10 @@ def _list_dir(user, path="."):
     return {"error": f"Directory not found: {path}"}
 
 
-_ALLOWED_MANAGE = {"migrate", "makemigrations", "showmigrations", "check", "diffsettings"}
+_ALLOWED_MANAGE = {
+    "migrate", "makemigrations", "showmigrations", "check", "diffsettings",
+    "collectstatic", "test", "inspectdb", "sqlmigrate",
+}
 
 
 def _run_manage(user, command):
@@ -425,6 +469,71 @@ def _run_manage(user, command):
         "returncode": result.returncode,
         "stdout": result.stdout[-4000:],
         "stderr": result.stderr[-1000:],
+    }
+
+
+def _search_files(user, query, path=".", case_sensitive=True):
+    search_path = (WORKSPACE / path.lstrip("/")).resolve()
+    if not str(search_path).startswith(str(WORKSPACE.resolve())):
+        return {"error": "Path escapes workspace"}
+
+    cmd = [
+        "grep", "-rn",
+        "--include=*.py", "--include=*.html", "--include=*.js",
+        "--include=*.css", "--include=*.txt", "--include=*.yml",
+        "--include=*.json", "--include=*.md", "--include=*.sh",
+        "--exclude-dir=__pycache__", "--exclude-dir=.git",
+        "--exclude-dir=migrations", "--exclude-dir=staticfiles",
+    ]
+    if not case_sensitive:
+        cmd.append("-i")
+    cmd += [query, str(search_path)]
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    lines = result.stdout.strip().splitlines()
+    ws_prefix = str(WORKSPACE.resolve()) + "/"
+    lines = [l.replace(ws_prefix, "") for l in lines]
+    truncated = len(lines) > 200
+    return {
+        "query": query,
+        "matches": len(lines),
+        "truncated": truncated,
+        "results": "\n".join(lines[:200]),
+    }
+
+
+def _git_status(user):
+    result = subprocess.run(
+        ["git", "status", "--short"], capture_output=True, text=True, cwd=str(WORKSPACE)
+    )
+    branch = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True, text=True, cwd=str(WORKSPACE)
+    )
+    return {"branch": branch.stdout.strip(), "status": result.stdout or "(clean)"}
+
+
+def _git_diff(user):
+    stat = subprocess.run(
+        ["git", "diff", "--stat"], capture_output=True, text=True, cwd=str(WORKSPACE)
+    )
+    diff = subprocess.run(
+        ["git", "diff"], capture_output=True, text=True, cwd=str(WORKSPACE)
+    )
+    out = diff.stdout
+    return {"stat": stat.stdout or "(no changes)", "diff": out[-8000:] if len(out) > 8000 else out}
+
+
+def _git_commit(user, message):
+    subprocess.run(["git", "add", "-A"], capture_output=True, cwd=str(WORKSPACE))
+    result = subprocess.run(
+        ["git", "commit", "-m", message],
+        capture_output=True, text=True, cwd=str(WORKSPACE)
+    )
+    return {
+        "returncode": result.returncode,
+        "success": result.returncode == 0,
+        "output": (result.stdout + result.stderr).strip(),
     }
 
 
@@ -460,4 +569,8 @@ _HANDLERS = {
     "list_dir": _list_dir,
     "run_manage": _run_manage,
     "docker_rebuild": _docker_rebuild,
+    "search_files": _search_files,
+    "git_status": _git_status,
+    "git_diff": _git_diff,
+    "git_commit": _git_commit,
 }
