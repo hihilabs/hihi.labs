@@ -105,6 +105,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/ai/'
 
+DEPLOY_WEBHOOK_SECRET = os.environ.get('DEPLOY_WEBHOOK_SECRET', '')
+
 # AI
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')

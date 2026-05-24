@@ -224,6 +224,28 @@ def run_cmd(request):
     return redirect('ops:panel')
 
 
+@require_POST
+def deploy_webhook(request):
+    """Token-authenticated deploy hook: git pull + gunicorn reload."""
+    secret = getattr(settings, 'DEPLOY_WEBHOOK_SECRET', '')
+    if not secret:
+        return JsonResponse({'error': 'Webhook not configured'}, status=503)
+
+    token = (
+        request.headers.get('Authorization', '').removeprefix('Bearer ').strip()
+        or request.POST.get('token', '')
+    )
+    if token != secret:
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+
+    pull_ok, pull_out = _run('git_pull')
+    reload_ok, reload_out = _reload_gunicorn()
+    return JsonResponse({
+        'pull': {'success': pull_ok, 'output': pull_out},
+        'reload': {'success': reload_ok, 'output': reload_out},
+    })
+
+
 @staff_member_required
 @require_POST
 def create_ticket(request):
