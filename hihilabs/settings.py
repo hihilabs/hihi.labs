@@ -106,6 +106,8 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/ai/'
 
 DEPLOY_WEBHOOK_SECRET = os.environ.get('DEPLOY_WEBHOOK_SECRET', '')
+DEPLOY_WEBHOOK_URL    = os.environ.get('DEPLOY_WEBHOOK_URL', 'http://localhost:8000/ops/deploy/')
+SSH_PRIVATE_KEY_B64   = os.environ.get('SSH_PRIVATE_KEY_B64', '')
 
 # AI
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')

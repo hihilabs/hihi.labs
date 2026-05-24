@@ -32,11 +32,12 @@ PROJECT_NAME = getattr(settings, 'OPS_PROJECT_NAME', settings.ROOT_URLCONF.split
 _MANAGE = str(PROJECT_ROOT / 'manage.py') if hasattr(PROJECT_ROOT, '__truediv__') else os.path.join(str(PROJECT_ROOT), 'manage.py')
 
 _COMMANDS = {
-    'git_status':    ['git', '-C', str(PROJECT_ROOT), 'status', '--short'],
-    'git_log':       ['git', '-C', str(PROJECT_ROOT), 'log', '--oneline', '-15', '--decorate'],
-    'git_pull':      ['git', '-C', str(PROJECT_ROOT), 'pull'],
-    'git_diff':      ['git', '-C', str(PROJECT_ROOT), 'diff', '--stat', 'HEAD~1'],
-    'collectstatic': [sys.executable, _MANAGE, 'collectstatic', '--noinput', '--clear'],
+    'git_status':      ['git', '-C', str(PROJECT_ROOT), 'status', '--short'],
+    'git_log':         ['git', '-C', str(PROJECT_ROOT), 'log', '--oneline', '-15', '--decorate'],
+    'git_pull':        ['git', '-C', str(PROJECT_ROOT), 'pull'],
+    'git_diff':        ['git', '-C', str(PROJECT_ROOT), 'diff', '--stat', 'HEAD~1'],
+    'collectstatic':   [sys.executable, _MANAGE, 'collectstatic', '--noinput', '--clear'],
+    'docker_rebuild':  ['docker', 'compose', '-p', 'hihilabs', '-f', '/workspace/docker-compose.yml', 'up', '-d', '--build'],
 }
 
 
@@ -238,6 +239,21 @@ def deploy_webhook(request):
     if token != secret:
         return JsonResponse({'error': 'Forbidden'}, status=403)
 
+    cmd = request.POST.get('cmd', 'deploy')
+
+    if cmd == 'rebuild':
+        rebuild_ok, rebuild_out = _run('docker_rebuild') if 'docker_rebuild' in _COMMANDS else (False, 'not configured')
+        return JsonResponse({'rebuild': {'success': rebuild_ok, 'output': rebuild_out}})
+
+    if cmd == 'full':
+        pull_ok, pull_out = _run('git_pull')
+        rebuild_ok, rebuild_out = _run('docker_rebuild') if 'docker_rebuild' in _COMMANDS else (False, 'not configured')
+        return JsonResponse({
+            'pull': {'success': pull_ok, 'output': pull_out},
+            'rebuild': {'success': rebuild_ok, 'output': rebuild_out},
+        })
+
+    # default: deploy (git pull + gunicorn reload)
     pull_ok, pull_out = _run('git_pull')
     reload_ok, reload_out = _reload_gunicorn()
     return JsonResponse({

@@ -209,6 +209,41 @@ DEFINITIONS = [
             "required": ["message"],
         },
     },
+    {
+        "name": "trigger_deploy",
+        "description": (
+            "Trigger a live deploy on the production server: git pull + gunicorn reload. "
+            "Use after git_commit to push changes live. "
+            "Pass cmd='rebuild' to do a full docker rebuild instead (needed for static/requirements changes). "
+            "Pass cmd='full' for git pull + docker rebuild."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "cmd": {
+                    "type": "string",
+                    "enum": ["deploy", "rebuild", "full"],
+                    "description": "deploy=git pull+reload (default), rebuild=docker build, full=pull+rebuild",
+                },
+            },
+        },
+    },
+    {
+        "name": "ssh_run",
+        "description": (
+            "SSH into a registered server and run a shell command. "
+            "Use list_servers to find server names. "
+            "Good for checking logs, running commands on VPS, managing remote services."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "server": {"type": "string", "description": "Server name or hostname (partial match ok)"},
+                "command": {"type": "string", "description": "Shell command to run"},
+            },
+            "required": ["server", "command"],
+        },
+    },
 ]
 
 
@@ -472,6 +507,71 @@ def _run_manage(user, command):
     }
 
 
+def _trigger_deploy(user, cmd="deploy"):
+    import requests as _requests
+    url = settings.DEPLOY_WEBHOOK_URL
+    secret = settings.DEPLOY_WEBHOOK_SECRET
+    if not secret:
+        return {"error": "DEPLOY_WEBHOOK_SECRET not configured"}
+    try:
+        resp = _requests.post(
+            url,
+            data={"cmd": cmd},
+            headers={"Authorization": f"Bearer {secret}"},
+            timeout=120,
+        )
+        return resp.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _ssh_run(user, server, command):
+    import base64, io
+    key_b64 = getattr(settings, 'SSH_PRIVATE_KEY_B64', '')
+    if not key_b64:
+        return {"error": "SSH_PRIVATE_KEY_B64 not configured in environment"}
+
+    from apps.servers.models import Server as ServerModel
+    srv = (
+        ServerModel.objects.filter(owner=user, name__icontains=server).first()
+        or ServerModel.objects.filter(owner=user, host__icontains=server).first()
+    )
+    if not srv:
+        return {"error": f"No server matching '{server}' found"}
+
+    try:
+        import paramiko
+        key_pem = base64.b64decode(key_b64).decode()
+        pkey = None
+        for KeyClass in (paramiko.Ed25519Key, paramiko.RSAKey, paramiko.ECDSAKey, paramiko.DSSKey):
+            try:
+                pkey = KeyClass.from_private_key(io.StringIO(key_pem))
+                break
+            except Exception:
+                continue
+        if pkey is None:
+            return {"error": "Could not parse SSH private key — check SSH_PRIVATE_KEY_B64"}
+
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(srv.host, port=srv.port, username=srv.ssh_user, pkey=pkey, timeout=15)
+        _, stdout, stderr = client.exec_command(command, timeout=60)
+        out = stdout.read().decode(errors='replace')
+        err = stderr.read().decode(errors='replace')
+        exit_code = stdout.channel.recv_exit_status()
+        client.close()
+        return {
+            "server": srv.name,
+            "host": srv.host,
+            "command": command,
+            "stdout": out,
+            "stderr": err,
+            "exit_code": exit_code,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def _search_files(user, query, path=".", case_sensitive=True):
     search_path = (WORKSPACE / path.lstrip("/")).resolve()
     if not str(search_path).startswith(str(WORKSPACE.resolve())):
@@ -573,4 +673,6 @@ _HANDLERS = {
     "git_status": _git_status,
     "git_diff": _git_diff,
     "git_commit": _git_commit,
+    "trigger_deploy": _trigger_deploy,
+    "ssh_run": _ssh_run,
 }

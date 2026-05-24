@@ -8,3 +8,4 @@ pillow
 requests
 stripe
 mutagen
+paramiko
