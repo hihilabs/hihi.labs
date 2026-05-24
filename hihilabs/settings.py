@@ -110,7 +110,7 @@ ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 # Chat model tiers
-CLAUDE_CHAT_MODEL = 'claude-haiku-4-5-20251001'       # fast chat
+CLAUDE_CHAT_MODEL = 'claude-sonnet-4-6'               # chat + self-editing
 CLAUDE_SMART_MODEL = 'claude-sonnet-4-6'              # templates, complex tasks
 WHISPER_MODEL = 'whisper-1'
 
