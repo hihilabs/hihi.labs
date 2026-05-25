@@ -1,500 +1,52 @@
 {% extends 'base.html' %}
-{% block title %}{{ conv.title|default:"terminal" }} — hihi labs{% endblock %}
-
-{% block extra_css %}
-<style>
-:root {
-  --neon: #00d4ff;
-  --neon-dim: color-mix(in srgb, var(--neon) 25%, transparent);
-  --neon-glow: 0 0 8px color-mix(in srgb, var(--neon) 35%, transparent);
-  --user-color: #a78bfa;
-  --tool-color: #fbbf24;
-  --ok-color: #34d399;
-}
-
-/* Grid layout: sidebar | chat | memory */
-.chat-layout {
-  display: grid;
-  grid-template-columns: 180px 1fr 0px;
-  height: calc(100vh);
-  overflow: hidden;
-  transition: grid-template-columns 0.22s ease;
-}
-.chat-layout.mem-open {
-  grid-template-columns: 180px 1fr 260px;
-}
-
-/* ── Conversation sidebar ── */
-.chat-sidebar {
-  width: auto;
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--bg2);
-}
-.chat-sidebar-header { padding: 10px; border-bottom: 1px solid var(--border); }
-.chat-list { flex: 1; overflow-y: auto; padding: 4px 0; }
-.chat-list-item {
-  display: block;
-  padding: 7px 12px;
-  font-size: 11px;
-  color: var(--text-muted);
-  border-left: 2px solid transparent;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-family: var(--font-mono);
-  transition: all 0.1s;
-}
-.chat-list-item:hover { background: var(--bg3); color: var(--text); }
-.chat-list-item.active { border-left-color: var(--neon); color: var(--text); background: var(--bg3); }
-
-/* ── Main chat column ── */
-.chat-main {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-/* ── Message stream ── */
-.t-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px 0 8px;
-  display: flex;
-  flex-direction: column;
-}
-
-.t-msg {
-  display: flex;
-  padding: 5px 24px;
-  line-height: 1.65;
-  border-left: 2px solid transparent;
-  transition: background 0.08s;
-}
-.t-msg:hover { background: rgba(255,255,255,0.018); }
-
-.t-msg-meta {
-  width: 60px;
-  flex-shrink: 0;
-  padding-right: 14px;
-  padding-top: 1px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-.t-prompt {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  font-family: var(--font-mono);
-}
-.t-time {
-  font-size: 9px;
-  color: var(--text-muted);
-  opacity: 0.4;
-  margin-top: 2px;
-  font-family: var(--font-mono);
-}
-.t-msg-body {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-family: var(--font-mono);
-  padding-top: 1px;
-}
-
-/* User */
-.t-msg.t-user { border-left-color: var(--user-color); }
-.t-msg.t-user .t-prompt { color: var(--user-color); }
-.t-msg.t-user .t-msg-body { color: rgba(232,230,240,0.85); }
-
-/* Assistant */
-.t-msg.t-assistant { border-left-color: var(--neon); }
-.t-msg.t-assistant .t-prompt {
-  color: var(--neon);
-  text-shadow: var(--neon-glow);
-}
-.t-msg.t-assistant .t-msg-body { color: var(--text); }
-
-/* System */
-.t-msg.t-system { border-left-color: var(--ok-color); opacity: 0.75; }
-.t-msg.t-system .t-prompt { color: var(--ok-color); }
-.t-msg.t-system .t-msg-body { color: var(--text-muted); font-size: 12px; }
-
-/* Tool status rows */
-.t-tool-row {
-  display: flex;
-  align-items: center;
-  padding: 3px 24px 3px 98px;
-  font-size: 11px;
-  font-family: var(--font-mono);
-  gap: 7px;
-  color: var(--tool-color);
-  opacity: 0.85;
-}
-.t-tool-row.done { color: var(--ok-color); opacity: 0.7; }
-.t-tool-spin { display: inline-block; animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Typing indicator */
-.t-typing {
-  display: none;
-  align-items: center;
-  padding: 5px 24px;
-  border-left: 2px solid var(--neon);
-}
-.t-typing.visible { display: flex; }
-.t-typing-meta {
-  width: 60px;
-  flex-shrink: 0;
-  padding-right: 14px;
-  text-align: right;
-}
-.t-typing-prompt {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--neon);
-  font-family: var(--font-mono);
-  text-shadow: var(--neon-glow);
-}
-.t-typing-body {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  font-size: 12px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-.t-cursor {
-  display: inline-block;
-  width: 7px;
-  height: 13px;
-  background: var(--neon);
-  margin-left: 5px;
-  animation: cur-blink 1s step-end infinite;
-  box-shadow: var(--neon-glow);
-  vertical-align: middle;
-  flex-shrink: 0;
-}
-@keyframes cur-blink { 0%,100% { opacity: 0.85; } 50% { opacity: 0; } }
-
-/* ── Input bar ── */
-.t-input-wrap {
-  border-top: 1px solid var(--border);
-  background: var(--bg);
-  position: relative;
-}
-.t-prompt-line {
-  display: flex;
-  align-items: flex-end;
-  padding: 10px 24px 10px;
-  gap: 10px;
-}
-.t-prompt-glyph {
-  color: var(--accent);
-  font-size: 18px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  padding-bottom: 8px;
-  flex-shrink: 0;
-  text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent);
-  line-height: 1;
-}
-.t-textarea {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  resize: none;
-  min-height: 38px;
-  max-height: 160px;
-  outline: none;
-  line-height: 1.6;
-  caret-color: var(--neon);
-}
-.t-textarea::placeholder { color: var(--text-muted); opacity: 0.35; }
-.t-btn-mem {
-  background: none;
-  border: 1px solid color-mix(in srgb, var(--ok-color) 25%, transparent);
-  color: var(--ok-color);
-  font-size: 10px;
-  font-family: var(--font-mono);
-  padding: 3px 7px;
-  border-radius: 3px;
-  cursor: pointer;
-  margin-bottom: 5px;
-  opacity: 0.6;
-  transition: all 0.15s;
-  flex-shrink: 0;
-  letter-spacing: 0.5px;
-}
-.t-btn-mem:hover, .t-btn-mem.active { opacity: 1; background: color-mix(in srgb, var(--ok-color) 10%, transparent); }
-.t-btn-send {
-  background: none;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  color: var(--accent);
-  border-radius: 3px;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.15s;
-  flex-shrink: 0;
-  margin-bottom: 4px;
-}
-.t-btn-send:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 25%, transparent);
-}
-
-/* ── Markdown in t-msg-body ── */
-.t-msg-body pre {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--neon-dim);
-  border-radius: 0 5px 5px 0;
-  padding: 10px 14px;
-  overflow-x: auto;
-  margin: 8px 0;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.t-msg-body code {
-  color: var(--neon);
-  font-size: 12px;
-  background: color-mix(in srgb, var(--neon) 8%, transparent);
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-.t-msg-body pre code { color: var(--text); background: none; padding: 0; font-size: 12px; }
-.t-msg-body h1, .t-msg-body h2, .t-msg-body h3 { font-family: var(--font-ui); margin: 12px 0 6px; }
-.t-msg-body h1 { font-size: 16px; color: var(--neon); }
-.t-msg-body h2 { font-size: 14px; color: var(--text); }
-.t-msg-body h3 { font-size: 13px; color: var(--text-muted); }
-.t-msg-body p { margin: 5px 0; }
-.t-msg-body ul, .t-msg-body ol { margin: 5px 0 5px 16px; }
-.t-msg-body li { margin: 2px 0; }
-.t-msg-body hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
-.t-msg-body strong { color: var(--text); font-weight: 600; }
-.t-msg-body em { color: var(--text-muted); font-style: italic; }
-.t-msg-body a { color: var(--neon); text-decoration: underline; text-decoration-style: dotted; }
-.t-msg-body kbd {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 5px;
-  font-size: 11px;
-}
-
-/* ── Memory panel ── */
-.memory-panel {
-  border-left: 1px solid var(--border);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  min-width: 0;
-}
-.mem-header {
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--ok-color);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-}
-.mem-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 0;
-  line-height: 1;
-}
-.mem-close:hover { color: var(--text); }
-.mem-body { flex: 1; overflow-y: auto; }
-.mem-section {
-  padding: 10px 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-}
-.mem-section-title {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--text-muted);
-  margin-bottom: 7px;
-  opacity: 0.7;
-}
-.mem-row {
-  display: flex;
-  gap: 6px;
-  padding: 2px 0;
-  font-size: 11px;
-  line-height: 1.4;
-}
-.mem-k { color: var(--neon); flex-shrink: 0; min-width: 40px; }
-.mem-v { color: var(--text-muted); }
-.mem-tool-entry {
-  padding: 3px 0;
-  font-size: 11px;
-  color: var(--text-muted);
-  border-left: 2px solid transparent;
-  padding-left: 6px;
-  margin: 1px 0;
-}
-.mem-tool-entry.ok { border-left-color: var(--ok-color); color: var(--ok-color); opacity: 0.8; }
-.mem-tool-entry.run { border-left-color: var(--tool-color); color: var(--tool-color); }
-
-/* ── Empty state ── */
-.t-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  color: var(--text-muted);
-  padding: 48px 32px;
-  text-align: center;
-  gap: 4px;
-}
-.t-empty-logo {
-  font-family: var(--font-ui);
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-.t-empty-logo .hi { color: var(--neon); text-shadow: var(--neon-glow); }
-.t-empty-logo .hi2 { color: var(--text-muted); }
-.t-empty-sub { opacity: 0.45; font-size: 12px; }
-.t-empty-ready { color: var(--text); opacity: 0.7; font-size: 13px; margin-top: 8px; }
-.t-empty-hint { opacity: 0.3; font-size: 10px; margin-top: 12px; letter-spacing: 0.5px; }
-
-/* ── Mobile ── */
-@media (max-width: 680px) {
-  .chat-layout,
-  .chat-layout.mem-open { grid-template-columns: 0 1fr 0 !important; }
-  .chat-sidebar { display: none; }
-  .memory-panel { display: none; }
-  .t-msg { padding: 5px 14px; }
-  .t-msg-meta { width: 44px; padding-right: 10px; }
-  .t-prompt-line { padding: 8px 14px; }
-  .t-tool-row { padding-left: 68px; }
-}
-</style>
-{% endblock %}
+{% block title %}{{ conv.title|default:"New Chat" }} — HiHi Labs{% endblock %}
 
 {% block content %}
-<div class="chat-layout" id="chat-layout">
+<div class="chat-layout">
 
-  <!-- ── Conversation list ── -->
   <aside class="chat-sidebar">
     <div class="chat-sidebar-header">
-      <a href="{% url 'ai:chat_new' %}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;gap:5px;">
-        <i class="fa-solid fa-plus"></i> new
+      <a href="{% url 'ai:chat_new' %}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">
+        <i class="fa-solid fa-plus"></i> New chat
       </a>
     </div>
     <div class="chat-list">
       {% for c in conversations %}
       <a href="{% url 'ai:chat' c.pk %}"
          class="chat-list-item {% if c.pk == conv.pk %}active{% endif %}"
-         title="{{ c.title|default:'new conversation' }}">
-        {{ c.title|default:"new chat"|truncatechars:22 }}
+         title="{{ c.title|default:'New conversation' }}">
+        {{ c.title|default:"New conversation"|truncatechars:28 }}
       </a>
       {% endfor %}
     </div>
   </aside>
 
-  <!-- ── Main chat ── -->
   <div class="chat-main">
-    <div class="t-messages" id="chat-messages">
-
+    <div class="chat-messages" id="chat-messages">
       {% if not messages %}
-      <div class="t-empty" id="empty-state">
-        <div class="t-empty-logo"><span class="hi">hi</span><span class="hi2">hi</span> labs</div>
-        <div class="t-empty-sub">── ai terminal ──</div>
-        <div class="t-empty-ready">ready. type a message or <kbd>/</kbd> for commands.</div>
-        <div class="t-empty-hint">sonnet-4-6 · tool-use enabled</div>
+      <div class="empty-state" style="margin:auto;">
+        <i class="fa-solid fa-comments"></i>
+        <p>Start a conversation. Type <kbd>/</kbd> for commands.</p>
       </div>
       {% endif %}
-
       {% for msg in messages %}
-      <div class="t-msg t-{{ msg.role }}">
-        <div class="t-msg-meta">
-          <span class="t-prompt">{% if msg.role == 'user' %}you{% else %}hihi{% endif %}</span>
-          <span class="t-time">{{ msg.created_at|date:"H:i" }}</span>
-        </div>
-        <div class="t-msg-body" id="msg-{{ msg.pk }}">{{ msg.content }}</div>
+      <div class="msg {{ msg.role }}">
+        <div class="msg-bubble" id="msg-{{ msg.pk }}">{{ msg.content }}</div>
       </div>
       {% endfor %}
-
-      <!-- Typing -->
-      <div class="t-typing" id="typing">
-        <div class="t-typing-meta">
-          <span class="t-typing-prompt">hihi</span>
-        </div>
-        <div class="t-typing-body">
-          <span id="typing-label">thinking</span>
-          <span class="t-cursor"></span>
-        </div>
+      <div class="typing-indicator" id="typing">
+        <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        <span id="typing-label">thinking</span>
       </div>
-
     </div>
 
-    <!-- Input -->
-    <div class="t-input-wrap chat-input-wrap">
-      <div id="slash-menu" class="slash-menu" style="display:none;margin:0 24px;"></div>
-      <div class="t-prompt-line">
-        <span class="t-prompt-glyph">›</span>
-        <textarea class="t-textarea" id="chat-input" placeholder="ask anything…" rows="1"></textarea>
-        <button class="t-btn-mem" id="mem-toggle" onclick="toggleMemory()">mem</button>
-        <button class="t-btn-send" id="send-btn" onclick="sendMessage()" title="send (Enter)">
-          <i class="fa-solid fa-arrow-right"></i>
+    <div class="chat-input-wrap" style="position:relative;">
+      <div id="slash-menu" class="slash-menu" style="display:none;"></div>
+      <div class="chat-input-area">
+        <textarea class="chat-input" id="chat-input" placeholder="Ask anything… or type / for commands" rows="1"></textarea>
+        <button class="btn btn-primary" id="send-btn" onclick="sendMessage()">
+          <i class="fa-solid fa-paper-plane"></i>
         </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Memory panel ── -->
-  <div class="memory-panel" id="memory-panel">
-    <div class="mem-header">
-      <span>context</span>
-      <button class="mem-close" onclick="toggleMemory()">✕</button>
-    </div>
-    <div class="mem-body">
-      <div class="mem-section">
-        <div class="mem-section-title">session</div>
-        <div class="mem-row"><span class="mem-k">conv</span><span class="mem-v">#{{ conv.pk }}</span></div>
-        <div class="mem-row"><span class="mem-k">msgs</span><span class="mem-v" id="mem-count">{{ messages|length }}</span></div>
-        <div class="mem-row"><span class="mem-k">model</span><span class="mem-v">sonnet-4-6</span></div>
-      </div>
-      <div class="mem-section">
-        <div class="mem-section-title">tools used</div>
-        <div id="mem-tools"><div class="mem-tool-entry" style="opacity:0.3;">none yet</div></div>
-      </div>
-      <div class="mem-section">
-        <div class="mem-section-title">always on</div>
-        <div class="mem-row"><span class="mem-k">who</span><span class="mem-v">Andrew · FCKRY LLC</span></div>
-        <div class="mem-row"><span class="mem-k">stack</span><span class="mem-v">Django / Python</span></div>
-        <div class="mem-row"><span class="mem-k">repo</span><span class="mem-v">hihi.labs</span></div>
-        <div class="mem-row"><span class="mem-k">host</span><span class="mem-v">Tokyo7 (Unraid)</span></div>
-        <div class="mem-row"><span class="mem-k">prod</span><span class="mem-v">hihilabs.xyz</span></div>
       </div>
     </div>
   </div>
@@ -504,71 +56,37 @@
 
 {% block extra_js %}
 <script>
-const CONV_ID    = {{ conv.pk }};
-const SEND_URL   = "{% url 'ai:chat_send' conv.pk %}";
+const CONV_ID   = {{ conv.pk }};
+const SEND_URL  = "{% url 'ai:chat_send' conv.pk %}";
 const STREAM_URL = "{% url 'ai:chat_stream' conv.pk %}";
-const CSRF       = "{{ csrf_token }}";
+const CSRF      = "{{ csrf_token }}";
 
-const input      = document.getElementById('chat-input');
-const msgsEl     = document.getElementById('chat-messages');
-const typing     = document.getElementById('typing');
-const typingLbl  = document.getElementById('typing-label');
-const slashMenu  = document.getElementById('slash-menu');
-const memPanel   = document.getElementById('memory-panel');
-const memToggle  = document.getElementById('mem-toggle');
-const memTools   = document.getElementById('mem-tools');
-const memCount   = document.getElementById('mem-count');
-let isStreaming  = false;
-let slashIdx     = -1;
-let toolLog      = [];
-
-// ── Memory panel ─────────────────────────────────────────────────────────────
-
-function toggleMemory() {
-  const layout = document.getElementById('chat-layout');
-  const open = layout.classList.toggle('mem-open');
-  memToggle.classList.toggle('active', open);
-}
-
-function addToolToMemory(name, done) {
-  if (done) {
-    const existing = memTools.querySelector(`[data-tool="${name}"]`);
-    if (existing) { existing.className = 'mem-tool-entry ok'; existing.textContent = '✓ ' + name; }
-    return;
-  }
-  if (!memTools.querySelector(`[data-tool="${name}"]`)) {
-    if (memTools.querySelector('.mem-tool-entry:not([data-tool])')) {
-      memTools.innerHTML = '';
-    }
-    const el = document.createElement('div');
-    el.className = 'mem-tool-entry run';
-    el.dataset.tool = name;
-    el.textContent = '▶ ' + name;
-    memTools.appendChild(el);
-  }
-}
-
-function updateMemCount(delta) {
-  if (memCount) memCount.textContent = parseInt(memCount.textContent || '0') + delta;
-}
+const input    = document.getElementById('chat-input');
+const msgsEl   = document.getElementById('chat-messages');
+const typing   = document.getElementById('typing');
+const typingLbl = document.getElementById('typing-label');
+const slashMenu = document.getElementById('slash-menu');
+let isStreaming = false;
+let slashIdx    = -1;
 
 // ── Slash commands ────────────────────────────────────────────────────────────
 
 const COMMANDS = [
-  { name: 'projects',  icon: 'fa-list-check',     desc: 'List projects + hours',       msg: 'List my projects with current status and hours.' },
-  { name: 'tasks',     icon: 'fa-circle-check',   desc: 'Open tasks across projects',  msg: 'Show all open and in-progress tasks across every project.' },
-  { name: 'timer',     icon: 'fa-stopwatch',      desc: 'Active timer status',         msg: 'Show my active timer.' },
-  { name: 'servers',   icon: 'fa-server',         desc: 'List servers',                msg: 'List my servers.' },
-  { name: 'files',     icon: 'fa-folder-tree',    desc: 'List project files',          msg: 'List the top-level files and directories in the hihilabs project.' },
-  { name: 'read',      icon: 'fa-file-code',      desc: '/read <path>',                msg: 'Read the file: ', fill: true },
-  { name: 'write',     icon: 'fa-pen-to-square',  desc: '/write <path>',               msg: 'Edit the file: ', fill: true },
-  { name: 'new',       icon: 'fa-plus',           desc: '/new project|task <name>',    msg: 'Create a new ', fill: true },
-  { name: 'help',      icon: 'fa-circle-question',desc: 'Show commands',               action: 'help' },
-  { name: 'clear',     icon: 'fa-trash-can',      desc: 'Clear display',               action: 'clear' },
+  { name: 'projects',  icon: 'fa-list-check',         desc: 'List projects + hours',          msg: 'List my projects with current status and hours.' },
+  { name: 'tasks',     icon: 'fa-circle-check',        desc: 'Open tasks across projects',     msg: 'Show all open and in-progress tasks across every project.' },
+  { name: 'timer',     icon: 'fa-stopwatch',           desc: 'Active timer status',            msg: 'Show my active timer.' },
+  { name: 'servers',   icon: 'fa-server',              desc: 'List servers',                   msg: 'List my servers.' },
+  { name: 'files',     icon: 'fa-folder-tree',         desc: 'List project files',             msg: 'List the top-level files and directories in the hihilabs project.' },
+  { name: 'read',      icon: 'fa-file-code',           desc: '/read <path>  — read a file',    msg: 'Read the file: ', fill: true },
+  { name: 'write',     icon: 'fa-pen-to-square',       desc: '/write <path> — edit a file',   msg: 'Edit the file: ', fill: true },
+  { name: 'new',       icon: 'fa-plus',                desc: '/new project|task <name>',       msg: 'Create a new ', fill: true },
+  { name: 'help',      icon: 'fa-circle-question',     desc: 'Show slash commands',            action: 'help' },
+  { name: 'clear',     icon: 'fa-trash-can',           desc: 'Clear chat display',             action: 'clear' },
 ];
 
 function filteredCmds(q) {
-  return q ? COMMANDS.filter(c => c.name.startsWith(q)) : COMMANDS;
+  if (!q) return COMMANDS;
+  return COMMANDS.filter(c => c.name.startsWith(q));
 }
 
 function renderSlashMenu(q) {
@@ -597,42 +115,49 @@ function pickCmd(idx) {
   if (!cmds || idx >= cmds.length) return;
   const c = cmds[idx];
   hideSlash();
+
   if (c.action === 'help') { showHelp(); return; }
   if (c.action === 'clear') { clearChat(); return; }
-  if (c.fill) { input.value = c.msg; input.focus(); autosize(); return; }
+
+  if (c.fill) {
+    input.value = c.msg;
+    input.focus();
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+    return;
+  }
+  // auto-send shortcut commands
   input.value = c.msg;
   sendMessage();
 }
 
 function showHelp() {
   const lines = COMMANDS.map(c => `<code>/${c.name}</code> — ${c.desc}`).join('<br>');
-  appendSystem(`<strong>commands</strong><br><br>${lines}`);
+  appendSystem(`<strong>Slash commands</strong><br><br>${lines}`);
 }
 
 function clearChat() {
-  document.querySelectorAll('.t-msg, .t-tool-row').forEach(el => el.remove());
-  const empty = document.getElementById('empty-state');
+  document.querySelectorAll('.msg').forEach(el => el.remove());
+  const empty = document.querySelector('.empty-state');
   if (!empty) {
     const e = document.createElement('div');
-    e.className = 't-empty';
-    e.id = 'empty-state';
-    e.innerHTML = '<div class="t-empty-logo"><span class="hi">hi</span><span class="hi2">hi</span> labs</div><div class="t-empty-ready">display cleared.</div>';
+    e.className = 'empty-state';
+    e.style.margin = 'auto';
+    e.innerHTML = '<i class="fa-solid fa-comments"></i><p>Start a conversation. Type <kbd>/</kbd> for commands.</p>';
     msgsEl.insertBefore(e, typing);
   }
 }
 
-// ── Input ─────────────────────────────────────────────────────────────────────
-
-function autosize() {
-  input.style.height = 'auto';
-  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
-}
+// ── Input handling ────────────────────────────────────────────────────────────
 
 input.addEventListener('input', () => {
-  autosize();
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+
   const val = input.value;
   if (val.startsWith('/')) {
-    renderSlashMenu(val.slice(1).toLowerCase().split(' ')[0]);
+    const q = val.slice(1).toLowerCase().split(' ')[0];
+    renderSlashMenu(q);
   } else {
     hideSlash();
   }
@@ -641,16 +166,32 @@ input.addEventListener('input', () => {
 input.addEventListener('keydown', e => {
   if (slashMenu.style.display !== 'none') {
     const cmds = slashMenu._cmds || [];
-    if (e.key === 'ArrowDown') { e.preventDefault(); slashIdx = Math.min(slashIdx + 1, cmds.length - 1); highlightSlash(); return; }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); slashIdx = Math.max(slashIdx - 1, -1); highlightSlash(); return; }
-    if (e.key === 'Escape')    { hideSlash(); return; }
-    if (e.key === 'Tab' || (e.key === 'Enter' && slashIdx >= 0)) { e.preventDefault(); pickCmd(slashIdx >= 0 ? slashIdx : 0); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      slashIdx = Math.min(slashIdx + 1, cmds.length - 1);
+      highlightSlash();
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      slashIdx = Math.max(slashIdx - 1, -1);
+      highlightSlash();
+      return;
+    }
+    if (e.key === 'Escape') { hideSlash(); return; }
+    if (e.key === 'Tab' || (e.key === 'Enter' && slashIdx >= 0)) {
+      e.preventDefault();
+      pickCmd(slashIdx >= 0 ? slashIdx : 0);
+      return;
+    }
   }
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
 
 function highlightSlash() {
-  document.querySelectorAll('.slash-item').forEach((el, i) => el.classList.toggle('active', i === slashIdx));
+  document.querySelectorAll('.slash-item').forEach((el, i) => {
+    el.classList.toggle('active', i === slashIdx);
+  });
   const active = slashMenu.querySelector('.slash-item.active');
   if (active) active.scrollIntoView({ block: 'nearest' });
 }
@@ -660,55 +201,47 @@ function highlightSlash() {
 function scrollBottom() { msgsEl.scrollTop = msgsEl.scrollHeight; }
 scrollBottom();
 
-// Render existing assistant messages as markdown on load
-document.querySelectorAll('.t-msg.t-assistant .t-msg-body').forEach(el => {
+// Render existing messages as markdown on load
+document.querySelectorAll('.msg.assistant .msg-bubble').forEach(el => {
   el.innerHTML = renderMarkdown(el.textContent);
 });
 
 function appendMsg(role, text) {
-  document.getElementById('empty-state')?.remove();
   const wrap = document.createElement('div');
-  wrap.className = `t-msg t-${role}`;
-  const label = role === 'user' ? 'you' : 'hihi';
-  const now = new Date();
-  const ts = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-  wrap.innerHTML = `
-    <div class="t-msg-meta">
-      <span class="t-prompt">${label}</span>
-      <span class="t-time">${ts}</span>
-    </div>
-    <div class="t-msg-body"></div>`;
+  wrap.className = `msg ${role}`;
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
   msgsEl.insertBefore(wrap, typing);
   scrollBottom();
-  return wrap.querySelector('.t-msg-body');
+  return bubble;
 }
 
 function appendSystem(html) {
-  document.getElementById('empty-state')?.remove();
   const wrap = document.createElement('div');
-  wrap.className = 't-msg t-system';
-  wrap.innerHTML = `
-    <div class="t-msg-meta"><span class="t-prompt">sys</span></div>
-    <div class="t-msg-body">${html}</div>`;
+  wrap.className = 'msg system';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerHTML = html;
+  wrap.appendChild(bubble);
   msgsEl.insertBefore(wrap, typing);
   scrollBottom();
 }
 
-let _toolRow = null;
+let _toolPill = null;
 
-function showToolRow(name) {
-  if (_toolRow) _toolRow.remove();
-  _toolRow = document.createElement('div');
-  _toolRow.className = 't-tool-row';
-  _toolRow.innerHTML = `<span class="t-tool-spin">◌</span> running: ${name}`;
-  msgsEl.insertBefore(_toolRow, typing);
-  addToolToMemory(name, false);
+function showToolPill(name) {
+  if (_toolPill) _toolPill.remove();
+  _toolPill = document.createElement('div');
+  _toolPill.className = 'tool-pill';
+  _toolPill.innerHTML = `<i class="fa-solid fa-gear fa-spin"></i> ${name}`;
+  msgsEl.insertBefore(_toolPill, typing);
   scrollBottom();
 }
 
-function removeToolRow(name) {
-  if (_toolRow) { _toolRow.remove(); _toolRow = null; }
-  addToolToMemory(name, true);
+function removeToolPill() {
+  if (_toolPill) { _toolPill.remove(); _toolPill = null; }
 }
 
 // ── Send ──────────────────────────────────────────────────────────────────────
@@ -723,6 +256,8 @@ async function sendMessage() {
   hideSlash();
   isStreaming = true;
 
+  document.querySelector('.empty-state')?.remove();
+
   appendMsg('user', text);
   typing.classList.add('visible');
   typingLbl.textContent = 'thinking';
@@ -734,30 +269,29 @@ async function sendMessage() {
     body: JSON.stringify({message: text}),
   });
 
-  const assistantBody = appendMsg('assistant', '');
+  const assistantBubble = appendMsg('assistant', '');
   typing.classList.remove('visible');
-  updateMemCount(2);
 
   const es = new EventSource(STREAM_URL);
   es.onmessage = e => {
     if (e.data === '[DONE]') {
       es.close();
       isStreaming = false;
-      removeToolRow('');
-      assistantBody.innerHTML = renderMarkdown(assistantBody.textContent);
+      removeToolPill();
+      assistantBubble.innerHTML = renderMarkdown(assistantBubble.textContent);
       scrollBottom();
       return;
     }
     const chunk = JSON.parse(e.data);
     if (chunk.t !== undefined) {
-      assistantBody.textContent += chunk.t;
+      assistantBubble.textContent += chunk.t;
       scrollBottom();
     } else if (chunk.tool_call) {
       typingLbl.textContent = chunk.tool_call;
       typing.classList.add('visible');
-      showToolRow(chunk.tool_call);
+      showToolPill(chunk.tool_call);
     } else if (chunk.tool_done) {
-      removeToolRow(chunk.tool_done);
+      removeToolPill();
       typing.classList.remove('visible');
       typingLbl.textContent = 'thinking';
     }
@@ -765,7 +299,7 @@ async function sendMessage() {
   es.onerror = () => {
     es.close();
     isStreaming = false;
-    if (_toolRow) { _toolRow.remove(); _toolRow = null; }
+    removeToolPill();
     typing.classList.remove('visible');
   };
 }
@@ -773,31 +307,39 @@ async function sendMessage() {
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 
 function renderMarkdown(text) {
+  // escape HTML first
   let s = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
+  // fenced code blocks
   s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
     `<pre><code${lang ? ` class="lang-${lang}"` : ''}>${code.trimEnd()}</code></pre>`
   );
+  // inline code
   s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  // headers
   s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
   s = s.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // bold / italic
   s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // hr
   s = s.replace(/^---+$/gm, '<hr>');
-  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // unordered lists (batch into <ul>)
   s = s.replace(/((?:^[ \t]*[-*+] .+\n?)+)/gm, block => {
     const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*[-*+] /, '')}</li>`).join('');
     return `<ul>${items}</ul>`;
   });
+  // ordered lists
   s = s.replace(/((?:^[ \t]*\d+\. .+\n?)+)/gm, block => {
     const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*\d+\. /, '')}</li>`).join('');
     return `<ol>${items}</ol>`;
   });
+  // paragraphs — double newlines
   s = s.split(/\n{2,}/).map(para => {
     para = para.trim();
     if (!para) return '';
