@@ -3,6 +3,7 @@ import subprocess
 from datetime import date
 from pathlib import Path
 
+from django.conf import settings
 from django.utils import timezone
 
 from apps.projects.models import Project, Task, TimeEntry

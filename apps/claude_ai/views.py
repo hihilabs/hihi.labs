@@ -1,13 +1,17 @@
 import json
+import logging
 import os
 import tempfile
+import traceback
 
 import anthropic
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, StreamingHttpResponse
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST
+
+logger = logging.getLogger(__name__)
 
 from . import tools
 from .models import Conversation, Message, PromptTemplate, TemplateCategory, GeneratedDocument, VoiceNote
@@ -64,11 +68,21 @@ def chat_detail(request, pk):
     conv = get_object_or_404(Conversation, pk=pk, user=request.user)
     messages = conv.messages.all()
     conversations = Conversation.objects.filter(user=request.user)
-    return render(request, 'claude_ai/chat.html', {
-        'conv': conv,
-        'messages': messages,
-        'conversations': conversations,
-    })
+    try:
+        return render(request, 'claude_ai/chat.html', {
+            'conv': conv,
+            'messages': messages,
+            'conversations': conversations,
+        })
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.error('chat_detail render error: %s\n%s', e, tb)
+        if request.user.is_staff or request.user.is_superuser:
+            return HttpResponse(
+                f'<h1 style="color:red">Template Error</h1><pre style="background:#111;color:#0f0;padding:20px">{tb}</pre>',
+                status=500,
+            )
+        raise
 
 
 @login_required
