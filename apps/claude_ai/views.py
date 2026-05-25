@@ -65,10 +65,10 @@ def chat_new(request):
 
 @login_required
 def chat_detail(request, pk):
-    conv = get_object_or_404(Conversation, pk=pk, user=request.user)
-    messages = conv.messages.all()
-    conversations = Conversation.objects.filter(user=request.user)
     try:
+        conv = get_object_or_404(Conversation, pk=pk, user=request.user)
+        messages = conv.messages.all()
+        conversations = Conversation.objects.filter(user=request.user)
         return render(request, 'claude_ai/chat.html', {
             'conv': conv,
             'messages': messages,
@@ -76,13 +76,11 @@ def chat_detail(request, pk):
         })
     except Exception as e:
         tb = traceback.format_exc()
-        logger.error('chat_detail render error: %s\n%s', e, tb)
-        if request.user.is_staff or request.user.is_superuser:
-            return HttpResponse(
-                f'<h1 style="color:red">Template Error</h1><pre style="background:#111;color:#0f0;padding:20px">{tb}</pre>',
-                status=500,
-            )
-        raise
+        logger.error('chat_detail error: %s\n%s', e, tb)
+        return HttpResponse(
+            f'<h1 style="color:red">Error</h1><pre style="background:#111;color:#0f0;padding:20px;white-space:pre-wrap">{tb}</pre>',
+            status=500,
+        )
 
 
 @login_required
