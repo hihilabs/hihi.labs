@@ -1,52 +1,84 @@
 {% extends 'base.html' %}
-{% block title %}{{ conv.title|default:"New Chat" }} — HiHi Labs{% endblock %}
+{% block title %}{{ conv.title|default:"terminal" }} — hihi labs{% endblock %}
 
 {% block content %}
-<div class="chat-layout">
+<div class="chat-layout t-layout" id="chat-layout">
 
   <aside class="chat-sidebar">
     <div class="chat-sidebar-header">
       <a href="{% url 'ai:chat_new' %}" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;">
-        <i class="fa-solid fa-plus"></i> New chat
+        <i class="fa-solid fa-plus"></i> new
       </a>
     </div>
     <div class="chat-list">
       {% for c in conversations %}
       <a href="{% url 'ai:chat' c.pk %}"
          class="chat-list-item {% if c.pk == conv.pk %}active{% endif %}"
-         title="{{ c.title|default:'New conversation' }}">
-        {{ c.title|default:"New conversation"|truncatechars:28 }}
+         title="{{ c.title|default:'new conversation' }}">
+        {{ c.title|default:"new chat"|truncatechars:22 }}
       </a>
       {% endfor %}
     </div>
   </aside>
 
   <div class="chat-main">
-    <div class="chat-messages" id="chat-messages">
+    <div class="t-messages" id="chat-messages">
       {% if not messages %}
-      <div class="empty-state" style="margin:auto;">
-        <i class="fa-solid fa-comments"></i>
-        <p>Start a conversation. Type <kbd>/</kbd> for commands.</p>
+      <div class="t-empty" id="empty-state">
+        <div class="t-empty-logo"><span class="n">hi</span><span class="d">hi</span> labs</div>
+        <div style="opacity:0.4;font-size:12px;">── ai terminal ──</div>
+        <div style="color:var(--text);opacity:0.7;margin-top:8px;font-size:13px;">ready. type a message or <kbd>/</kbd> for commands.</div>
       </div>
       {% endif %}
       {% for msg in messages %}
-      <div class="msg {{ msg.role }}">
-        <div class="msg-bubble" id="msg-{{ msg.pk }}">{{ msg.content }}</div>
+      <div class="t-msg t-{{ msg.role }}">
+        <div class="t-msg-meta">
+          <span class="t-prompt">{% if msg.role == "user" %}you{% else %}hihi{% endif %}</span>
+          <span class="t-ts">{{ msg.created_at|date:"H:i" }}</span>
+        </div>
+        <div class="t-msg-body" id="msg-{{ msg.pk }}">{{ msg.content }}</div>
       </div>
       {% endfor %}
-      <div class="typing-indicator" id="typing">
-        <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
-        <span id="typing-label">thinking</span>
+      <div class="t-typing" id="typing">
+        <div class="t-typing-meta"><span class="t-typing-name">hihi</span></div>
+        <div class="t-typing-body"><span id="typing-label">thinking</span><span class="t-cursor"></span></div>
       </div>
     </div>
 
-    <div class="chat-input-wrap" style="position:relative;">
-      <div id="slash-menu" class="slash-menu" style="display:none;"></div>
-      <div class="chat-input-area">
-        <textarea class="chat-input" id="chat-input" placeholder="Ask anything… or type / for commands" rows="1"></textarea>
-        <button class="btn btn-primary" id="send-btn" onclick="sendMessage()">
-          <i class="fa-solid fa-paper-plane"></i>
+    <div class="t-input-wrap chat-input-wrap">
+      <div id="slash-menu" class="slash-menu" style="display:none;margin:0 24px;"></div>
+      <div class="t-prompt-line">
+        <span class="t-glyph">&#x203A;</span>
+        <textarea class="t-textarea" id="chat-input" placeholder="ask anything…" rows="1"></textarea>
+        <button class="t-btn-mem" id="mem-toggle" onclick="toggleMemory()">mem</button>
+        <button class="t-btn-send" onclick="sendMessage()" title="send">
+          <i class="fa-solid fa-arrow-right"></i>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mem-panel" id="mem-panel">
+    <div class="mem-hdr">
+      <span>context</span>
+      <button class="mem-close" onclick="toggleMemory()">&#x2715;</button>
+    </div>
+    <div class="mem-body">
+      <div class="mem-sec">
+        <div class="mem-sec-ttl">session</div>
+        <div class="mem-row"><span class="mem-k">conv</span><span class="mem-v">#{{ conv.pk }}</span></div>
+        <div class="mem-row"><span class="mem-k">model</span><span class="mem-v">sonnet-4-6</span></div>
+      </div>
+      <div class="mem-sec">
+        <div class="mem-sec-ttl">tools used</div>
+        <div id="mem-tools"><div class="mem-tool" style="opacity:0.3;">none yet</div></div>
+      </div>
+      <div class="mem-sec">
+        <div class="mem-sec-ttl">always on</div>
+        <div class="mem-row"><span class="mem-k">who</span><span class="mem-v">Andrew / FCKRY</span></div>
+        <div class="mem-row"><span class="mem-k">stack</span><span class="mem-v">Django/Python</span></div>
+        <div class="mem-row"><span class="mem-k">host</span><span class="mem-v">Tokyo7</span></div>
+        <div class="mem-row"><span class="mem-k">prod</span><span class="mem-v">hihilabs.xyz</span></div>
       </div>
     </div>
   </div>
@@ -56,212 +88,178 @@
 
 {% block extra_js %}
 <script>
-const CONV_ID   = {{ conv.pk }};
-const SEND_URL  = "{% url 'ai:chat_send' conv.pk %}";
-const STREAM_URL = "{% url 'ai:chat_stream' conv.pk %}";
-const CSRF      = "{{ csrf_token }}";
+var CONV_ID    = {{ conv.pk }};
+var SEND_URL   = "{% url 'ai:chat_send' conv.pk %}";
+var STREAM_URL = "{% url 'ai:chat_stream' conv.pk %}";
+var CSRF       = "{{ csrf_token }}";
 
-const input    = document.getElementById('chat-input');
-const msgsEl   = document.getElementById('chat-messages');
-const typing   = document.getElementById('typing');
-const typingLbl = document.getElementById('typing-label');
-const slashMenu = document.getElementById('slash-menu');
-let isStreaming = false;
-let slashIdx    = -1;
+var input     = document.getElementById('chat-input');
+var msgsEl    = document.getElementById('chat-messages');
+var typing    = document.getElementById('typing');
+var typingLbl = document.getElementById('typing-label');
+var slashMenu = document.getElementById('slash-menu');
+var memTools  = document.getElementById('mem-tools');
+var isStreaming = false;
+var slashIdx    = -1;
 
-// ── Slash commands ────────────────────────────────────────────────────────────
-
-const COMMANDS = [
-  { name: 'projects',  icon: 'fa-list-check',         desc: 'List projects + hours',          msg: 'List my projects with current status and hours.' },
-  { name: 'tasks',     icon: 'fa-circle-check',        desc: 'Open tasks across projects',     msg: 'Show all open and in-progress tasks across every project.' },
-  { name: 'timer',     icon: 'fa-stopwatch',           desc: 'Active timer status',            msg: 'Show my active timer.' },
-  { name: 'servers',   icon: 'fa-server',              desc: 'List servers',                   msg: 'List my servers.' },
-  { name: 'files',     icon: 'fa-folder-tree',         desc: 'List project files',             msg: 'List the top-level files and directories in the hihilabs project.' },
-  { name: 'read',      icon: 'fa-file-code',           desc: '/read <path>  — read a file',    msg: 'Read the file: ', fill: true },
-  { name: 'write',     icon: 'fa-pen-to-square',       desc: '/write <path> — edit a file',   msg: 'Edit the file: ', fill: true },
-  { name: 'new',       icon: 'fa-plus',                desc: '/new project|task <name>',       msg: 'Create a new ', fill: true },
-  { name: 'help',      icon: 'fa-circle-question',     desc: 'Show slash commands',            action: 'help' },
-  { name: 'clear',     icon: 'fa-trash-can',           desc: 'Clear chat display',             action: 'clear' },
-];
-
-function filteredCmds(q) {
-  if (!q) return COMMANDS;
-  return COMMANDS.filter(c => c.name.startsWith(q));
+function toggleMemory() {
+  var layout = document.getElementById('chat-layout');
+  var open = layout.classList.toggle('mem-open');
+  document.getElementById('mem-toggle').classList.toggle('on', open);
 }
 
+function logTool(name, done) {
+  var el = memTools.querySelector('[data-tool="' + name + '"]');
+  if (!el) {
+    var empty = memTools.querySelector('.mem-tool:not([data-tool])');
+    if (empty) empty.remove();
+    el = document.createElement('div');
+    el.className = 'mem-tool run';
+    el.dataset.tool = name;
+    el.textContent = '▶ ' + name;
+    memTools.appendChild(el);
+  }
+  if (done) { el.className = 'mem-tool ok'; el.textContent = '✓ ' + name; }
+}
+
+var COMMANDS = [
+  { name: 'projects', icon: 'fa-list-check',      desc: 'List projects + hours',    msg: 'List my projects with current status and hours.' },
+  { name: 'tasks',    icon: 'fa-circle-check',    desc: 'Open tasks',               msg: 'Show all open and in-progress tasks across every project.' },
+  { name: 'timer',    icon: 'fa-stopwatch',       desc: 'Active timer',             msg: 'Show my active timer.' },
+  { name: 'servers',  icon: 'fa-server',          desc: 'List servers',             msg: 'List my servers.' },
+  { name: 'files',    icon: 'fa-folder-tree',     desc: 'List project files',       msg: 'List the top-level files in the hihilabs project.' },
+  { name: 'read',     icon: 'fa-file-code',       desc: '/read <path>',             msg: 'Read the file: ', fill: true },
+  { name: 'write',    icon: 'fa-pen-to-square',   desc: '/write <path>',            msg: 'Edit the file: ', fill: true },
+  { name: 'new',      icon: 'fa-plus',            desc: '/new project|task <name>', msg: 'Create a new ', fill: true },
+  { name: 'help',     icon: 'fa-circle-question', desc: 'Show commands',            action: 'help' },
+  { name: 'clear',    icon: 'fa-trash-can',       desc: 'Clear display',            action: 'clear' },
+];
+
+function filteredCmds(q) { return q ? COMMANDS.filter(function(c){ return c.name.startsWith(q); }) : COMMANDS; }
+
 function renderSlashMenu(q) {
-  const cmds = filteredCmds(q);
+  var cmds = filteredCmds(q);
   if (!cmds.length) { hideSlash(); return; }
   slashIdx = -1;
-  slashMenu.innerHTML = cmds.map((c, i) =>
-    `<div class="slash-item" data-idx="${i}" onmousedown="pickCmd(${i})">
-      <i class="fa-solid ${c.icon} slash-icon"></i>
-      <span class="slash-name">/${c.name}</span>
-      <span class="slash-desc">${c.desc}</span>
-    </div>`
-  ).join('');
+  slashMenu.innerHTML = cmds.map(function(c, i) {
+    return '<div class="slash-item" data-idx="' + i + '" onmousedown="pickCmd(' + i + ')">' +
+      '<i class="fa-solid ' + c.icon + ' slash-icon"></i>' +
+      '<span class="slash-name">/' + c.name + '</span>' +
+      '<span class="slash-desc">' + c.desc + '</span></div>';
+  }).join('');
   slashMenu._cmds = cmds;
   slashMenu.style.display = 'block';
 }
 
-function hideSlash() {
-  slashMenu.style.display = 'none';
-  slashMenu._cmds = null;
-  slashIdx = -1;
-}
+function hideSlash() { slashMenu.style.display = 'none'; slashMenu._cmds = null; slashIdx = -1; }
 
 function pickCmd(idx) {
-  const cmds = slashMenu._cmds;
+  var cmds = slashMenu._cmds;
   if (!cmds || idx >= cmds.length) return;
-  const c = cmds[idx];
+  var c = cmds[idx];
   hideSlash();
-
   if (c.action === 'help') { showHelp(); return; }
   if (c.action === 'clear') { clearChat(); return; }
-
-  if (c.fill) {
-    input.value = c.msg;
-    input.focus();
-    input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
-    return;
-  }
-  // auto-send shortcut commands
+  if (c.fill) { input.value = c.msg; input.focus(); autosize(); return; }
   input.value = c.msg;
   sendMessage();
 }
 
 function showHelp() {
-  const lines = COMMANDS.map(c => `<code>/${c.name}</code> — ${c.desc}`).join('<br>');
-  appendSystem(`<strong>Slash commands</strong><br><br>${lines}`);
+  var lines = COMMANDS.map(function(c){ return '<code>/' + c.name + '</code> — ' + c.desc; }).join('<br>');
+  appendSystem('<strong>commands</strong><br><br>' + lines);
 }
 
 function clearChat() {
-  document.querySelectorAll('.msg').forEach(el => el.remove());
-  const empty = document.querySelector('.empty-state');
-  if (!empty) {
-    const e = document.createElement('div');
-    e.className = 'empty-state';
-    e.style.margin = 'auto';
-    e.innerHTML = '<i class="fa-solid fa-comments"></i><p>Start a conversation. Type <kbd>/</kbd> for commands.</p>';
+  document.querySelectorAll('.t-msg, .t-tool-row').forEach(function(el){ el.remove(); });
+  if (!document.getElementById('empty-state')) {
+    var e = document.createElement('div');
+    e.className = 't-empty'; e.id = 'empty-state';
+    e.innerHTML = '<div class="t-empty-logo"><span class="n">hi</span><span class="d">hi</span> labs</div><div style="opacity:0.4;">display cleared.</div>';
     msgsEl.insertBefore(e, typing);
   }
 }
 
-// ── Input handling ────────────────────────────────────────────────────────────
+function autosize() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 160) + 'px'; }
 
-input.addEventListener('input', () => {
-  input.style.height = 'auto';
-  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
-
-  const val = input.value;
-  if (val.startsWith('/')) {
-    const q = val.slice(1).toLowerCase().split(' ')[0];
-    renderSlashMenu(q);
-  } else {
-    hideSlash();
-  }
+input.addEventListener('input', function() {
+  autosize();
+  var v = input.value;
+  if (v.startsWith('/')) { renderSlashMenu(v.slice(1).toLowerCase().split(' ')[0]); } else { hideSlash(); }
 });
 
-input.addEventListener('keydown', e => {
+input.addEventListener('keydown', function(e) {
   if (slashMenu.style.display !== 'none') {
-    const cmds = slashMenu._cmds || [];
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      slashIdx = Math.min(slashIdx + 1, cmds.length - 1);
-      highlightSlash();
-      return;
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      slashIdx = Math.max(slashIdx - 1, -1);
-      highlightSlash();
-      return;
-    }
-    if (e.key === 'Escape') { hideSlash(); return; }
-    if (e.key === 'Tab' || (e.key === 'Enter' && slashIdx >= 0)) {
-      e.preventDefault();
-      pickCmd(slashIdx >= 0 ? slashIdx : 0);
-      return;
-    }
+    var cmds = slashMenu._cmds || [];
+    if (e.key === 'ArrowDown') { e.preventDefault(); slashIdx = Math.min(slashIdx+1, cmds.length-1); highlightSlash(); return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); slashIdx = Math.max(slashIdx-1, -1); highlightSlash(); return; }
+    if (e.key === 'Escape')    { hideSlash(); return; }
+    if (e.key === 'Tab' || (e.key === 'Enter' && slashIdx >= 0)) { e.preventDefault(); pickCmd(slashIdx >= 0 ? slashIdx : 0); return; }
   }
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
 
 function highlightSlash() {
-  document.querySelectorAll('.slash-item').forEach((el, i) => {
-    el.classList.toggle('active', i === slashIdx);
-  });
-  const active = slashMenu.querySelector('.slash-item.active');
-  if (active) active.scrollIntoView({ block: 'nearest' });
+  document.querySelectorAll('.slash-item').forEach(function(el, i){ el.classList.toggle('active', i === slashIdx); });
+  var act = slashMenu.querySelector('.slash-item.active');
+  if (act) act.scrollIntoView({ block: 'nearest' });
 }
-
-// ── Message rendering ─────────────────────────────────────────────────────────
 
 function scrollBottom() { msgsEl.scrollTop = msgsEl.scrollHeight; }
 scrollBottom();
 
-// Render existing messages as markdown on load
-document.querySelectorAll('.msg.assistant .msg-bubble').forEach(el => {
+document.querySelectorAll('.t-msg.t-assistant .t-msg-body').forEach(function(el){
   el.innerHTML = renderMarkdown(el.textContent);
 });
 
 function appendMsg(role, text) {
-  const wrap = document.createElement('div');
-  wrap.className = `msg ${role}`;
-  const bubble = document.createElement('div');
-  bubble.className = 'msg-bubble';
-  bubble.textContent = text;
-  wrap.appendChild(bubble);
+  var empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+  var wrap = document.createElement('div');
+  wrap.className = 't-msg t-' + role;
+  var label = role === 'user' ? 'you' : 'hihi';
+  var now = new Date();
+  var ts = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  wrap.innerHTML =
+    '<div class="t-msg-meta"><span class="t-prompt">' + label + '</span><span class="t-ts">' + ts + '</span></div>' +
+    '<div class="t-msg-body"></div>';
   msgsEl.insertBefore(wrap, typing);
   scrollBottom();
-  return bubble;
+  return wrap.querySelector('.t-msg-body');
 }
 
 function appendSystem(html) {
-  const wrap = document.createElement('div');
-  wrap.className = 'msg system';
-  const bubble = document.createElement('div');
-  bubble.className = 'msg-bubble';
-  bubble.innerHTML = html;
-  wrap.appendChild(bubble);
+  var empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+  var wrap = document.createElement('div');
+  wrap.className = 't-msg t-system';
+  wrap.innerHTML = '<div class="t-msg-meta"><span class="t-prompt">sys</span></div><div class="t-msg-body">' + html + '</div>';
   msgsEl.insertBefore(wrap, typing);
   scrollBottom();
 }
 
-let _toolPill = null;
-
-function showToolPill(name) {
-  if (_toolPill) _toolPill.remove();
-  _toolPill = document.createElement('div');
-  _toolPill.className = 'tool-pill';
-  _toolPill.innerHTML = `<i class="fa-solid fa-gear fa-spin"></i> ${name}`;
-  msgsEl.insertBefore(_toolPill, typing);
+var _toolRow = null;
+function showToolRow(name) {
+  if (_toolRow) _toolRow.remove();
+  _toolRow = document.createElement('div');
+  _toolRow.className = 't-tool-row';
+  _toolRow.innerHTML = '<span class="t-spin">◌</span> running: ' + name;
+  msgsEl.insertBefore(_toolRow, typing);
+  logTool(name, false);
   scrollBottom();
 }
-
-function removeToolPill() {
-  if (_toolPill) { _toolPill.remove(); _toolPill = null; }
+function removeToolRow(name) {
+  if (_toolRow) { _toolRow.remove(); _toolRow = null; }
+  if (name) logTool(name, true);
 }
-
-// ── Send ──────────────────────────────────────────────────────────────────────
 
 async function sendMessage() {
   if (isStreaming) return;
-  const text = input.value.trim();
+  var text = input.value.trim();
   if (!text) return;
-
-  input.value = '';
-  input.style.height = 'auto';
-  hideSlash();
-  isStreaming = true;
-
-  document.querySelector('.empty-state')?.remove();
-
+  input.value = ''; input.style.height = 'auto'; hideSlash(); isStreaming = true;
   appendMsg('user', text);
-  typing.classList.add('visible');
-  typingLbl.textContent = 'thinking';
-  scrollBottom();
+  typing.classList.add('visible'); typingLbl.textContent = 'thinking'; scrollBottom();
 
   await fetch(SEND_URL, {
     method: 'POST',
@@ -269,84 +267,47 @@ async function sendMessage() {
     body: JSON.stringify({message: text}),
   });
 
-  const assistantBubble = appendMsg('assistant', '');
+  var body = appendMsg('assistant', '');
   typing.classList.remove('visible');
-
-  const es = new EventSource(STREAM_URL);
-  es.onmessage = e => {
+  var es = new EventSource(STREAM_URL);
+  es.onmessage = function(e) {
     if (e.data === '[DONE]') {
-      es.close();
-      isStreaming = false;
-      removeToolPill();
-      assistantBubble.innerHTML = renderMarkdown(assistantBubble.textContent);
-      scrollBottom();
-      return;
+      es.close(); isStreaming = false; removeToolRow('');
+      body.innerHTML = renderMarkdown(body.textContent); scrollBottom(); return;
     }
-    const chunk = JSON.parse(e.data);
-    if (chunk.t !== undefined) {
-      assistantBubble.textContent += chunk.t;
-      scrollBottom();
-    } else if (chunk.tool_call) {
-      typingLbl.textContent = chunk.tool_call;
-      typing.classList.add('visible');
-      showToolPill(chunk.tool_call);
-    } else if (chunk.tool_done) {
-      removeToolPill();
-      typing.classList.remove('visible');
-      typingLbl.textContent = 'thinking';
-    }
+    var chunk = JSON.parse(e.data);
+    if (chunk.t !== undefined) { body.textContent += chunk.t; scrollBottom(); }
+    else if (chunk.tool_call) { typingLbl.textContent = chunk.tool_call; typing.classList.add('visible'); showToolRow(chunk.tool_call); }
+    else if (chunk.tool_done) { removeToolRow(chunk.tool_done); typing.classList.remove('visible'); typingLbl.textContent = 'thinking'; }
   };
-  es.onerror = () => {
-    es.close();
-    isStreaming = false;
-    removeToolPill();
-    typing.classList.remove('visible');
-  };
+  es.onerror = function() { es.close(); isStreaming = false; removeToolRow(''); typing.classList.remove('visible'); };
 }
 
-// ── Markdown renderer ─────────────────────────────────────────────────────────
-
 function renderMarkdown(text) {
-  // escape HTML first
-  let s = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // fenced code blocks
-  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-    `<pre><code${lang ? ` class="lang-${lang}"` : ''}>${code.trimEnd()}</code></pre>`
-  );
-  // inline code
+  var s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, function(_, lang, code) {
+    return '<pre><code' + (lang ? ' class="lang-' + lang + '"' : '') + '>' + code.trimEnd() + '</code></pre>';
+  });
   s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-  // headers
   s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  s = s.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-  // bold / italic
+  s = s.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+  s = s.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
   s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // hr
   s = s.replace(/^---+$/gm, '<hr>');
-  // unordered lists (batch into <ul>)
-  s = s.replace(/((?:^[ \t]*[-*+] .+\n?)+)/gm, block => {
-    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*[-*+] /, '')}</li>`).join('');
-    return `<ul>${items}</ul>`;
+  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s = s.replace(/((?:^[ \t]*[-*+] .+\n?)+)/gm, function(b) {
+    return '<ul>' + b.trim().split('\n').map(function(l){ return '<li>' + l.replace(/^[ \t]*[-*+] /,'') + '</li>'; }).join('') + '</ul>';
   });
-  // ordered lists
-  s = s.replace(/((?:^[ \t]*\d+\. .+\n?)+)/gm, block => {
-    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*\d+\. /, '')}</li>`).join('');
-    return `<ol>${items}</ol>`;
+  s = s.replace(/((?:^[ \t]*\d+\. .+\n?)+)/gm, function(b) {
+    return '<ol>' + b.trim().split('\n').map(function(l){ return '<li>' + l.replace(/^[ \t]*\d+\. /,'') + '</li>'; }).join('') + '</ol>';
   });
-  // paragraphs — double newlines
-  s = s.split(/\n{2,}/).map(para => {
-    para = para.trim();
-    if (!para) return '';
-    if (/^<(h[1-3]|ul|ol|pre|hr)/.test(para)) return para;
-    return `<p>${para.replace(/\n/g, '<br>')}</p>`;
+  s = s.split(/\n{2,}/).map(function(p) {
+    p = p.trim(); if (!p) return '';
+    if (/^<(h[1-3]|ul|ol|pre|hr)/.test(p)) return p;
+    return '<p>' + p.replace(/\n/g,'<br>') + '</p>';
   }).join('\n');
-
   return s;
 }
 </script>
