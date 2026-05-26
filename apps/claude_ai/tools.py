@@ -230,6 +230,54 @@ DEFINITIONS = [
         },
     },
     {
+        "name": "loyd",
+        "description": (
+            "Submit a task to Loyd — the internal GPU AI. "
+            "Loyd auto-routes: small tasks → Claude cloud, large context (log files, big dumps) → local GPU Ollama. "
+            "Use for: security scans, error log triage, code review, summarization, anything needing AI but too large or too cheap for direct Claude. "
+            "Returns the result when complete (polls up to 90s)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "prompt":     {"type": "string", "description": "The instruction or question."},
+                "context":    {"type": "string", "description": "Supporting text, log content, code, etc. Can be very large."},
+                "system":     {"type": "string", "description": "Optional system prompt override."},
+                "tags":       {"type": "array", "items": {"type": "string"}, "description": "e.g. ['security','error_log','code_review']"},
+                "model":      {"type": "string", "enum": ["auto", "cloud", "local"], "description": "Force backend. Default: auto."},
+                "max_tokens": {"type": "integer", "description": "Max response tokens. Default 2048."},
+            },
+            "required": ["prompt"],
+        },
+    },
+    {
+        "name": "write_memory",
+        "description": (
+            "Store a persistent fact that will be injected into every future conversation. "
+            "Use for ongoing context: active projects, current priorities, user preferences, "
+            "pending decisions, system state. Key should be short and descriptive (e.g. 'active_project', 'plex_status')."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "key": {"type": "string", "description": "Short identifier, snake_case"},
+                "value": {"type": "string", "description": "Value to store. Overrides any previous value for this key."},
+            },
+            "required": ["key", "value"],
+        },
+    },
+    {
+        "name": "delete_memory",
+        "description": "Delete a persistent memory note by key.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "key": {"type": "string"},
+            },
+            "required": ["key"],
+        },
+    },
+    {
         "name": "ssh_run",
         "description": (
             "SSH into a registered server and run a shell command. "
@@ -526,6 +574,96 @@ def _trigger_deploy(user, cmd="deploy"):
         return {"error": str(e)}
 
 
+def _write_memory(user, key, value):
+    from .models import MemoryNote
+    note, created = MemoryNote.objects.update_or_create(
+        user=user, key=key, defaults={'value': value}
+    )
+    return {"key": key, "saved": True, "created": created}
+
+
+def _delete_memory(user, key):
+    from .models import MemoryNote
+    n, _ = MemoryNote.objects.filter(user=user, key=key).delete()
+    return {"key": key, "deleted": n > 0}
+
+
+def args_preview(name, args):
+    """Short human-readable description of tool call args for UI display."""
+    if name in ('read_file', 'write_file', 'list_dir'):
+        return args.get('path', '')[:60]
+    if name == 'search_files':
+        return f'"{args.get("query", "")}"'
+    if name == 'ssh_run':
+        return f'{args.get("server", "")} → {args.get("command", "")[:35]}'
+    if name == 'run_manage':
+        return args.get('command', '')
+    if name == 'git_commit':
+        return args.get('message', '')[:50]
+    if name == 'write_memory':
+        return args.get('key', '')
+    if name == 'delete_memory':
+        return args.get('key', '')
+    if name == 'trigger_deploy':
+        return args.get('cmd', 'deploy')
+    if name == 'loyd':
+        return args.get('prompt', '')[:60]
+    if name == 'get_project':
+        return f'project #{args.get("project_id", "")}'
+    if name == 'create_task':
+        return args.get('title', '')[:40]
+    if name == 'update_task':
+        return f'task #{args.get("task_id", "")} → {args.get("status", "")}'
+    return ''
+
+
+def result_preview(name, result):
+    """Short human-readable summary of tool result for UI display."""
+    if isinstance(result, dict) and 'error' in result:
+        return f'error: {result["error"][:60]}'
+    if name == 'read_file':
+        return f'{result.get("lines", "?")} lines'
+    if name == 'write_file':
+        return f'{result.get("bytes", 0)} bytes written'
+    if name == 'search_files':
+        m = result.get('matches', 0)
+        return f'{m} match{"es" if m != 1 else ""}'
+    if name == 'git_commit':
+        return 'committed' if result.get('success') else f'failed: {result.get("output","")[:40]}'
+    if name == 'git_status':
+        s = result.get('status', '').strip()
+        return s[:80] if s and s != '(clean)' else 'clean'
+    if name == 'trigger_deploy':
+        return result.get('status', str(result)[:40])
+    if name == 'run_manage':
+        rc = result.get('returncode', -1)
+        return 'ok' if rc == 0 else f'exit {rc}'
+    if name == 'docker_rebuild':
+        return 'rebuilt' if result.get('success') else 'failed'
+    if name == 'ssh_run':
+        out = result.get('stdout', '').strip()[:60]
+        return out or f'exit {result.get("exit_code", 0)}'
+    if name == 'list_projects':
+        return f'{len(result.get("projects", []))} projects'
+    if name == 'list_servers':
+        return f'{len(result.get("servers", []))} servers'
+    if name == 'start_timer':
+        return f'timing {result.get("project", "")}'
+    if name == 'stop_timer':
+        return 'stopped'
+    if name == 'get_active_timer':
+        return result.get('elapsed', 'no timer') if result.get('running') else 'no timer'
+    if name == 'write_memory':
+        return 'saved'
+    if name == 'delete_memory':
+        return 'deleted' if result.get('deleted') else 'not found'
+    if name == 'loyd':
+        if 'text' in result:
+            return f'{result.get("backend","?")} · {len(result["text"])} chars'
+        return f'error: {result.get("error","?")[:50]}'
+    return 'done'
+
+
 def _ssh_run(user, server, command):
     import base64, io
     key_b64 = getattr(settings, 'SSH_PRIVATE_KEY_B64', '')
@@ -655,6 +793,52 @@ def _docker_rebuild(user):
     }
 
 
+def _loyd(user, prompt, context="", system="", tags=None, model="auto", max_tokens=2048):
+    import time
+    from apps.workers.models import Client, JobType, Job
+
+    client, _ = Client.objects.get_or_create(
+        slug="hihi-internal",
+        defaults={"name": "HiHi Internal", "color": "#7c6af7"},
+    )
+    job_type, _ = JobType.objects.get_or_create(
+        slug="ai_task",
+        defaults={"label": "AI Task", "requires_gpu": False},
+    )
+
+    job = Job.objects.create(
+        client=client,
+        job_type=job_type,
+        priority=10,
+        label=prompt[:100],
+        payload={
+            "prompt": prompt,
+            "context": context,
+            "system": system,
+            "tags": tags or [],
+            "model": model,
+            "max_tokens": max_tokens,
+        },
+    )
+
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        time.sleep(2)
+        job.refresh_from_db()
+        if job.status == "done":
+            result = job.result or {}
+            return {
+                "text":    result.get("text", ""),
+                "backend": result.get("backend", "unknown"),
+                "model":   result.get("model", ""),
+                "job_id":  job.pk,
+            }
+        if job.status == "error":
+            return {"error": job.error or "Loyd job failed", "job_id": job.pk}
+
+    return {"error": f"Loyd job #{job.pk} timed out after 90s — still {job.status}", "job_id": job.pk}
+
+
 _HANDLERS = {
     "list_projects": _list_projects,
     "get_project": _get_project,
@@ -676,4 +860,7 @@ _HANDLERS = {
     "git_commit": _git_commit,
     "trigger_deploy": _trigger_deploy,
     "ssh_run": _ssh_run,
+    "write_memory": _write_memory,
+    "delete_memory": _delete_memory,
+    "loyd": _loyd,
 }

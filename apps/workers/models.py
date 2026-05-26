@@ -42,6 +42,7 @@ class WorkerNode(models.Model):
     current_job  = models.JSONField(null=True, blank=True)
     version      = models.CharField(max_length=40, blank=True)
     secret_key   = models.CharField(max_length=64, default=secrets.token_hex)
+    pending_command = models.CharField(max_length=80, blank=True, default="")
 
     class Meta:
         ordering = ['name']

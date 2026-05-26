@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Conversation, Message, TemplateCategory, PromptTemplate, GeneratedDocument, VoiceNote
+from .models import Conversation, Message, TemplateCategory, PromptTemplate, GeneratedDocument, VoiceNote, MemoryNote
 
 
 @admin.register(TemplateCategory)
@@ -30,6 +30,17 @@ class ConversationAdmin(admin.ModelAdmin):
 class GeneratedDocumentAdmin(admin.ModelAdmin):
     list_display = ['title', 'user', 'template', 'created_at']
     list_filter = ['user', 'template']
+
+
+@admin.register(MemoryNote)
+class MemoryNoteAdmin(admin.ModelAdmin):
+    list_display = ['key', 'user', 'value_preview', 'updated_at']
+    list_filter = ['user']
+    search_fields = ['key', 'value']
+
+    def value_preview(self, obj):
+        return obj.value[:80]
+    value_preview.short_description = 'Value'
 
 
 @admin.register(VoiceNote)

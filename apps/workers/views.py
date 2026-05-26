@@ -1,6 +1,10 @@
+import io
 import json
+import os
+import zipfile
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -32,6 +36,28 @@ def index(request):
         'recent_jobs':  recent,
         'queue_counts': queue_counts,
     })
+
+
+# ── Worker bundle download ────────────────────────────────────────────────────
+
+_WORKER_BUNDLE_DIR = getattr(
+    settings, 'WORKER_BUNDLE_DIR',
+    '/var/www/vhosts/communityplaylist.com/tokyo7.communityplaylist.com/worker_bundle'
+)
+_WORKER_FILES = ['run.bat', 'config.env', 'worker.py', 'requirements.txt', 'Dockerfile', 'docker-compose.yml', 'requirements-windows.txt']
+
+@login_required
+def worker_download(request):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for fname in _WORKER_FILES:
+            fpath = os.path.join(_WORKER_BUNDLE_DIR, fname)
+            if os.path.exists(fpath):
+                zf.write(fpath, fname)
+    buf.seek(0)
+    resp = HttpResponse(buf, content_type='application/zip')
+    resp['Content-Disposition'] = 'attachment; filename="hihi-agent.zip"'
+    return resp
 
 
 # ── Client management ─────────────────────────────────────────────────────────
@@ -144,7 +170,12 @@ def api_heartbeat(request):
         node.capabilities = body['capabilities']
     node.save()
 
-    return JsonResponse({'ok': True, 'worker_id': node.pk})
+    resp = {'ok': True, 'worker_id': node.pk}
+    if node.pending_command:
+        resp['command'] = node.pending_command
+        node.pending_command = ''
+        node.save(update_fields=['pending_command'])
+    return JsonResponse(resp)
 
 
 @csrf_exempt
@@ -205,10 +236,15 @@ def api_job_progress(request, pk):
 @csrf_exempt
 @require_POST
 def api_job_complete(request, pk):
-    job  = get_object_or_404(Job, pk=pk)
-    body = json.loads(request.body)
+    job = get_object_or_404(Job, pk=pk)
+    if request.content_type and request.content_type.startswith('multipart/'):
+        result = {k: v for k, v in request.POST.items()}
+        for name, f in request.FILES.items():
+            result[f'file_{name}'] = f.name
+    else:
+        result = json.loads(request.body) if request.body else {}
     job.status       = 'done'
-    job.result       = body
+    job.result       = result
     job.completed_at = timezone.now()
     job.save()
     return JsonResponse({'ok': True})
@@ -264,3 +300,80 @@ def api_status(request):
         })
 
     return JsonResponse({'workers': workers, 'queue': queue})
+
+
+@login_required
+def api_docker_agents(request):
+    """Return Unraid Docker container list via hihi-agent."""
+    import requests as _r
+    url   = getattr(settings, 'HIHI_AGENT_URL', '').rstrip('/')
+    token = getattr(settings, 'HIHI_AGENT_TOKEN', '')
+    if not url:
+        return JsonResponse({'error': 'hihi-agent not configured'}, status=503)
+    try:
+        resp = _r.post(
+            f'{url}/exec',
+            json={'cmd': 'docker ps -a --format "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.ID}}"', 'timeout': 10},
+            headers={'X-Token': token, 'Content-Type': 'application/json'},
+            timeout=12,
+        )
+        raw = resp.json().get('stdout', '')
+        agents = []
+        for line in raw.strip().splitlines():
+            parts = line.split('\t')
+            if len(parts) < 3:
+                continue
+            name, status, image = parts[0], parts[1], parts[2]
+            short_id = parts[3][:12] if len(parts) > 3 else ''
+            up = status.lower().startswith('up')
+            agents.append({
+                'name':     name,
+                'status':   status,
+                'image':    image,
+                'short_id': short_id,
+                'up':       up,
+            })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=502)
+    return JsonResponse({'agents': agents})
+
+
+@login_required
+@require_POST
+def api_agent_exec(request):
+    """Run a command on Unraid via hihi-agent (optionally scoped to a container)."""
+    import requests as _r
+    data  = json.loads(request.body)
+    cmd   = data.get('cmd', '').strip()
+    cname = data.get('container', '').strip()
+    if not cmd:
+        return JsonResponse({'error': 'cmd required'}, status=400)
+    if cname:
+        cmd = f'docker exec {cname} sh -c {json.dumps(cmd)}'
+    url   = getattr(settings, 'HIHI_AGENT_URL', '').rstrip('/')
+    token = getattr(settings, 'HIHI_AGENT_TOKEN', '')
+    try:
+        resp = _r.post(
+            f'{url}/exec',
+            json={'cmd': cmd, 'timeout': 30},
+            headers={'X-Token': token, 'Content-Type': 'application/json'},
+            timeout=35,
+        )
+        return JsonResponse(resp.json())
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=502)
+
+
+@login_required
+def api_gpu_stats(request):
+    """Return GPU stats from Unraid via hihi-agent /gpu-stats."""
+    import requests as _r
+    url   = getattr(settings, 'HIHI_AGENT_URL', '').rstrip('/')
+    token = getattr(settings, 'HIHI_AGENT_TOKEN', '')
+    if not url:
+        return JsonResponse({'error': 'hihi-agent not configured'}, status=503)
+    try:
+        resp = _r.get(f'{url}/gpu-stats', headers={'X-Token': token}, timeout=15)
+        return JsonResponse(resp.json())
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=502)

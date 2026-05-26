@@ -6,6 +6,7 @@ app_name = 'workers'
 urlpatterns = [
     # Dashboard
     path('', views.index, name='index'),
+    path('download/', views.worker_download, name='worker_download'),
 
     # Client management
     path('clients/add/',          views.client_add,    name='client_add'),
@@ -29,4 +30,7 @@ urlpatterns = [
     path('api/jobs/<int:pk>/progress/',  views.api_job_progress, name='api_job_progress'),
     path('api/jobs/<int:pk>/complete/',  views.api_job_complete, name='api_job_complete'),
     path('api/jobs/<int:pk>/error/',     views.api_job_error,    name='api_job_error'),
+    path('api/docker-agents/', views.api_docker_agents, name='api_docker_agents'),
+    path('api/agent-exec/',    views.api_agent_exec,    name='api_agent_exec'),
+    path('api/gpu-stats/',     views.api_gpu_stats,     name='api_gpu_stats'),
 ]

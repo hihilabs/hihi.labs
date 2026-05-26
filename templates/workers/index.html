@@ -10,6 +10,9 @@
     <button class="btn btn-ghost btn-sm" onclick="refreshStatus()" title="Refresh">
       <i class="fa-solid fa-arrows-rotate"></i>
     </button>
+    <a href="{% url 'workers:worker_download' %}" class="btn btn-ghost btn-sm" title="Download worker bundle">
+      <i class="fa-solid fa-download"></i> Worker
+    </a>
     <button class="btn btn-primary btn-sm" onclick="toggleClientForm()">
       <i class="fa-solid fa-plus"></i> Add Client
     </button>

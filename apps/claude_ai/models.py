@@ -25,6 +25,7 @@ class Message(models.Model):
     ROLES = [('user', 'User'), ('assistant', 'Assistant')]
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
     role = models.CharField(max_length=10, choices=ROLES)
+    # content is either plain text or JSON: {"text": "...", "attachments": [{type, media_type, data}]}
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     tokens_used = models.IntegerField(default=0)
@@ -33,7 +34,34 @@ class Message(models.Model):
         ordering = ['created_at']
 
     def __str__(self):
-        return f'{self.role}: {self.content[:60]}'
+        return f'{self.role}: {self.display_content[:60]}'
+
+    def _parsed(self):
+        import json
+        try:
+            p = json.loads(self.content)
+            if isinstance(p, dict) and 'text' in p:
+                return p
+        except (json.JSONDecodeError, ValueError):
+            pass
+        return None
+
+    @property
+    def display_content(self):
+        p = self._parsed()
+        return p['text'] if p else self.content
+
+    @property
+    def attachments(self):
+        p = self._parsed()
+        return p.get('attachments', []) if p else []
+
+    @property
+    def first_image_url(self):
+        for att in self.attachments:
+            if att.get('type') == 'image':
+                return f'data:{att["media_type"]};base64,{att["data"]}'
+        return None
 
 
 class TemplateCategory(models.Model):
@@ -84,6 +112,20 @@ class GeneratedDocument(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class MemoryNote(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='memory_notes')
+    key = models.CharField(max_length=100)
+    value = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['key']
+        unique_together = ('user', 'key')
+
+    def __str__(self):
+        return f'{self.key}: {self.value[:60]}'
 
 
 class VoiceNote(models.Model):

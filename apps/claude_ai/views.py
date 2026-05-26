@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 logger = logging.getLogger(__name__)
 
 from . import tools
-from .models import Conversation, Message, PromptTemplate, TemplateCategory, GeneratedDocument, VoiceNote
+from .models import Conversation, Message, PromptTemplate, TemplateCategory, GeneratedDocument, VoiceNote, MemoryNote
 
 
 _SYSTEM_DEFAULT = (
@@ -45,6 +45,39 @@ _SYSTEM_DEFAULT = (
 )
 
 
+def _decode_content(content):
+    """Convert stored message content → Claude API format (supports text+image)."""
+    try:
+        parsed = json.loads(content)
+        if isinstance(parsed, dict) and 'text' in parsed:
+            parts = []
+            if parsed.get('text'):
+                parts.append({'type': 'text', 'text': parsed['text']})
+            for att in parsed.get('attachments', []):
+                if att.get('type') == 'image':
+                    parts.append({
+                        'type': 'image',
+                        'source': {'type': 'base64', 'media_type': att['media_type'], 'data': att['data']},
+                    })
+            return parts if len(parts) > 1 else (parts[0].get('text', '') if parts else '')
+    except (json.JSONDecodeError, KeyError, ValueError):
+        pass
+    return content
+
+
+def _build_system(user):
+    notes = list(MemoryNote.objects.filter(user=user).order_by('key'))
+    if notes:
+        mem_block = (
+            "\n\n## persistent memory\nThese facts persist across all conversations. "
+            "Use write_memory to update, delete_memory to remove.\n"
+            + "\n".join(f"- **{n.key}**: {n.value}" for n in notes)
+        )
+    else:
+        mem_block = "\n\nNo persistent memories yet. Use write_memory to store facts across conversations."
+    return _SYSTEM_DEFAULT + mem_block
+
+
 def _claude_client():
     return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
@@ -69,10 +102,12 @@ def chat_detail(request, pk):
         conv = get_object_or_404(Conversation, pk=pk, user=request.user)
         messages = conv.messages.all()
         conversations = Conversation.objects.filter(user=request.user)
+        memory_notes = MemoryNote.objects.filter(user=request.user)
         return render(request, 'claude_ai/chat.html', {
             'conv': conv,
             'messages': messages,
             'conversations': conversations,
+            'memory_notes': memory_notes,
         })
     except Exception as e:
         tb = traceback.format_exc()
@@ -86,13 +121,30 @@ def chat_detail(request, pk):
 @login_required
 @require_POST
 def chat_send(request, pk):
+    import base64
     conv = get_object_or_404(Conversation, pk=pk, user=request.user)
-    data = json.loads(request.body)
-    user_text = data.get('message', '').strip()
-    if not user_text:
+
+    ct = request.content_type or ''
+    if ct.startswith('multipart/'):
+        user_text = request.POST.get('message', '').strip()
+        attachment = request.FILES.get('attachment')
+        if attachment:
+            raw = base64.b64encode(attachment.read()).decode()
+            msg_content = json.dumps({
+                'text': user_text,
+                'attachments': [{'type': 'image', 'media_type': attachment.content_type, 'data': raw}],
+            })
+        else:
+            msg_content = user_text
+    else:
+        data = json.loads(request.body)
+        user_text = data.get('message', '').strip()
+        msg_content = user_text
+
+    if not user_text and not (ct.startswith('multipart/') and request.FILES.get('attachment')):
         return JsonResponse({'error': 'empty'}, status=400)
 
-    Message.objects.create(conversation=conv, role='user', content=user_text)
+    Message.objects.create(conversation=conv, role='user', content=msg_content)
     if not conv.title:
         conv.auto_title()
 
@@ -102,8 +154,13 @@ def chat_send(request, pk):
 @login_required
 def chat_stream(request, pk):
     conv = get_object_or_404(Conversation, pk=pk, user=request.user)
-    history = list(conv.messages.values('role', 'content'))
+    history = [
+        {'role': m['role'], 'content': _decode_content(m['content'])}
+        for m in conv.messages.values('role', 'content')
+    ]
     user = request.user
+
+    system = _build_system(user)
 
     def _stream():
         client = _claude_client()
@@ -114,7 +171,7 @@ def chat_stream(request, pk):
             with client.messages.stream(
                 model=settings.CLAUDE_CHAT_MODEL,
                 max_tokens=4096,
-                system=_SYSTEM_DEFAULT,
+                system=system,
                 tools=tools.DEFINITIONS,
                 messages=msgs,
             ) as stream:
@@ -145,9 +202,11 @@ def chat_stream(request, pk):
             for block in msg.content:
                 if block.type != 'tool_use':
                     continue
-                yield f'data: {json.dumps({"tool_call": block.name})}\n\n'
+                preview = tools.args_preview(block.name, block.input)
+                yield f'data: {json.dumps({"tool_call": block.name, "args_preview": preview})}\n\n'
                 result = tools.execute(user, block.name, block.input)
-                yield f'data: {json.dumps({"tool_done": block.name})}\n\n'
+                res_preview = tools.result_preview(block.name, result)
+                yield f'data: {json.dumps({"tool_done": block.name, "result_preview": res_preview})}\n\n'
                 tool_results.append({
                     'type': 'tool_result',
                     'tool_use_id': block.id,
