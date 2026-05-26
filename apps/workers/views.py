@@ -46,8 +46,13 @@ _WORKER_BUNDLE_DIR = getattr(
 )
 _WORKER_FILES = ['run.bat', 'config.env', 'worker.py', 'requirements.txt', 'Dockerfile', 'docker-compose.yml', 'requirements-windows.txt']
 
-@login_required
 def worker_download(request):
+    # Accept session login OR X-Worker-Key (so auto-update works from running workers)
+    if not request.user.is_authenticated:
+        key = request.headers.get('X-Worker-Key', '')
+        if not key or not WorkerNode.objects.filter(secret_key=key).exists():
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("auth required")
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for fname in _WORKER_FILES:
