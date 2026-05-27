@@ -1,149 +1,316 @@
 {% extends 'base.html' %}
-{% block title %}Modules — HiHi Labs{% endblock %}
+{% block title %}Work — HiHi Labs{% endblock %}
 
 {% block extra_css %}
 <style>
-.module-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-  padding: 0 24px 40px;
+/* ── Service category tabs ─────────────────────────────────── */
+.svc-tabs {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  padding: 0 24px 24px;
 }
-.module-card {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: border-color .15s;
-}
-.module-card:hover { border-color: var(--mc-color); }
-.module-card-top {
-  padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-.module-icon {
-  width: 40px; height: 40px;
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-  background: color-mix(in srgb, var(--mc-color) 15%, transparent);
-  color: var(--mc-color);
-}
-.module-meta { flex: 1; min-width: 0; }
-.module-name {
-  font-family: var(--font-ui);
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-.module-badges { display: flex; flex-wrap: wrap; gap: 5px; }
-.badge-type {
-  font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
-  padding: 2px 8px; border-radius: 3px;
-  background: color-mix(in srgb, var(--mc-color) 15%, transparent);
-  color: var(--mc-color);
-  border: 1px solid color-mix(in srgb, var(--mc-color) 35%, transparent);
-}
-.badge-status-live    { font-size: 9px; letter-spacing: .1em; padding: 2px 8px; border-radius: 3px; background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--green); border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); }
-.badge-status-beta    { font-size: 9px; letter-spacing: .1em; padding: 2px 8px; border-radius: 3px; background: color-mix(in srgb, var(--yellow) 12%, transparent); color: var(--yellow); border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent); }
-.badge-status-wip     { font-size: 9px; letter-spacing: .1em; padding: 2px 8px; border-radius: 3px; background: color-mix(in srgb, var(--text-muted) 12%, transparent); color: var(--text-muted); border: 1px solid var(--border); }
-.module-body { padding: 14px 20px; flex: 1; }
-.module-desc { font-size: 12px; color: var(--text-muted); line-height: 1.7; margin-bottom: 12px; }
-.module-tags { display: flex; flex-wrap: wrap; gap: 5px; }
-.module-tag {
-  font-size: 9px; letter-spacing: .08em;
-  padding: 2px 7px; border-radius: 3px;
-  background: var(--bg2); color: var(--text-muted);
-  border: 1px solid var(--border);
-}
-.module-actions {
-  padding: 12px 20px;
-  border-top: 1px solid var(--border);
-  display: flex; gap: 8px;
-}
-.module-platform {
-  font-size: 10px; color: var(--text-muted);
-  margin-left: auto; align-self: center;
-}
-
-/* filter bar */
-.filter-bar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 0 24px 20px;
-  flex-wrap: wrap;
-}
-.filter-btn {
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
-  padding: 5px 14px; border-radius: 4px;
+.svc-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 6px 14px; border-radius: var(--r-full);
   border: 1px solid var(--border);
   background: transparent; color: var(--text-muted);
-  cursor: pointer; transition: all .15s; text-decoration: none;
+  cursor: pointer; transition: all var(--dur-base); text-decoration: none;
 }
-.filter-btn:hover { border-color: var(--accent); color: var(--accent); }
-.filter-btn.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.svc-tab:hover { border-color: var(--accent); color: var(--accent); background: var(--brand-subtle); }
+.svc-tab.active { border-color: var(--accent); color: var(--accent); background: var(--brand-subtle); }
+.svc-tab i { font-size: 11px; }
+.svc-count {
+  font-size: 9px; padding: 1px 5px; border-radius: var(--r-full);
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+/* ── Module grid ───────────────────────────────────────────── */
+.mod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  padding: 0 24px 16px;
+}
+
+/* ── Module card ───────────────────────────────────────────── */
+.mod-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  transition: border-color var(--dur-base), box-shadow var(--dur-base), transform var(--dur-base);
+  position: relative;
+}
+.mod-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: var(--r-lg);
+  background: radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--mc) 6%, transparent) 0%, transparent 70%);
+  pointer-events: none;
+  opacity: 0; transition: opacity var(--dur-slow);
+}
+.mod-card:hover { border-color: var(--mc); box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc) 20%, transparent), var(--shadow-sm); transform: translateY(-1px); }
+.mod-card:hover::before { opacity: 1; }
+
+.mod-head {
+  padding: 16px 18px 12px;
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.mod-icon {
+  width: 38px; height: 38px; border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; flex-shrink: 0;
+  background: color-mix(in srgb, var(--mc) 14%, transparent);
+  color: var(--mc);
+  border: 1px solid color-mix(in srgb, var(--mc) 25%, transparent);
+  transition: background var(--dur-base), box-shadow var(--dur-base);
+}
+.mod-card:hover .mod-icon {
+  background: color-mix(in srgb, var(--mc) 22%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--mc) 30%, transparent);
+}
+.mod-title-row { flex: 1; min-width: 0; }
+.mod-name {
+  font-family: var(--font-ui); font-weight: var(--weight-bold);
+  font-size: var(--text-md); color: var(--text);
+  margin-bottom: 5px; line-height: 1.2;
+}
+.mod-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: var(--r-full);
+}
+.chip-type {
+  background: color-mix(in srgb, var(--mc) 14%, transparent);
+  color: var(--mc);
+  border: 1px solid color-mix(in srgb, var(--mc) 30%, transparent);
+}
+.chip-live   { background: color-mix(in srgb, var(--green)  10%, transparent); color: var(--green);  border: 1px solid color-mix(in srgb, var(--green)  28%, transparent); }
+.chip-beta   { background: color-mix(in srgb, var(--yellow) 10%, transparent); color: var(--yellow); border: 1px solid color-mix(in srgb, var(--yellow) 28%, transparent); }
+.chip-wip    { background: transparent; color: var(--text-faint); border: 1px solid var(--border); }
+/* subtle pulse on live */
+.chip-live::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin-right: 4px; animation: live-glow-green 2s ease-in-out infinite; }
+
+.mod-body {
+  padding: 0 18px 12px; flex: 1;
+}
+.mod-desc {
+  font-size: var(--text-sm); color: var(--text-muted);
+  line-height: 1.65; margin-bottom: 10px;
+}
+.mod-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.mod-tag {
+  font-size: 9px; letter-spacing: .06em;
+  padding: 2px 6px; border-radius: var(--r-xs);
+  background: var(--bg3); color: var(--text-faint);
+  border: 1px solid var(--border);
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+.mod-card:hover .mod-tag { color: var(--text-muted); border-color: color-mix(in srgb, var(--mc) 20%, var(--border)); }
+
+.mod-foot {
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.mod-platform {
+  margin-left: auto; font-size: 10px; color: var(--text-faint);
+  display: flex; align-items: center; gap: 4px;
+}
+
+/* ── Contact section ───────────────────────────────────────── */
+.contact-section {
+  margin: 16px 24px 40px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 28px 32px;
+  max-width: 560px;
+  position: relative;
+  overflow: hidden;
+}
+.contact-section::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brand-glow), transparent);
+}
+.contact-heading {
+  font-family: var(--font-ui); font-size: var(--text-lg); font-weight: var(--weight-bold);
+  color: var(--text); margin-bottom: 4px;
+}
+.contact-sub { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+.contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.contact-section textarea { resize: vertical; min-height: 80px; }
+.contact-section select option { background: var(--bg3); }
+.contact-success {
+  display: none; text-align: center; padding: 16px 0;
+  color: var(--green); font-size: var(--text-sm); font-family: var(--font-mono);
+}
+
+/* ── Empty state ───────────────────────────────────────────── */
+.mod-empty {
+  grid-column: 1 / -1; text-align: center; padding: 60px 0;
+  color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-sm);
+}
+
+/* ── Mobile ────────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .mod-grid { grid-template-columns: 1fr; padding: 0 16px 12px; }
+  .svc-tabs { padding: 0 16px 16px; }
+  .contact-section { margin: 12px 16px 32px; padding: 20px; }
+  .contact-grid { grid-template-columns: 1fr; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-header">
   <div class="page-title">
-    <i class="fa-solid fa-cubes" style="color:var(--accent);margin-right:8px;"></i>Modules
+    <i class="fa-solid fa-cubes" style="color:var(--accent);margin-right:8px;"></i>Work
   </div>
-  <span style="font-size:11px;color:var(--text-muted);">{{ modules|length }} module{{ modules|length|pluralize }}</span>
+  <span style="font-size:11px;color:var(--text-muted);">{{ total }} project{{ total|pluralize }}</span>
 </div>
 
-<div class="filter-bar">
-  <a href="{% url 'modules:index' %}" class="filter-btn {% if not type_filter %}active{% endif %}">all</a>
-  {% for t in types %}
-  <a href="{% url 'modules:index' %}?type={{ t }}" class="filter-btn {% if type_filter == t %}active{% endif %}">{{ t }}</a>
-  {% endfor %}
-</div>
+{# ── Service category tabs ────────────────────────────────────────────────── #}
+<nav class="svc-tabs">
+  <a href="{% url 'modules:index' %}"
+     class="svc-tab {% if not type_filter %}active{% endif %}">
+    <i class="fa-solid fa-layer-group"></i> All
+    <span class="svc-count">{{ total }}</span>
+  </a>
+  <a href="{% url 'modules:index' %}?type=ai"
+     class="svc-tab {% if type_filter == 'ai' %}active{% endif %}">
+    <i class="fa-solid fa-microchip"></i> AI &amp; Automation
+    <span class="svc-count">{{ type_counts.ai|default:0 }}</span>
+  </a>
+  <a href="{% url 'modules:index' %}?type=web"
+     class="svc-tab {% if type_filter == 'web' %}active{% endif %}">
+    <i class="fa-solid fa-globe"></i> Web Platforms
+    <span class="svc-count">{{ type_counts.web|default:0 }}</span>
+  </a>
+  <a href="{% url 'modules:index' %}?type=cp"
+     class="svc-tab {% if type_filter == 'cp' %}active{% endif %}">
+    <i class="fa-solid fa-record-vinyl"></i> Community Tech
+    <span class="svc-count">{{ type_counts.cp|default:0 }}</span>
+  </a>
+  <a href="{% url 'modules:index' %}?type=infra"
+     class="svc-tab {% if type_filter == 'infra' %}active{% endif %}">
+    <i class="fa-solid fa-server"></i> Infrastructure
+    <span class="svc-count">{{ type_counts.infra|default:0 }}</span>
+  </a>
+  <a href="{% url 'modules:index' %}?type=utility"
+     class="svc-tab {% if type_filter == 'utility' %}active{% endif %}">
+    <i class="fa-solid fa-robot"></i> Tools
+    <span class="svc-count">{{ type_counts.utility|default:0 }}</span>
+  </a>
+</nav>
 
-<div class="module-grid">
+{# ── Module grid ──────────────────────────────────────────────────────────── #}
+<div class="mod-grid" id="mod-grid">
   {% for m in modules %}
-  <div class="module-card" style="--mc-color:{{ m.color }};">
-    <div class="module-card-top">
-      <div class="module-icon"><i class="fa-solid {{ m.icon }}"></i></div>
-      <div class="module-meta">
-        <div class="module-name">{{ m.name }}</div>
-        <div class="module-badges">
-          <span class="badge-type">{{ m.type }}</span>
-          <span class="badge-status-{{ m.status }}">{{ m.status }}</span>
+  <div class="mod-card" style="--mc:{{ m.color }};" data-type="{{ m.type }}" data-slug="{{ m.slug }}">
+    <div class="mod-head">
+      <div class="mod-icon">
+        <i class="{{ m.icon_class|default:'fa-solid' }} {{ m.icon }}"></i>
+      </div>
+      <div class="mod-title-row">
+        <div class="mod-name">{{ m.name }}</div>
+        <div class="mod-chips">
+          <span class="chip chip-type">{{ m.type }}</span>
+          <span class="chip chip-{{ m.status }}">{{ m.status }}</span>
+          {% if m.platform %}<span class="chip" style="background:var(--bg3);color:var(--text-faint);border:1px solid var(--border);">{{ m.platform }}</span>{% endif %}
         </div>
       </div>
     </div>
-    <div class="module-body">
-      <div class="module-desc">{{ m.description }}</div>
-      <div class="module-tags">
-        {% for tag in m.tags %}<span class="module-tag">{{ tag }}</span>{% endfor %}
+
+    {% if m.description %}
+    <div class="mod-body">
+      <div class="mod-desc">{{ m.description }}</div>
+      {% if m.tags %}
+      <div class="mod-tags">
+        {% for tag in m.tags %}<span class="mod-tag">{{ tag }}</span>{% endfor %}
       </div>
+      {% endif %}
     </div>
-    <div class="module-actions">
+    {% endif %}
+
+    <div class="mod-foot">
       {% if m.live_url %}
-      <a href="{{ m.live_url }}" target="_blank" class="btn btn-primary btn-sm">
+      <a href="{{ m.live_url }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
         <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
       </a>
       {% endif %}
       {% if m.source_url %}
-      <a href="{{ m.source_url }}" class="btn btn-ghost btn-sm" download>
-        <i class="fa-solid fa-download"></i> Source
+      <a href="{{ m.source_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+        <i class="fa-brands fa-github"></i> Source
       </a>
       {% endif %}
-      <span class="module-platform"><i class="fa-solid fa-microchip" style="margin-right:4px;"></i>{{ m.platform }}</span>
     </div>
   </div>
   {% empty %}
-  <div class="empty-state" style="grid-column:1/-1;padding:80px 0;">
-    <i class="fa-solid fa-cubes"></i>
-    <p>No modules match this filter.</p>
+  <div class="mod-empty">
+    <i class="fa-solid fa-cubes" style="font-size:28px;opacity:.3;display:block;margin-bottom:10px;"></i>
+    No projects in this category.
   </div>
   {% endfor %}
 </div>
+
+{# ── Contact ──────────────────────────────────────────────────────────────── #}
+<div class="contact-section">
+  <div class="contact-heading">What are we building?</div>
+  <div class="contact-sub">Tell me what you're working on — AI, custom software, infra, community tools. No sales call required.</div>
+  <form id="contact-form" onsubmit="submitContact(event)">
+    {% csrf_token %}
+    <div class="contact-grid">
+      <input type="text"  class="form-control" id="c-name"    placeholder="Name"  required>
+      <input type="email" class="form-control" id="c-email"   placeholder="Email" required>
+    </div>
+    <select class="form-control" id="c-interest" style="margin-bottom:10px;">
+      <option value="">Area of interest…</option>
+      <option value="ai">AI & Automation</option>
+      <option value="web">Web Application</option>
+      <option value="community">Community Platform</option>
+      <option value="infra">Infrastructure / DevOps</option>
+      <option value="other">Other</option>
+    </select>
+    <textarea class="form-control" id="c-message" placeholder="Describe the project or idea…" required style="margin-bottom:12px;"></textarea>
+    <button type="submit" class="btn btn-primary" id="c-btn">
+      <i class="fa-solid fa-paper-plane"></i> Send
+    </button>
+  </form>
+  <div class="contact-success" id="c-success">
+    <i class="fa-solid fa-circle-check" style="font-size:22px;display:block;margin-bottom:8px;"></i>
+    Received. I'll be in touch.
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function submitContact(e) {
+  e.preventDefault();
+  const btn = document.getElementById('c-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await fetch('{% url "modules:contact" %}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+      body: JSON.stringify({
+        name:     document.getElementById('c-name').value,
+        email:    document.getElementById('c-email').value,
+        interest: document.getElementById('c-interest').value,
+        message:  document.getElementById('c-message').value,
+      }),
+    });
+    if (r.ok) {
+      document.getElementById('contact-form').style.display = 'none';
+      document.getElementById('c-success').style.display = 'block';
+    } else {
+      btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send';
+    }
+  } catch { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send'; }
+}
+</script>
 {% endblock %}
