@@ -5,9 +5,10 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect
 from hihilabs import views as core_views
+from apps.modules import views as modules_views
 
 urlpatterns = [
-    path('', lambda r: redirect('/dashboard/', permanent=False)),
+    path('', lambda r: redirect('/dashboard/', permanent=False) if r.user.is_authenticated else redirect('/works/', permanent=False)),
     path('dashboard/', core_views.dashboard, name='dashboard'),
     path('search/', core_views.power_search, name='power_search'),
     path('admin/', admin.site.urls),
@@ -31,6 +32,8 @@ urlpatterns = [
     path('files/', include('apps.files.urls', namespace='files')),
     path('wiki/', include('apps.wiki.urls', namespace='wiki')),
     path('whiteboards/', include('apps.whiteboards.urls', namespace='whiteboards')),
+    # Public portfolio
+    path('works/',    modules_views.works_public, name='works'),
     # PWA
     path('sw.js',           core_views.service_worker,   name='service_worker'),
     path('offline/',        core_views.offline,          name='offline'),
