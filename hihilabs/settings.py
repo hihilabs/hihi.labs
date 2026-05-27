@@ -71,6 +71,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'hihilabs.context_processors.site_globals',
+                'hihilabs.context_processors.css_version',
                 'apps.subscriptions.context_processors.subscription_context',
             ],
         },
@@ -160,3 +161,11 @@ STRIPE_SECRET_KEY      = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET  = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 PHANTOM_WALLET_ADDRESS = os.getenv("PHANTOM_WALLET_ADDRESS", "")
 HELIUM_WALLET_ADDRESS  = os.getenv("HELIUM_WALLET_ADDRESS", "")
+
+# CSS cache-busting: auto-updates from git hash on each deploy
+import subprocess as _sp
+try:
+    CSS_VER = _sp.check_output(['git', 'rev-parse', '--short', 'HEAD'],
+                               cwd=BASE_DIR, stderr=_sp.DEVNULL).decode().strip()
+except Exception:
+    CSS_VER = '1'
