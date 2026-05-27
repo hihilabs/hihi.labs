@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}{% if client %}Edit{% else %}New{% endif %} Client{% endblock %}
+{% block content %}
+<div style="padding:24px;max-width:560px;">
+  <div style="margin-bottom:20px;">
+    <a href="{% url 'clients:index' %}" style="color:var(--text-muted);font-size:13px;text-decoration:none;">← Clients</a>
+  </div>
+  <h1 style="font-size:20px;font-weight:var(--weight-bold);margin-bottom:24px;">{% if client %}Edit Client{% else %}New Client{% endif %}</h1>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);display:block;margin-bottom:6px;">{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}<div style="color:var(--red);font-size:12px;margin-top:4px;">{{ field.errors.0 }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a href="{% url 'clients:index' %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

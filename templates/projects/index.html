@@ -14,10 +14,22 @@
 
 <div class="page-header">
   <div class="page-title">Projects</div>
-  <button class="btn btn-primary" onclick="showNewProject()"><i class="fa-solid fa-plus"></i> New</button>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div style="position:relative;">
+      <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none;"></i>
+      <input id="proj-search" type="text" placeholder="Filter…"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);
+               color:var(--text);font-family:var(--font-mono);font-size:12px;
+               padding:6px 10px 6px 28px;outline:none;width:180px;transition:border-color var(--dur-base);"
+        oninput="filterProjects(this.value)"
+        onfocus="this.style.borderColor='var(--border-focus)'"
+        onblur="this.style.borderColor='var(--border)'">
+    </div>
+    <button class="btn btn-primary" onclick="showNewProject()"><i class="fa-solid fa-plus"></i> New</button>
+  </div>
 </div>
 
-<div style="padding: 16px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+<div id="proj-grid" style="padding: 16px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
   {% for p in projects %}
   <a href="{% url 'projects:detail' p.pk %}" class="project-card" style="--project-color: {{ p.color }}">
     <div class="project-card-accent"></div>
@@ -32,7 +44,7 @@
         <span class="status-dot status-{{ p.status }}">{{ p.get_status_display }}</span>
       </div>
       <div class="project-tasks-count">
-        {{ p.tasks.count }} tasks · {{ p.tasks.filter.count }}
+        {{ p.open_tasks_count }} open · {{ p.tasks.count }} total
       </div>
     </div>
   </a>
@@ -103,6 +115,33 @@ async function stopTimer() {
   });
   if (res.ok) location.reload();
 }
+
+function filterProjects(q) {
+  const s = q.toLowerCase().trim();
+  let visible = 0;
+  document.querySelectorAll('#proj-grid .project-card').forEach(card => {
+    const show = !s || card.textContent.toLowerCase().includes(s);
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  let empty = document.getElementById('proj-filter-empty');
+  if (!empty) {
+    empty = document.createElement('div');
+    empty.id = 'proj-filter-empty';
+    empty.className = 'empty-state';
+    empty.style.cssText = 'grid-column:1/-1;display:none;';
+    empty.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i><p>No projects match</p>';
+    document.getElementById('proj-grid').appendChild(empty);
+  }
+  empty.style.display = (s && visible === 0) ? 'flex' : 'none';
+}
+// / focuses search
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) {
+    e.preventDefault();
+    document.getElementById('proj-search')?.focus();
+  }
+});
 
 // New project modal
 function showNewProject() {

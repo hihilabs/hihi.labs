@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}{{ contract.title }} · Contracts{% endblock %}
+{% block content %}
+<div style="padding:24px;max-width:860px;">
+  <div style="margin-bottom:16px;">
+    <a href="{% url 'contracts:index' %}" style="color:var(--text-muted);font-size:13px;text-decoration:none;">← Contracts</a>
+  </div>
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap;">
+    <div>
+      <h1 style="font-size:22px;font-weight:var(--weight-bold);">{{ contract.title }}</h1>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">
+        <a href="{% url 'clients:detail' contract.client.pk %}" style="color:var(--text-muted);text-decoration:none;">{{ contract.client.name }}</a>
+        · #{{ contract.number }}
+        · <span class="status-badge status-{{ contract.status }}">{{ contract.get_status_display }}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <select id="status-select" class="input" style="font-size:12px;" onchange="updateStatus(this.value)">
+        <option value="draft" {% if contract.status == 'draft' %}selected{% endif %}>Draft</option>
+        <option value="sent" {% if contract.status == 'sent' %}selected{% endif %}>Sent</option>
+        <option value="signed" {% if contract.status == 'signed' %}selected{% endif %}>Signed</option>
+        <option value="active" {% if contract.status == 'active' %}selected{% endif %}>Active</option>
+        <option value="expired" {% if contract.status == 'expired' %}selected{% endif %}>Expired</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteContract()"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:20px;align-items:start;">
+    <div>
+      <div style="margin-bottom:8px;display:flex;justify-content:flex-end;">
+        <button id="save-body-btn" class="btn btn-primary btn-sm" onclick="saveBody()" style="display:none;">Save</button>
+      </div>
+      <textarea id="contract-body" rows="20"
+        style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);
+               color:var(--text);font-family:var(--font-mono);font-size:13px;line-height:1.7;
+               padding:16px;resize:vertical;outline:none;box-sizing:border-box;"
+        onchange="document.getElementById('save-body-btn').style.display=''">{{ contract.body }}</textarea>
+    </div>
+    <div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Details</div>
+        {% if contract.value %}<div style="font-size:13px;margin-bottom:8px;">Value: <strong>${{ contract.value|floatformat:2 }}</strong></div>{% endif %}
+        {% if contract.start_date %}<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Start: {{ contract.start_date|date:"M j, Y" }}</div>{% endif %}
+        {% if contract.end_date %}<div style="font-size:12px;color:var(--text-muted);">End: {{ contract.end_date|date:"M j, Y" }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+const CONTRACT_ID = {{ contract.pk }};
+async function saveBody() {
+  const body = document.getElementById('contract-body').value;
+  const btn = document.getElementById('save-body-btn');
+  btn.disabled=true; btn.textContent='Saving…';
+  try {
+    await fetch(`/contracts/${CONTRACT_ID}/update/`, {
+      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({body})
+    });
+    btn.style.display='none';
+  } finally { btn.disabled=false; btn.textContent='Save'; }
+}
+async function updateStatus(val) {
+  await fetch(`/contracts/${CONTRACT_ID}/update/`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({status: val})
+  });
+}
+async function deleteContract() {
+  if (!confirm('Delete this contract?')) return;
+  await fetch(`/contracts/${CONTRACT_ID}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  window.location = '/contracts/';
+}
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key==='s') {
+    e.preventDefault(); saveBody();
+  }
+});
+</script>
+{% endblock %}

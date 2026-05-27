@@ -26,6 +26,9 @@
     <span class="logo-tag">labs</span>
   </div>
   <ul class="sidenav-links">
+    <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+      <i class="fa-solid fa-gauge-high"></i> Dashboard
+    </a></li>
     <li><a href="{% url 'ai:index' %}" class="{% if request.resolver_match.app_name == 'ai' and 'chat' in request.resolver_match.url_name %}active{% endif %}">
       <i class="fa-solid fa-comments"></i> Chat
     </a></li>
@@ -42,7 +45,16 @@
     <li><a href="{% url 'projects:index' %}">
       <i class="fa-solid fa-list-check"></i> Projects
     </a></li>
-    <li><a href="{% url 'billing:index' %}">
+    <li><a href="{% url 'clients:index' %}" class="{% if 'clients' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-address-book"></i> Clients
+    </a></li>
+    <li><a href="{% url 'proposals:index' %}" class="{% if 'proposals' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-file-pen"></i> Proposals
+    </a></li>
+    <li><a href="{% url 'contracts:index' %}" class="{% if 'contracts' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-file-contract"></i> Contracts
+    </a></li>
+    <li><a href="{% url 'billing:index' %}" class="{% if 'billing' in request.path %}active{% endif %}">
       <i class="fa-solid fa-file-invoice-dollar"></i> Billing
     </a></li>
     <li><a href="{% url 'messaging:inbox' %}" class="{% if 'messaging' in request.path %}active{% endif %}" style="position:relative;">
@@ -83,7 +95,6 @@
               title="Install app">⬇</button>
       <a href="{% url 'logout' %}" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i></a>
     </div>
-    <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:6px;opacity:0.5;letter-spacing:0.05em;">✦ hihi.labs · ai-powered</div>
     {% endif %}
   </div>
 </nav>
@@ -113,6 +124,23 @@
 </main>
 
 {% block extra_js %}{% endblock %}
+
+<!-- Power Search Overlay (Alt+K) -->
+<div id="psr-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;align-items:flex-start;justify-content:center;padding-top:80px;"
+     onclick="if(event.target===this)closePSR()">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);width:100%;max-width:560px;margin:0 16px;box-shadow:var(--shadow-md);overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);">
+      <i class="fa-solid fa-magnifying-glass" style="color:var(--text-muted);font-size:14px;"></i>
+      <input id="psr-input" type="text" placeholder="Search projects, tasks, clients, tracks…"
+        style="flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--font-mono);font-size:14px;"
+        oninput="runPSR(this.value)">
+      <kbd style="font-size:10px;color:var(--text-muted);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-xs);padding:2px 5px;">ESC</kbd>
+    </div>
+    <div id="psr-results" style="max-height:400px;overflow-y:auto;padding:6px 0;">
+      <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">Type to search…</div>
+    </div>
+  </div>
+</div>
 
 <script>
 // Service Worker
@@ -225,6 +253,60 @@ async function togglePush(btn) {
     }
   }
 }
+// ── Power Search (Alt+K) ────────────────────────────────────────────────────
+function openPSR() {
+  document.getElementById('psr-overlay').style.display = 'flex';
+  const inp = document.getElementById('psr-input');
+  inp.value = '';
+  document.getElementById('psr-results').innerHTML =
+    '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">Type to search…</div>';
+  inp.focus();
+}
+function closePSR() {
+  document.getElementById('psr-overlay').style.display = 'none';
+}
+let _psrTimer = null;
+function runPSR(q) {
+  clearTimeout(_psrTimer);
+  const el = document.getElementById('psr-results');
+  if (q.length < 2) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">Type to search…</div>';
+    return;
+  }
+  _psrTimer = setTimeout(async () => {
+    const r = await fetch('/search/?q=' + encodeURIComponent(q)).then(r => r.json());
+    if (!r.results.length) {
+      el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">No results for “' + q + '”</div>';
+      return;
+    }
+    const icons = {project:'fa-list-check',task:'fa-circle-check',client:'fa-address-book',proposal:'fa-file-pen',track:'fa-waveform-lines'};
+    const clrs  = {project:'var(--accent)',task:'var(--green)',client:'var(--teal)',proposal:'var(--yellow)',track:'var(--teal)'};
+    el.innerHTML = r.results.map(item => {
+      const icon = item.color
+        ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${item.color};flex-shrink:0;"></span>`
+        : `<i class="fa-solid ${icons[item.type]||'fa-circle'}" style="color:${clrs[item.type]||'var(--text-muted)'};font-size:13px;flex-shrink:0;width:16px;text-align:center;"></i>`;
+      return `<a href="${item.url}" onclick="closePSR()" style="display:flex;align-items:center;gap:12px;padding:10px 16px;text-decoration:none;"
+               onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        ${icon}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.label}</div>
+          ${item.sub ? `<div style="font-size:11px;color:var(--text-muted);">${item.sub}</div>` : ''}
+        </div>
+        <span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">${item.type}</span>
+      </a>`;
+    }).join('');
+  }, 180);
+}
+document.addEventListener('keydown', e => {
+  if (e.altKey && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    document.getElementById('psr-overlay').style.display === 'flex' ? closePSR() : openPSR();
+  }
+  if (e.key === 'Escape' && document.getElementById('psr-overlay').style.display === 'flex') {
+    closePSR();
+  }
+});
+
 </script>
 </body>
 </html>

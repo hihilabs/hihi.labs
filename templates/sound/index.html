@@ -75,10 +75,10 @@
         </div>
         {% endif %}
         {% if track.project %}
-        <div style="font-size:11px;margin-top:6px;">
-          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:{{ track.project.color }};margin-right:4px;"></span>
+        <a href="{% url 'projects:detail' track.project.pk %}" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-top:6px;color:var(--text-muted);text-decoration:none;">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:{{ track.project.color }};flex-shrink:0;"></span>
           {{ track.project.name }}
-        </div>
+        </a>
         {% endif %}
       </div>
       <div class="track-actions" onclick="event.preventDefault()">

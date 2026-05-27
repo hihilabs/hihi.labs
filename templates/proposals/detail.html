@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% block title %}{{ proposal.title }} · Proposals{% endblock %}
+{% block content %}
+<div style="padding:24px;max-width:860px;">
+  <div style="margin-bottom:16px;">
+    <a href="{% url 'proposals:index' %}" style="color:var(--text-muted);font-size:13px;text-decoration:none;">← Proposals</a>
+  </div>
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
+    <div>
+      <h1 style="font-size:22px;font-weight:var(--weight-bold);">{{ proposal.title }}</h1>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">
+        <a href="{% url 'clients:detail' proposal.client.pk %}" style="color:var(--text-muted);text-decoration:none;">{{ proposal.client.name }}</a>
+        {% if proposal.project %} · <a href="{% url 'projects:detail' proposal.project.pk %}" style="color:var(--text-muted);text-decoration:none;">{{ proposal.project.name }}</a>{% endif %}
+        · <span class="status-badge status-{{ proposal.status }}">{{ proposal.get_status_display }}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <select id="status-select" class="input" style="font-size:12px;" onchange="updateStatus(this.value)">
+        <option value="draft" {% if proposal.status == 'draft' %}selected{% endif %}>Draft</option>
+        <option value="sent" {% if proposal.status == 'sent' %}selected{% endif %}>Sent</option>
+        <option value="accepted" {% if proposal.status == 'accepted' %}selected{% endif %}>Accepted</option>
+        <option value="declined" {% if proposal.status == 'declined' %}selected{% endif %}>Declined</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="deleteProposal()" style="color:var(--red);"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  </div>
+
+  <!-- Line items -->
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px;">
+    <table style="width:100%;border-collapse:collapse;" id="lines-table">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border);">
+          <th style="padding:10px 16px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);text-align:left;">Description</th>
+          <th style="padding:10px 16px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);text-align:right;width:70px;">Qty</th>
+          <th style="padding:10px 16px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);text-align:right;width:100px;">Rate</th>
+          <th style="padding:10px 16px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);text-align:right;width:100px;">Subtotal</th>
+          <th style="width:36px;"></th>
+        </tr>
+      </thead>
+      <tbody id="lines-body">
+        {% for line in proposal.lines.all %}
+        <tr data-id="{{ line.pk }}" style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px 12px;"><input type="text" class="input line-desc" value="{{ line.description }}" style="width:100%;box-sizing:border-box;" onchange="markDirty()"></td>
+          <td style="padding:8px 12px;"><input type="number" class="input line-qty" value="{{ line.quantity }}" min="0" step="0.01" style="width:60px;text-align:right;box-sizing:border-box;" onchange="recalc();markDirty()"></td>
+          <td style="padding:8px 12px;"><input type="number" class="input line-price" value="{{ line.rate }}" min="0" step="0.01" style="width:90px;text-align:right;box-sizing:border-box;" onchange="recalc();markDirty()"></td>
+          <td style="padding:8px 12px;font-size:13px;color:var(--text);text-align:right;" class="line-sub">${{{ line.amount|floatformat:2 }}}</td>
+          <td style="padding:8px 6px;"><button onclick="removeLine(this)" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;"><i class="fa-solid fa-xmark"></i></button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div style="padding:10px 16px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost btn-sm" onclick="addLine()"><i class="fa-solid fa-plus"></i> Add Line</button>
+      <button id="save-lines-btn" class="btn btn-primary btn-sm" onclick="saveLines()" style="display:none;">Save</button>
+    </div>
+  </div>
+
+  <!-- Totals -->
+  <div style="display:flex;justify-content:flex-end;">
+    <div style="min-width:220px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+        <span style="color:var(--text-muted);">Subtotal</span>
+        <span id="tot-sub">${{ proposal.subtotal|floatformat:2 }}</span>
+      </div>
+      {% if proposal.tax_rate %}
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+        <span style="color:var(--text-muted);">Tax ({{ proposal.tax_rate }}%)</span>
+        <span id="tot-tax">${{ proposal.tax_amount|floatformat:2 }}</span>
+      </div>
+      {% endif %}
+      <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:var(--weight-bold);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+        <span>Total</span>
+        <span id="tot-total">${{ proposal.total|floatformat:2 }}</span>
+      </div>
+    </div>
+  </div>
+
+  {% if proposal.notes %}
+  <div style="margin-top:20px;font-size:13px;color:var(--text-muted);line-height:1.6;">{{ proposal.notes }}</div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+const PROP_ID = {{ proposal.pk }};
+const TAX_RATE = {{ proposal.tax_rate|default:0 }};
+let dirty = false;
+
+function markDirty() { dirty=true; document.getElementById('save-lines-btn').style.display=''; }
+function addLine() {
+  const tbody = document.getElementById('lines-body');
+  const tr = document.createElement('tr');
+  tr.style.borderBottom = '1px solid var(--border)';
+  tr.innerHTML = `<td style="padding:8px 12px;"><input type="text" class="input line-desc" style="width:100%;box-sizing:border-box;" placeholder="Description" onchange="recalc();markDirty()"></td>
+    <td style="padding:8px 12px;"><input type="number" class="input line-qty" value="1" min="0" step="0.01" style="width:60px;text-align:right;box-sizing:border-box;" onchange="recalc();markDirty()"></td>
+    <td style="padding:8px 12px;"><input type="number" class="input line-price" value="0" min="0" step="0.01" style="width:90px;text-align:right;box-sizing:border-box;" onchange="recalc();markDirty()"></td>
+    <td style="padding:8px 12px;font-size:13px;text-align:right;" class="line-sub">$0.00</td>
+    <td style="padding:8px 6px;"><button onclick="removeLine(this)" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;"><i class="fa-solid fa-xmark"></i></button></td>`;
+  tbody.appendChild(tr); markDirty();
+  tr.querySelector('.line-desc').focus();
+}
+function removeLine(btn) { btn.closest('tr').remove(); recalc(); markDirty(); }
+function recalc() {
+  let sub = 0;
+  document.querySelectorAll('#lines-body tr').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('.line-qty')?.value || 0);
+    const price = parseFloat(tr.querySelector('.line-price')?.value || 0);
+    const s = qty * price;
+    sub += s;
+    const subCell = tr.querySelector('.line-sub');
+    if (subCell) subCell.textContent = '$' + s.toFixed(2);
+  });
+  document.getElementById('tot-sub').textContent = '$' + sub.toFixed(2);
+  const tax = sub * TAX_RATE / 100;
+  const totTax = document.getElementById('tot-tax');
+  if (totTax) totTax.textContent = '$' + tax.toFixed(2);
+  document.getElementById('tot-total').textContent = '$' + (sub + tax).toFixed(2);
+}
+async function saveLines() {
+  const lines = [];
+  document.querySelectorAll('#lines-body tr').forEach(tr => {
+    lines.push({
+      description: tr.querySelector('.line-desc')?.value || '',
+      quantity: parseFloat(tr.querySelector('.line-qty')?.value || 1),
+      rate: parseFloat(tr.querySelector('.line-price')?.value || 0),
+    });
+  });
+  const btn = document.getElementById('save-lines-btn');
+  btn.disabled=true; btn.textContent='Saving…';
+  try {
+    await fetch(`/proposals/${PROP_ID}/lines/`, {
+      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({lines})
+    });
+    dirty = false; btn.style.display='none';
+  } finally { btn.disabled=false; btn.textContent='Save'; }
+}
+async function updateStatus(val) {
+  await fetch(`/proposals/${PROP_ID}/update/`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({status: val})
+  });
+}
+async function deleteProposal() {
+  if (!confirm('Delete this proposal?')) return;
+  await fetch(`/proposals/${PROP_ID}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  window.location = '/proposals/';
+}
+</script>
+{% endblock %}

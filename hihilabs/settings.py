@@ -36,6 +36,10 @@ INSTALLED_APPS = [
     'apps.modules',
     'apps.workers',
     'apps.ops',
+    'apps.clients',
+    'apps.proposals',
+    'apps.contracts',
+    'apps.services',
 ]
 
 MIDDLEWARE = [

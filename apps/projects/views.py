@@ -26,11 +26,14 @@ def project_detail(request, pk):
     tasks = project.tasks.all()
     entries = project.time_entries.filter(ended_at__isnull=False)[:20]
     running = TimeEntry.objects.filter(owner=request.user, ended_at__isnull=True).first()
+    from apps.sound.models import Track
+    tracks = Track.objects.filter(project=project).order_by('-created_at')
     return render(request, 'projects/detail.html', {
         'project': project,
         'tasks': tasks,
         'entries': entries,
         'running': running,
+        'tracks': tracks,
     })
 
 

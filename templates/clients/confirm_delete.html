@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Delete Client{% endblock %}
+{% block content %}
+<div style="padding:24px;max-width:480px;">
+  <h1 style="font-size:20px;font-weight:var(--weight-bold);margin-bottom:12px;">Delete {{ client.name }}?</h1>
+  <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">This cannot be undone. Associated contacts will also be deleted.</p>
+  <form method="post">
+    {% csrf_token %}
+    <div style="display:flex;gap:8px;">
+      <button type="submit" class="btn btn-primary" style="background:var(--red);border-color:var(--red);">Delete</button>
+      <a href="{% url 'clients:detail' client.pk %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

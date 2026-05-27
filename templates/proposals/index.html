@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Proposals · HiHi Labs{% endblock %}
+{% block content %}
+<div style="padding:24px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <h1 style="font-size:20px;font-weight:var(--weight-bold);">Proposals</h1>
+    <button class="btn btn-primary btn-sm" onclick="openNewProposal()">
+      <i class="fa-solid fa-plus"></i> New Proposal
+    </button>
+  </div>
+
+  {% if proposals %}
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;">
+    {% for p in proposals %}
+    <a href="{% url 'proposals:detail' p.pk %}" style="text-decoration:none;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:14px;font-weight:var(--weight-mid);color:var(--text);">{{ p.title }}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+          {{ p.client.name }}{% if p.project %} · {{ p.project.name }}{% endif %} · {{ p.created_at|date:"M j, Y" }}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="font-size:14px;font-weight:var(--weight-bold);color:var(--text);">${{ p.total|floatformat:2 }}</div>
+        <span class="status-badge status-{{ p.status }}">{{ p.get_status_display }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
+    <i class="fa-solid fa-file-pen" style="font-size:32px;opacity:.3;margin-bottom:12px;display:block;"></i>
+    No proposals yet. <button class="btn btn-ghost" onclick="openNewProposal()">Create your first proposal</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- New Proposal Modal -->
+<div id="prop-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:480px;margin:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <h2 style="font-size:16px;font-weight:var(--weight-bold);">New Proposal</h2>
+      <button onclick="closePropModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;">×</button>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Title *</label>
+      <input id="np-title" type="text" class="input" placeholder="Proposal title" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Client *</label>
+      <select id="np-client" class="input" style="width:100%;box-sizing:border-box;">
+        <option value="">— select client —</option>
+        {% for c in all_clients %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closePropModal()">Cancel</button>
+      <button id="np-save" class="btn btn-primary" onclick="saveNewProposal()">Create</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+function openNewProposal() { document.getElementById('prop-modal').style.display='flex'; document.getElementById('np-title').focus(); }
+function closePropModal() { document.getElementById('prop-modal').style.display='none'; }
+async function saveNewProposal() {
+  const title = document.getElementById('np-title').value.trim();
+  const client_id = document.getElementById('np-client').value;
+  if (!title || !client_id) return;
+  const btn = document.getElementById('np-save');
+  btn.disabled=true; btn.textContent='Saving…';
+  try {
+    const r = await fetch('/proposals/new/', {
+      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify({title, client_id: parseInt(client_id)})
+    });
+    const d = await r.json();
+    if (d.redirect) window.location = d.redirect;
+  } finally { btn.disabled=false; btn.textContent='Create'; }
+}
+document.addEventListener('keydown', e => { if (e.key==='Escape') closePropModal(); });
+</script>
+{% endblock %}

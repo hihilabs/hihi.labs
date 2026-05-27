@@ -28,6 +28,9 @@ class Project(models.Model):
     def __str__(self):
         return f'{self.name} ({self.client})' if self.client else self.name
 
+    def open_tasks_count(self):
+        return self.tasks.exclude(status='done').count()
+
     def total_hours(self):
         secs = sum(e.duration_seconds() for e in self.time_entries.filter(ended_at__isnull=False))
         return round(secs / 3600, 2)

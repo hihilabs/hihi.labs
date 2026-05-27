@@ -28,18 +28,18 @@
   </div>
 </div>
 
-<div style="padding: 12px 24px; display: flex; gap: 16px; flex-wrap: wrap;">
+<div class="detail-stat-chips">
   <div class="stat-chip"><i class="fa-solid fa-clock"></i> {{ project.total_hours }}h logged</div>
   <div class="stat-chip unbilled"><i class="fa-solid fa-file-invoice-dollar"></i> {{ project.unbilled_hours }}h unbilled @ ${{ project.hourly_rate }}/hr</div>
   <div class="stat-chip"><i class="fa-solid fa-list-check"></i> {{ tasks.count }} tasks</div>
 </div>
 
-<div style="padding: 0 24px 24px; display: grid; grid-template-columns: 1fr 300px; gap: 20px;">
+<div class="detail-grid">
 
   {# Task board #}
   <div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Tasks</div>
+    <div class="tasks-section-header">
+      <div class="tasks-label">Tasks</div>
       <button class="btn btn-ghost btn-sm" onclick="showAddTask()"><i class="fa-solid fa-plus"></i> Add</button>
     </div>
 
@@ -99,12 +99,29 @@
       </a>
     </div>
     {% endif %}
-    {% if project.description %}
     <div class="sidebar-section">
-      <div class="sidebar-section-title">About</div>
-      <p style="font-size:12px;color:var(--text-muted);margin:0;line-height:1.6;">{{ project.description }}</p>
+      <div class="sidebar-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>About</span>
+        <button id="about-edit-btn" class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" onclick="startAboutEdit()"><i class="fa-solid fa-pen"></i></button>
+      </div>
+      <div id="about-view" onclick="startAboutEdit()" style="cursor:pointer;">
+        {% if project.description %}
+        <p id="about-text" style="font-size:12px;color:var(--text-muted);margin:0;line-height:1.6;">{{ project.description }}</p>
+        {% else %}
+        <p id="about-text" style="font-size:12px;color:var(--text-muted);margin:0;font-style:italic;opacity:.5;">Click to add a description…</p>
+        {% endif %}
+      </div>
+      <div id="about-edit" style="display:none;">
+        <textarea id="about-textarea" rows="5"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border-focus);border-radius:var(--r-sm);
+                 color:var(--text);font-family:inherit;font-size:12px;line-height:1.6;
+                 padding:8px 10px;resize:vertical;outline:none;box-sizing:border-box;">{{ project.description }}</textarea>
+        <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end;">
+          <button class="btn btn-ghost btn-sm" onclick="cancelAboutEdit()">Cancel</button>
+          <button class="btn btn-primary btn-sm" onclick="saveAbout()">Save</button>
+        </div>
+      </div>
     </div>
-    {% endif %}
 
     <div class="sidebar-section">
       <div class="sidebar-section-title">Quick Timer</div>
@@ -128,7 +145,37 @@
     </div>
   </div>
 
+
+{# Sound Tracks #}
+{% if tracks %}
+<div style="margin:0 24px 24px;">
+  <div class="proj-section">
+    <div class="proj-files-header">
+      <span class="proj-module-hdr-title">
+        <i class="fa-solid fa-headphones" style="color:var(--teal);"></i>
+        Sound Tracks
+        <span style="opacity:.5;font-size:10px;">({{ tracks.count }})</span>
+      </span>
+      <a href="{% url 'sound:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Library</a>
+    </div>
+    {% for track in tracks %}
+    <a href="{% url 'sound:track_detail' track.pk %}" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);">
+      <i class="fa-solid fa-waveform-lines" style="color:var(--teal);opacity:.7;font-size:13px;flex-shrink:0;"></i>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ track.title }}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">
+          {% if track.duration_s %}{{ track.duration_display }}{% endif %}
+          {% if track.bpm %} &middot; {{ track.bpm }} BPM{% endif %}
+          {% if track.key %} &middot; {{ track.key }}{% endif %}
+        </div>
+      </div>
+      {% for tag in track.tag_list %}<span class="pill" style="background:var(--bg3);border:1px solid var(--border);margin-left:4px;">{{ tag }}</span>{% endfor %}
+    </a>
+    {% endfor %}
+  </div>
 </div>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
@@ -235,6 +282,45 @@ async function suggestNext(id, btn) {
 function openTask(id) {
   // TODO: slide-out task panel
 }
+
+function startAboutEdit() {
+  document.getElementById('about-view').style.display = 'none';
+  document.getElementById('about-edit').style.display = '';
+  document.getElementById('about-edit-btn').style.display = 'none';
+  const ta = document.getElementById('about-textarea');
+  ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length;
+}
+function cancelAboutEdit() {
+  document.getElementById('about-view').style.display = '';
+  document.getElementById('about-edit').style.display = 'none';
+  document.getElementById('about-edit-btn').style.display = '';
+}
+async function saveAbout() {
+  const val = document.getElementById('about-textarea').value.trim();
+  const btn = document.querySelector('#about-edit .btn-primary');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const r = await fetch(`/projects/${PROJECT_ID}/update/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({description: val}),
+    });
+    if (r.ok) {
+      const p = document.getElementById('about-text');
+      if (val) { p.textContent = val; p.style.fontStyle = ''; p.style.opacity = ''; }
+      else { p.textContent = 'Click to add a description…'; p.style.fontStyle = 'italic'; p.style.opacity = '0.5'; }
+      document.getElementById('about-textarea').value = val;
+      cancelAboutEdit();
+    }
+  } finally { btn.disabled = false; btn.textContent = 'Save'; }
+}
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if (document.getElementById('about-edit')?.style.display !== 'none') {
+      e.preventDefault(); saveAbout();
+    }
+  }
+});
 
 // ` hotkey: start/stop timer
 document.addEventListener('keydown', e => {

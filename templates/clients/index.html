@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Clients · HiHi Labs{% endblock %}
+{% block content %}
+<div style="padding:24px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <h1 style="font-size:20px;font-weight:var(--weight-bold);">Clients</h1>
+    <button class="btn btn-primary btn-sm" onclick="openNewClient()">
+      <i class="fa-solid fa-plus"></i> New Client
+    </button>
+  </div>
+
+  {% if clients %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+    {% for client in clients %}
+    <a href="{% url 'clients:detail' client.pk %}" style="text-decoration:none;">
+      <div class="proj-card" style="padding:16px;">
+        <div style="font-size:15px;font-weight:var(--weight-bold);color:var(--text);margin-bottom:4px;">{{ client.name }}</div>
+        {% if client.company %}<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">{{ client.company }}</div>{% endif %}
+        <div style="font-size:11px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap;">
+          {% if client.email %}<span><i class="fa-solid fa-envelope" style="opacity:.5;"></i> {{ client.email }}</span>{% endif %}
+          {% if client.contacts.count %}<span><i class="fa-solid fa-users" style="opacity:.5;"></i> {{ client.contacts.count }}</span>{% endif %}
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
+    <i class="fa-solid fa-address-book" style="font-size:32px;opacity:.3;margin-bottom:12px;display:block;"></i>
+    No clients yet. <button class="btn btn-ghost" onclick="openNewClient()">Add your first client</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- New Client Modal -->
+<div id="client-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:480px;margin:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <h2 style="font-size:16px;font-weight:var(--weight-bold);">New Client</h2>
+      <button onclick="closeNewClient()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;">×</button>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Name *</label>
+      <input id="nc-name" type="text" class="input" placeholder="Client name" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Company</label>
+      <input id="nc-company" type="text" class="input" placeholder="Company name" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div>
+        <label class="label" style="display:block;margin-bottom:5px;">Email</label>
+        <input id="nc-email" type="email" class="input" placeholder="email@example.com" style="width:100%;box-sizing:border-box;">
+      </div>
+      <div>
+        <label class="label" style="display:block;margin-bottom:5px;">Phone</label>
+        <input id="nc-phone" type="text" class="input" placeholder="+1 555 000 0000" style="width:100%;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeNewClient()">Cancel</button>
+      <button id="nc-save" class="btn btn-primary" onclick="saveNewClient()">Create Client</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+function openNewClient() {
+  document.getElementById('client-modal').style.display = 'flex';
+  document.getElementById('nc-name').focus();
+}
+function closeNewClient() {
+  document.getElementById('client-modal').style.display = 'none';
+  ['nc-name','nc-company','nc-email','nc-phone'].forEach(id => document.getElementById(id).value = '');
+}
+async function saveNewClient() {
+  const name = document.getElementById('nc-name').value.trim();
+  if (!name) { document.getElementById('nc-name').focus(); return; }
+  const btn = document.getElementById('nc-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const r = await fetch('/clients/new/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({
+        name, company: document.getElementById('nc-company').value.trim(),
+        email: document.getElementById('nc-email').value.trim(),
+        phone: document.getElementById('nc-phone').value.trim(),
+      })
+    });
+    const d = await r.json();
+    if (d.redirect) window.location = d.redirect;
+  } finally { btn.disabled = false; btn.textContent = 'Create Client'; }
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeNewClient();
+});
+</script>
+{% endblock %}

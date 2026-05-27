@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Dashboard</div>
+  <div style="font-size:11px;color:var(--text-muted);">{{ request.user.get_full_name|default:request.user.username }}</div>
+</div>
+
+{% if running %}
+<div class="timer-bar" id="timer-bar" style="margin:0 24px 16px;border-radius:var(--r-lg);">
+  <div class="timer-bar-dot"></div>
+  <span id="timer-project">{{ running.project.name }}{% if running.task %} · {{ running.task.title }}{% endif %}</span>
+  <span id="timer-clock" class="timer-clock">--:--:--</span>
+  <button class="btn btn-danger btn-sm" onclick="stopTimer()"><i class="fa-solid fa-stop"></i> Stop</button>
+</div>
+{% endif %}
+
+{# KPI row #}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:0 24px 20px;">
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--brand);"><i class="fa-solid fa-folder-open"></i></div>
+    <div class="kpi-value">{{ active_project_count }}</div>
+    <div class="kpi-label">Active Projects</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--teal);"><i class="fa-solid fa-clock"></i></div>
+    <div class="kpi-value">{{ month_hours }}h</div>
+    <div class="kpi-label">Hours This Month</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--yellow);"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+    <div class="kpi-value">${{ unbilled_value|floatformat:0 }}</div>
+    <div class="kpi-label">Unbilled · {{ unbilled_hours }}h</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--green);"><i class="fa-solid fa-list-check"></i></div>
+    <div class="kpi-value">{{ open_tasks }}</div>
+    <div class="kpi-label">Open Tasks</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--orange);"><i class="fa-solid fa-file-pen"></i></div>
+    <div class="kpi-value">{{ draft_count }}</div>
+    <div class="kpi-label">Drafts{% if sent_count %} · {{ sent_count }} sent{% endif %}</div>
+  </div>
+</div>
+
+{# Main 2-col #}
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;padding:0 24px 24px;align-items:start;">
+
+  <div>
+    <div class="proj-files-section">
+      <div class="proj-files-header" style="justify-content:space-between;">
+        <span class="proj-module-hdr-title"><i class="fa-solid fa-folder-open" style="color:var(--brand);"></i> Active Projects</span>
+        <a href="{% url 'projects:index' %}" class="btn btn-ghost btn-sm" style="font-size:10px;"><i class="fa-solid fa-arrow-right"></i> All</a>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;">
+        {% for p in active_projects %}
+        <a href="{% url 'projects:detail' p.pk %}" class="dash-proj-card" style="--pc:{{ p.color }};">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+            <span style="width:7px;height:7px;border-radius:50%;background:var(--pc);flex-shrink:0;"></span>
+            <span class="dash-proj-name">{{ p.name }}</span>
+          </div>
+          {% if p.client %}<div class="dash-proj-client">{{ p.client }}</div>{% endif %}
+          <div class="dash-proj-stats">
+            <span>{{ p.total_hours }}h logged</span>
+            {% if p.unbilled_hours > 0 %}<span style="color:var(--yellow);">{{ p.unbilled_hours }}h unbilled</span>{% endif %}
+            <span>{{ p.open_tasks_count }} open tasks</span>
+          </div>
+        </a>
+        {% empty %}
+        <div style="padding:24px;color:var(--text-muted);font-size:13px;grid-column:1/-1;">
+          No active projects. <a href="{% url 'projects:index' %}">Create one.</a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Recent Activity</div>
+      {% for e in recent_entries %}
+      <div style="display:flex;justify-content:space-between;align-items:start;padding:6px 0;border-bottom:1px solid var(--border);gap:8px;">
+        <div style="min-width:0;flex:1;">
+          <div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.project.name }}</div>
+          {% if e.description %}<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ e.description }}</div>{% endif %}
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:12px;">{{ e.duration_display }}</div>
+          <div style="font-size:10px;color:var(--text-muted);">{{ e.started_at|date:"M j" }}</div>
+        </div>
+      </div>
+      {% empty %}
+      <div style="font-size:12px;color:var(--text-muted);padding:8px 0;">No recent entries.</div>
+      {% endfor %}
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Modules</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <a href="{% url 'ai:index' %}" class="dash-module-link"><i class="fa-solid fa-comments"></i> Chat</a>
+        <a href="{% url 'billing:index' %}" class="dash-module-link"><i class="fa-solid fa-file-invoice-dollar"></i> Billing</a>
+        <a href="{% url 'sound:index' %}" class="dash-module-link"><i class="fa-solid fa-waveform-lines"></i> Sound</a>
+        <a href="{% url 'servers:index' %}" class="dash-module-link"><i class="fa-solid fa-server"></i> Servers</a>
+        <a href="{% url 'messaging:inbox' %}" class="dash-module-link"><i class="fa-solid fa-inbox"></i> Messages</a>
+        <a href="{% url 'tax:index' %}" class="dash-module-link"><i class="fa-solid fa-receipt"></i> Expenses</a>
+        <a href="{% url 'workers:index' %}" class="dash-module-link"><i class="fa-solid fa-microchip"></i> Workers</a>
+        <a href="{% url 'modules:index' %}" class="dash-module-link"><i class="fa-solid fa-cubes"></i> Modules</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+{% if running %}
+const startedAt = new Date('{{ running.started_at.isoformat }}');
+const clock = document.getElementById('timer-clock');
+function updateClock() {
+  const s = Math.floor((Date.now() - startedAt) / 1000);
+  clock.textContent = [Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(n=>String(n).padStart(2,'0')).join(':');
+}
+setInterval(updateClock, 1000); updateClock();
+{% endif %}
+async function stopTimer() {
+  await fetch("{% url 'projects:timer_stop' %}", {method:'POST',headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},body:'{}'});
+  location.reload();
+}
+</script>
+{% endblock %}
