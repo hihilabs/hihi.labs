@@ -154,7 +154,7 @@
               onclick="pwaInstall()"
               style="display:none;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;transition:color 0.15s;"
               title="Install app">⬇</button>
-      <a href="{% url 'logout' %}" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i></a>
+      <form method="post" action="{% url 'logout' %}" style="display:inline;">{% csrf_token %}<button type="submit" class="logout-btn" title="Log out"><i class="fa-solid fa-right-from-bracket"></i></button></form>
     </div>
     {% endif %}
   </div>
@@ -224,7 +224,7 @@
     </div>
     <div class="mob-nav-divider"></div>
     <div class="mob-nav-group">
-      <a href="{% url 'logout' %}" class="mob-nav-link" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Log out</a>
+      <form method="post" action="{% url 'logout' %}" style="display:contents;">{% csrf_token %}<button type="submit" class="mob-nav-link" style="color:var(--red);background:none;border:none;cursor:pointer;width:100%;text-align:left;"><i class="fa-solid fa-right-from-bracket"></i> Log out</button></form>
     </div>
   </div>
 </div>
