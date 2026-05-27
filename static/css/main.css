@@ -119,8 +119,11 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body {
-  height: 100%;
+html {
+  background: var(--bg);
+}
+body {
+  min-height: 100vh;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-mono);
@@ -214,6 +217,7 @@ a:hover { opacity: 0.85; }
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
 }
 
 /* ── Page Header ── */
@@ -577,7 +581,8 @@ select.input { cursor: pointer; }
 }
 .proj-card:hover { border-color: var(--brand); }
 /* ── Section block (full-width stacked panels) ── */
-.proj-section {
+.proj-section,
+.proj-files-section {
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
