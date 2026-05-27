@@ -1,0 +1,14 @@
+<a class="kb-card" href="{% url 'clients:detail' c.pk %}"
+   draggable="true"
+   data-id="{{ c.pk }}"
+   data-status="{{ c.status }}"
+   style="--kc:{{ c.color }};"
+   onclick="event.stopPropagation()">
+  <div class="kb-card-name">{{ c.display_name }}</div>
+  {% if c.company and c.name != c.company %}<div class="kb-card-company">{{ c.name }}</div>{% endif %}
+  <div class="kb-card-meta">
+    {% if c.email %}<span><i class="fa-solid fa-envelope"></i> {{ c.email }}</span>{% endif %}
+    {% if c.contacts.count %}<span><i class="fa-solid fa-users"></i> {{ c.contacts.count }}</span>{% endif %}
+    {% if c.projects.count %}<span><i class="fa-solid fa-folder-open"></i> {{ c.projects.count }}</span>{% endif %}
+  </div>
+</a>

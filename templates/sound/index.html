@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-header">
-  <div class="page-title"><i class="fa-solid fa-waveform-lines" style="color:var(--teal);margin-right:8px;"></i>Sound</div>
+  <div class="page-title"><i class="fa-solid fa-music" style="color:var(--teal);margin-right:8px;"></i>Sound</div>
   <button class="btn btn-primary btn-sm" onclick="document.getElementById('upload-panel').style.display='block'">
     <i class="fa-solid fa-upload"></i> Upload
   </button>
@@ -58,40 +58,40 @@
   {% if tracks %}
   <div class="track-grid">
     {% for track in tracks %}
-    <a href="{% url 'sound:track_detail' track.pk %}" class="track-card">
-      <div class="track-wave-thumb">
-        <i class="fa-solid fa-waveform-lines"></i>
+    <div class="track-card" onclick="location.href='{% url 'sound:track_detail' track.pk %}'" style="cursor:pointer;">
+      <div class="track-card-header">
+        <div class="track-icon"><i class="fa-solid fa-music"></i></div>
+        <div style="min-width:0;flex:1;">
+          <div class="track-title">{{ track.title }}</div>
+          <div class="track-meta" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px;">
+            {% if track.duration_s %}<span>{{ track.duration_display }}</span>{% endif %}
+            {% if track.bpm %}<span>{{ track.bpm }} BPM</span>{% endif %}
+            {% if track.key %}<span>{{ track.key }}</span>{% endif %}
+          </div>
+        </div>
       </div>
-      <div class="track-info">
-        <div class="track-title">{{ track.title }}</div>
-        <div class="track-meta">
-          {% if track.duration_s %}<span>{{ track.duration_display }}</span>{% endif %}
-          {% if track.bpm %}<span>{{ track.bpm }} BPM</span>{% endif %}
-          {% if track.key %}<span>{{ track.key }}</span>{% endif %}
-        </div>
-        {% if track.tag_list %}
-        <div class="track-tags">
-          {% for tag in track.tag_list %}<span class="track-tag">{{ tag }}</span>{% endfor %}
-        </div>
-        {% endif %}
+      {% if track.tag_list %}
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        {% for tag in track.tag_list %}<span class="track-tag">{{ tag }}</span>{% endfor %}
+      </div>
+      {% endif %}
+      <div class="track-actions" onclick="event.stopPropagation()">
         {% if track.project %}
-        <a href="{% url 'projects:detail' track.project.pk %}" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-top:6px;color:var(--text-muted);text-decoration:none;">
+        <a href="{% url 'projects:detail' track.project.pk %}" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);text-decoration:none;flex:1;">
           <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:{{ track.project.color }};flex-shrink:0;"></span>
           {{ track.project.name }}
         </a>
-        {% endif %}
-      </div>
-      <div class="track-actions" onclick="event.preventDefault()">
+        {% else %}<span style="flex:1;"></span>{% endif %}
         <button class="btn-icon danger" onclick="deleteTrack({{ track.pk }}, event)">
           <i class="fa-solid fa-trash"></i>
         </button>
       </div>
-    </a>
+    </div>
     {% endfor %}
   </div>
   {% else %}
   <div class="empty-state" style="padding:80px 0;">
-    <i class="fa-solid fa-waveform-lines" style="color:var(--teal);"></i>
+    <i class="fa-solid fa-music" style="color:var(--teal);"></i>
     <p>No tracks yet.</p>
     <button class="btn btn-primary" onclick="document.getElementById('upload-panel').style.display='block'">
       Upload your first track

@@ -159,6 +159,19 @@ def dashboard(request):
         owner=request.user, ended_at__isnull=False
     ).select_related('project', 'task').order_by('-started_at')[:10]
 
+    from apps.servers.models import Server
+    from apps.messaging.models import Notification
+    from apps.clients.models import FollowUp
+    import datetime
+
+    servers = list(Server.objects.filter(owner=request.user)[:8])
+    alerts  = list(Notification.objects.filter(user=request.user, read=False).order_by('-created_at')[:6])
+    today   = now.date()
+    due_followups = list(
+        FollowUp.objects.filter(owner=request.user, done=False, due_date__lte=today)
+        .select_related('client').order_by('due_date')[:5]
+    )
+
     return render(request, 'dashboard.html', {
         'active_project_count': active_project_count,
         'active_projects': active_projects,
@@ -170,4 +183,8 @@ def dashboard(request):
         'draft_count': draft_count,
         'sent_count': sent_count,
         'recent_entries': recent_entries,
+        'servers': servers,
+        'alerts': alerts,
+        'due_followups': due_followups,
+        'today': today,
     })

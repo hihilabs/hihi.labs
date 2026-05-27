@@ -40,6 +40,9 @@ INSTALLED_APPS = [
     'apps.proposals',
     'apps.contracts',
     'apps.services',
+    'apps.files',
+    'apps.wiki',
+    'apps.whiteboards',
 ]
 
 MIDDLEWARE = [
@@ -127,6 +130,11 @@ SITE_NAME = os.environ.get('SITE_NAME', 'HiHi Labs')
 SITE_OWNER = os.environ.get('SITE_OWNER', 'Andrew')
 
 DISCORD_WEBHOOK_OPS = os.environ.get('DISCORD_WEBHOOK_OPS', '')
+
+# Google Drive
+GOOGLE_DRIVE_CLIENT_ID = os.environ.get('GOOGLE_DRIVE_CLIENT_ID', '')
+GOOGLE_DRIVE_CLIENT_SECRET = os.environ.get('GOOGLE_DRIVE_CLIENT_SECRET', '')
+GOOGLE_DRIVE_REDIRECT_URI = os.environ.get('PORTAL_BASE_URL', 'https://hihilabs.xyz') + '/files/oauth/callback/'
 
 LOGGING = {
     'version': 1,

@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Whiteboards — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title"><i class="fa-solid fa-chalkboard" style="color:var(--primary);margin-right:8px;"></i> Whiteboards</div>
+  <button class="btn btn-primary btn-sm" onclick="openNewModal()"><i class="fa-solid fa-plus"></i> New</button>
+</div>
+<div style="padding:0 24px 24px;">
+  {% if boards %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
+    {% for b in boards %}
+    <a href="{% url 'whiteboards:detail' b.pk %}" style="text-decoration:none;">
+      <div class="vb-card" style="height:140px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;">
+        <div style="position:absolute;inset:0;background:linear-gradient(135deg,var(--bg3) 0%,var(--bg2) 100%);display:flex;align-items:center;justify-content:center;opacity:.4;">
+          <i class="fa-solid fa-chalkboard" style="font-size:40px;color:var(--primary);"></i>
+        </div>
+        <div style="position:relative;padding:12px;">
+          <div style="font-size:14px;font-weight:var(--weight-bold);color:var(--text);">{{ b.title }}</div>
+          <div style="font-size:11px;color:var(--text-muted);">{{ b.updated_at|date:"M j, Y" }}{% if b.project %} · {{ b.project.name }}{% endif %}</div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="margin-top:60px;">
+    <i class="fa-solid fa-chalkboard"></i>
+    <p>No whiteboards yet.</p>
+    <button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="openNewModal()"><i class="fa-solid fa-plus"></i> Create one</button>
+  </div>
+  {% endif %}
+</div>
+
+<div id="new-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:380px;margin:16px;">
+    <h3 style="font-size:15px;font-weight:var(--weight-bold);margin-bottom:16px;">New Whiteboard</h3>
+    <input id="wb-title" class="form-control" placeholder="Title…" style="margin-bottom:12px;">
+    <select id="wb-project" class="form-control" style="margin-bottom:18px;">
+      <option value="">— No project —</option>
+      {% for p in projects %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}
+    </select>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeNewModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createBoard()">Create</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+function openNewModal() { document.getElementById('new-modal').style.display='flex'; document.getElementById('wb-title').focus(); }
+function closeNewModal() { document.getElementById('new-modal').style.display='none'; }
+async function createBoard() {
+  const title = document.getElementById('wb-title').value.trim();
+  if (!title) return;
+  const r = await fetch('/whiteboards/new/', {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({title, project_id: document.getElementById('wb-project').value || null}),
+  });
+  const d = await r.json();
+  if (d.ok) window.location = `/whiteboards/${d.id}/`;
+}
+document.getElementById('wb-title')?.addEventListener('keydown', e => { if(e.key==='Enter') createBoard(); if(e.key==='Escape') closeNewModal(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeNewModal(); });
+</script>
+{% endblock %}

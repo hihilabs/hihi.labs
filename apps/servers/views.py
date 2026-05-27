@@ -41,3 +41,18 @@ def server_add(request):
 def server_delete(request, pk):
     get_object_or_404(Server, pk=pk, owner=request.user).delete()
     return JsonResponse({'ok': True})
+
+
+@login_required
+def server_ping(request, pk):
+    import socket as _socket
+    server = get_object_or_404(Server, pk=pk, owner=request.user)
+    try:
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        s.settimeout(3)
+        result = s.connect_ex((server.host, server.port))
+        s.close()
+        up = result == 0
+    except Exception:
+        up = False
+    return JsonResponse({'up': up, 'host': server.host, 'name': server.name})

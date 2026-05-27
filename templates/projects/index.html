@@ -31,23 +31,34 @@
 
 <div id="proj-grid" style="padding: 16px 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
   {% for p in projects %}
+  {% with ts=p.task_stats %}
   <a href="{% url 'projects:detail' p.pk %}" class="project-card" style="--project-color: {{ p.color }}">
     <div class="project-card-accent"></div>
     <div class="project-card-body">
       <div class="project-name">{{ p.name }}</div>
-      {% if p.client %}<div class="project-client">{{ p.client }}</div>{% endif %}
+      {% if p.client_fk %}<div class="project-client">{{ p.client_fk.display_name }}</div>
+      {% elif p.client %}<div class="project-client">{{ p.client }}</div>{% endif %}
       <div class="project-stats">
-        <span><i class="fa-solid fa-clock"></i> {{ p.total_hours }}h total</span>
+        <span><i class="fa-solid fa-clock"></i> {{ p.total_hours }}h</span>
         {% if p.unbilled_hours > 0 %}
         <span class="unbilled"><i class="fa-solid fa-file-invoice-dollar"></i> {{ p.unbilled_hours }}h unbilled</span>
         {% endif %}
         <span class="status-dot status-{{ p.status }}">{{ p.get_status_display }}</span>
       </div>
-      <div class="project-tasks-count">
-        {{ p.open_tasks_count }} open · {{ p.tasks.count }} total
+      {% if ts.total > 0 %}
+      <div style="margin-top:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <span style="font-size:10px;color:var(--text-muted);">{{ ts.done }}/{{ ts.total }} tasks</span>
+          <span style="font-size:10px;color:var(--project-color,var(--accent));font-weight:600;">{{ ts.pct }}%</span>
+        </div>
+        <div style="height:3px;background:var(--bg3);border-radius:var(--r-full);overflow:hidden;">
+          <div style="height:100%;width:{{ ts.pct }}%;background:var(--project-color,var(--accent));border-radius:var(--r-full);transition:width .4s var(--ease);"></div>
+        </div>
       </div>
+      {% endif %}
     </div>
   </a>
+  {% endwith %}
   {% empty %}
   <div class="empty-state" style="grid-column:1/-1;">
     <i class="fa-solid fa-folder-open"></i>

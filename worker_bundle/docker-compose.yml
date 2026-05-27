@@ -1,0 +1,67 @@
+version: "3.8"
+
+x-worker-base: &worker-base
+  build:
+    context: ..
+    dockerfile: worker/Dockerfile
+  restart: unless-stopped
+  runtime: nvidia
+  env_file:
+    - .env
+  volumes:
+    - /mnt/user/data/camagent/jobs:/data/jobs
+    - /mnt/user/appdata/camagent/photos:/data/photos
+  networks:
+    - camagent
+
+services:
+  # GPU 0 — Quadro P2000 (5 GB VRAM)
+  camagent-worker-gpu0:
+    <<: *worker-base
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PHOTO_CACHE_DIR=/data/photos
+    container_name: camagent-worker-gpu0
+
+  # GPU 1 — Quadro P2200 (5 GB VRAM)
+  camagent-worker-gpu1:
+    <<: *worker-base
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=1
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PHOTO_CACHE_DIR=/data/photos
+    container_name: camagent-worker-gpu1
+
+  # Claude API labeler — CPU-only, no GPU needed.
+  # Drains the label_queue, writing structured HVAC labels back to labels.db.
+  # The whole camagent dir is mounted at the same host path so DB image_paths resolve.
+  camagent-labeler:
+    build:
+      context: ..
+      dockerfile: labeler/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - LABEL_DB=/mnt/user/appdata/camagent/labeler/labels.db
+    volumes:
+      - /mnt/user/appdata/camagent:/mnt/user/appdata/camagent              # data + DB path resolution
+      - /mnt/user/data/camagent/jobs:/mnt/user/appdata/camagent/jobs       # jobs live on array; shadow-mount keeps DB paths valid
+      - /mnt/user/appdata/camagent/labeler:/app/labeler                    # live code mount
+    container_name: camagent-labeler
+
+  # If OCR_SERVER_URL is set in .env (Windows 4060 running ocr_server.py),
+  # add more CPU-only workers freely — they offload OCR to the 4060:
+  #
+  # camagent-worker-cpu0:
+  #   <<: *worker-base
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=none
+  #     - USE_PADDLE_OCR=0
+  #   container_name: camagent-worker-cpu0
+
+networks:
+  camagent:
+    external: true
+    name: camagent

@@ -1,0 +1,112 @@
+<div class="wiki-section depth-{{ depth }}{% if not sec.collapsed %} open{% endif %}" id="sec-{{ sec.pk }}">
+
+  {# ── Header ── #}
+  <div class="wiki-section-hdr" onclick="toggleSection({{ sec.pk }})">
+    <i class="fa-solid fa-chevron-right wiki-chevron"></i>
+    <span class="wiki-section-title" id="title-display-{{ sec.pk }}">{{ sec.title }}</span>
+    <div class="title-edit-wrap" id="title-input-wrap-{{ sec.pk }}">
+      <input class="title-edit-input" id="title-input-{{ sec.pk }}" value="{{ sec.title }}" onclick="event.stopPropagation()">
+    </div>
+    <span class="wiki-section-meta" id="sec-meta-{{ sec.pk }}">
+      {% if sec.updated_by %}edited {{ sec.updated_at|date:"M j" }} · {{ sec.updated_by.get_short_name|default:sec.updated_by.username }}{% endif %}
+    </span>
+    <div class="sec-actions" onclick="event.stopPropagation()">
+      <button class="sec-act-btn" onclick="startEdit({{ sec.pk }})" title="Edit">
+        <i class="fa-solid fa-pen"></i> Edit
+      </button>
+      {% if depth == 0 %}
+      <button class="sec-act-btn" onclick="openAddSection({{ sec.pk }})" title="Add sub-section">
+        <i class="fa-solid fa-folder-plus"></i> Sub
+      </button>
+      {% endif %}
+      <button class="sec-act-btn danger" onclick="deleteSection({{ sec.pk }})" title="Delete section">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+  </div>
+
+  {# ── Body ── #}
+  <div class="wiki-section-body">
+
+    {# Markdown / Diagram view #}
+    <div id="view-{{ sec.pk }}">
+      {% if sec.content_md %}
+      <div class="wiki-md" data-raw="{{ sec.content_md }}"></div>
+      {% endif %}
+      {% if sec.diagram_mermaid %}
+      <div class="wiki-diagram">
+        <pre class="mermaid">{{ sec.diagram_mermaid }}</pre>
+      </div>
+      {% endif %}
+      {% if not sec.content_md and not sec.diagram_mermaid %}
+      <span style="color:var(--text-muted);font-size:12px;font-style:italic;">Empty — click Edit to add content.</span>
+      {% endif %}
+    </div>
+
+    {# Inline editor #}
+    <div class="wiki-editor" id="editor-{{ sec.pk }}">
+      <div class="wiki-editor-tabs">
+        <button class="wiki-ed-tab active" data-tab="content" onclick="setEdTab({{ sec.pk }}, 'content')">Content</button>
+        <button class="wiki-ed-tab" data-tab="diagram" onclick="setEdTab({{ sec.pk }}, 'diagram')">Diagram</button>
+      </div>
+      <textarea class="wiki-ta" id="ta-content-{{ sec.pk }}" rows="10" placeholder="Markdown content…">{{ sec.content_md }}</textarea>
+      <textarea class="wiki-ta" id="ta-diagram-{{ sec.pk }}" rows="8" placeholder="Mermaid diagram…" style="display:none;">{{ sec.diagram_mermaid }}</textarea>
+      <div class="wiki-ed-actions">
+        <button class="btn btn-ghost btn-sm" onclick="cancelEdit({{ sec.pk }})">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveEdit({{ sec.pk }})"><i class="fa-solid fa-check"></i> Save</button>
+      </div>
+    </div>
+
+    {# Notes #}
+    <div class="wiki-notes">
+      <div class="wiki-notes-hdr">
+        <i class="fa-solid fa-sticky-note" style="font-size:10px;"></i>
+        Notes
+        <span style="font-size:10px;font-weight:400;">{{ sec.notes.count }}</span>
+      </div>
+      <div class="note-list" id="note-list-{{ sec.pk }}">
+        {% for note in sec.notes.all %}
+        <div class="note-item{% if note.pinned %} pinned{% endif %}" id="note-{{ note.pk }}">
+          <div style="flex:1;">
+            <div class="note-body" id="note-body-{{ note.pk }}">{{ note.body }}</div>
+            <div class="note-meta">
+              {{ note.created_by.get_short_name|default:note.created_by.username|default:"—" }} · {{ note.created_at|date:"M j" }}
+            </div>
+          </div>
+          <div class="note-acts">
+            <button class="note-act" onclick="editNote({{ note.pk }})" title="Edit"><i class="fa-solid fa-pen"></i></button>
+            <button class="note-act" onclick="pinNote({{ note.pk }}, {{ note.pinned|yesno:'false,true' }})" title="{% if note.pinned %}Unpin{% else %}Pin{% endif %}">
+              <i class="fa-solid fa-thumbtack"{% if note.pinned %} style="color:var(--yellow)"{% endif %}></i>
+            </button>
+            <button class="note-act" onclick="deleteNote({{ note.pk }})" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="note-add-wrap">
+        <textarea class="form-control note-add-ta" id="note-ta-{{ sec.pk }}" rows="2" placeholder="Add a note…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addNote({{ sec.pk }})}"></textarea>
+        <button class="btn btn-primary btn-sm" onclick="addNote({{ sec.pk }})"><i class="fa-solid fa-plus"></i></button>
+      </div>
+    </div>
+
+    {% if depth == 0 %}
+    {# Children #}
+    <div id="children-{{ sec.pk }}" style="margin-top:8px;">
+      {% for child in sec.children_list %}
+      {% include "wiki/_section.html" with sec=child depth=1 %}
+      {% endfor %}
+    </div>
+
+    {# Add sub-section inline form #}
+    <div class="wiki-add-inline" id="add-sub-{{ sec.pk }}" style="margin-top:8px;">
+      <input class="form-control" id="add-sub-title-{{ sec.pk }}" placeholder="Sub-section title…" onkeydown="if(event.key==='Enter')createSection({{ sec.pk }})">
+      <textarea class="form-control wiki-ta" id="add-sub-content-{{ sec.pk }}" rows="2" placeholder="Content (optional)…" style="min-height:50px;"></textarea>
+      <div style="display:flex;gap:6px;justify-content:flex-end;">
+        <button class="btn btn-ghost btn-sm" onclick="closeAddSection({{ sec.pk }})">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="createSection({{ sec.pk }})"><i class="fa-solid fa-plus"></i> Add</button>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>

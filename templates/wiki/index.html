@@ -1,0 +1,469 @@
+{% extends 'base.html' %}
+{% block title %}Wiki — HiHi Labs{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Shell ─────────────────────────────────────────────────────── */
+.wiki-shell { display:grid; grid-template-columns:220px 1fr; height:calc(100vh - 60px); overflow:hidden; }
+
+/* ── TOC sidebar ────────────────────────────────────────────────── */
+.wiki-toc { border-right:1px solid var(--border); overflow-y:auto; background:var(--bg2); display:flex; flex-direction:column; }
+.wiki-toc-hdr { padding:12px 16px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.wiki-toc-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); }
+.toc-list { flex:1; overflow-y:auto; padding:6px 0; }
+.toc-entry { display:flex; align-items:center; gap:4px; padding:6px 12px; font-size:12px; color:var(--text-muted); cursor:pointer; text-decoration:none; transition:background .1s; border-left:2px solid transparent; }
+.toc-entry:hover { color:var(--text); background:var(--bg3); }
+.toc-entry.child { padding-left:26px; font-size:11px; }
+.toc-entry.active { color:var(--text); border-left-color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,transparent); }
+.toc-search { padding:8px 10px; }
+.toc-search input { width:100%; font-size:12px; }
+
+/* ── Main doc area ──────────────────────────────────────────────── */
+.wiki-doc { overflow-y:auto; padding:0 32px 60px; }
+
+/* ── Section card ───────────────────────────────────────────────── */
+.wiki-section { margin-bottom:2px; border-left:3px solid transparent; transition:border-color .15s; }
+.wiki-section.depth-0 { border-left-color:var(--accent); margin-bottom:8px; }
+.wiki-section.depth-1 { border-left-color:var(--teal); margin-left:20px; }
+.wiki-section-hdr {
+  display:flex; align-items:center; gap:8px;
+  padding:12px 0 8px; cursor:pointer; user-select:none;
+  border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent);
+}
+.wiki-section-hdr:hover .sec-actions { opacity:1; }
+.wiki-chevron { font-size:10px; color:var(--text-muted); transition:transform .18s; flex-shrink:0; width:14px; }
+.wiki-section.open > .wiki-section-hdr .wiki-chevron { transform:rotate(90deg); }
+.wiki-section-title {
+  flex:1; font-size:15px; font-weight:700; color:var(--text);
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.wiki-section.depth-1 .wiki-section-title { font-size:13px; font-weight:600; }
+.wiki-section-meta { font-size:10px; color:var(--text-muted); white-space:nowrap; }
+.sec-actions { display:flex; gap:2px; opacity:0; transition:opacity .15s; }
+.sec-act-btn { padding:3px 7px; border:none; border-radius:var(--r-sm); background:var(--bg3); color:var(--text-muted); font-size:11px; cursor:pointer; transition:background .1s,color .1s; }
+.sec-act-btn:hover { background:var(--border); color:var(--text); }
+.sec-act-btn.danger:hover { background:color-mix(in srgb,#f87171 20%,transparent); color:#f87171; }
+
+/* ── Section body ───────────────────────────────────────────────── */
+.wiki-section-body { display:none; padding:14px 0 8px 18px; }
+.wiki-section.open > .wiki-section-body { display:block; }
+
+/* ── Markdown content ───────────────────────────────────────────── */
+.wiki-md { font-size:13px; line-height:1.75; color:var(--text); margin-bottom:12px; }
+.wiki-md h1 { font-size:20px; font-weight:700; margin:18px 0 10px; }
+.wiki-md h2 { font-size:16px; font-weight:700; color:var(--text); margin:16px 0 8px; }
+.wiki-md h3 { font-size:14px; font-weight:600; color:var(--text); margin:12px 0 6px; }
+.wiki-md p { margin-bottom:10px; }
+.wiki-md ul,.wiki-md ol { padding-left:22px; margin-bottom:10px; }
+.wiki-md li { margin-bottom:4px; }
+.wiki-md code { background:var(--bg3); border:1px solid var(--border); border-radius:3px; padding:1px 5px; font-family:var(--font-mono); font-size:12px; }
+.wiki-md pre { background:var(--bg3); border:1px solid var(--border); border-radius:var(--r-md); padding:14px; overflow-x:auto; margin-bottom:12px; }
+.wiki-md pre code { background:none; border:none; padding:0; }
+.wiki-md blockquote { border-left:3px solid var(--accent); padding-left:14px; color:var(--text-muted); margin:10px 0; }
+.wiki-md a { color:var(--accent); }
+.wiki-md hr { border:none; border-top:1px solid var(--border); margin:16px 0; }
+.wiki-md table { width:100%; border-collapse:collapse; margin-bottom:12px; font-size:12px; }
+.wiki-md th,.wiki-md td { border:1px solid var(--border); padding:6px 10px; }
+.wiki-md th { background:var(--bg3); font-weight:600; }
+
+/* ── Inline editor ──────────────────────────────────────────────── */
+.wiki-editor { display:none; margin-bottom:12px; }
+.wiki-editor.open { display:block; }
+.wiki-editor-tabs { display:flex; gap:4px; margin-bottom:8px; }
+.wiki-ed-tab { font-size:11px; padding:3px 10px; border:1px solid var(--border); border-radius:4px; background:var(--bg2); color:var(--text-muted); cursor:pointer; }
+.wiki-ed-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.wiki-ta { width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r-md); color:var(--text); font-family:var(--font-mono); font-size:12px; padding:12px; resize:vertical; outline:none; line-height:1.6; min-height:180px; box-sizing:border-box; }
+.wiki-ta:focus { border-color:var(--accent); }
+.wiki-ed-actions { display:flex; gap:6px; justify-content:flex-end; margin-top:8px; }
+.title-edit-wrap { display:none; flex:1; }
+.title-edit-input { font-size:15px; font-weight:700; background:var(--bg3); border:1px solid var(--accent); border-radius:var(--r-sm); color:var(--text); padding:2px 8px; width:100%; outline:none; }
+
+/* ── Notes ──────────────────────────────────────────────────────── */
+.wiki-notes { margin-top:10px; border-top:1px solid color-mix(in srgb,var(--border) 50%,transparent); padding-top:10px; }
+.wiki-notes-hdr { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; }
+.note-list { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+.note-item {
+  display:flex; gap:8px; align-items:flex-start;
+  padding:8px 10px; border-radius:var(--r-md);
+  background:var(--bg3); border:1px solid var(--border);
+  font-size:12px; position:relative;
+}
+.note-item.pinned { border-color:color-mix(in srgb,var(--yellow) 40%,transparent); background:color-mix(in srgb,var(--yellow) 5%,transparent); }
+.note-body { flex:1; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+.note-meta { font-size:10px; color:var(--text-muted); margin-top:3px; }
+.note-acts { display:flex; gap:2px; flex-shrink:0; opacity:0; transition:opacity .12s; }
+.note-item:hover .note-acts { opacity:1; }
+.note-act { padding:2px 6px; border:none; border-radius:3px; background:none; color:var(--text-muted); font-size:11px; cursor:pointer; }
+.note-act:hover { background:var(--border); color:var(--text); }
+.note-add-wrap { display:flex; gap:6px; align-items:flex-start; margin-top:4px; }
+.note-add-ta { flex:1; font-size:12px; resize:none; min-height:36px; font-family:var(--font-mono); }
+
+/* ── Diagram ────────────────────────────────────────────────────── */
+.wiki-diagram { margin:16px 0; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-lg); padding:20px; text-align:center; overflow-x:auto; }
+
+/* ── Add section bar ────────────────────────────────────────────── */
+.wiki-add-bar { padding:16px 0 4px; }
+.wiki-add-inline { display:none; flex-direction:column; gap:6px; padding:12px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-lg); margin-top:8px; }
+.wiki-add-inline.open { display:flex; }
+
+/* ── Empty state ────────────────────────────────────────────────── */
+.wiki-empty { text-align:center; padding:80px 0; color:var(--text-muted); }
+.wiki-empty i { font-size:40px; margin-bottom:16px; opacity:.3; }
+
+@media (max-width:780px) {
+  .wiki-shell { grid-template-columns:1fr; }
+  .wiki-toc { display:none; }
+  .wiki-doc { padding:0 16px 40px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wiki-shell">
+
+  {# ── TOC Sidebar ── #}
+  <div class="wiki-toc">
+    <div class="wiki-toc-hdr">
+      <span class="wiki-toc-title">Wiki</span>
+      <button class="btn btn-ghost btn-sm" style="padding:2px 8px;" onclick="openAddSection(null)" title="New top-level section">
+        <i class="fa-solid fa-plus"></i>
+      </button>
+    </div>
+    <div class="toc-search">
+      <input type="text" class="form-control form-control-sm" placeholder="Search…" oninput="filterToc(this.value)" id="toc-search">
+    </div>
+    <div class="toc-list" id="toc-list">
+      {% for sec in roots %}
+      <a class="toc-entry depth-0" href="#sec-{{ sec.pk }}" onclick="expandSection({{ sec.pk }})">
+        <i class="fa-solid fa-chevron-right" style="font-size:9px;width:10px;flex-shrink:0;"></i>
+        {{ sec.title }}
+      </a>
+      {% for child in sec.children_list %}
+      <a class="toc-entry depth-1 child" href="#sec-{{ child.pk }}" onclick="expandSection({{ child.pk }})">
+        {{ child.title }}
+      </a>
+      {% endfor %}
+      {% empty %}
+      <div style="padding:16px;font-size:12px;color:var(--text-muted);">No sections yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Document ── #}
+  <div class="wiki-doc" id="wiki-doc">
+
+    <div style="padding:20px 0 16px;display:flex;align-items:center;justify-content:space-between;">
+      <h1 style="font-size:20px;font-weight:700;margin:0;">
+        <i class="fa-solid fa-book-open" style="color:var(--accent);margin-right:10px;font-size:16px;"></i>
+        Internal Wiki
+      </h1>
+      <button class="btn btn-primary btn-sm" onclick="openAddSection(null)">
+        <i class="fa-solid fa-plus"></i> New Section
+      </button>
+    </div>
+
+    {% if not roots %}
+    <div class="wiki-empty">
+      <i class="fa-solid fa-book-open"></i>
+      <p style="margin-top:0;">Nothing here yet.</p>
+      <button class="btn btn-primary btn-sm" onclick="openAddSection(null)"><i class="fa-solid fa-plus"></i> Create first section</button>
+    </div>
+    {% endif %}
+
+    {# Sections #}
+    <div id="sections-root">
+    {% for sec in roots %}
+    {% include "wiki/_section.html" with sec=sec depth=0 %}
+    {% endfor %}
+    </div>
+
+    {# Add top-level section inline form #}
+    <div class="wiki-add-bar">
+      <div class="wiki-add-inline" id="add-top">
+        <input class="form-control" id="add-top-title" placeholder="Section title…" onkeydown="if(event.key==='Enter')createSection(null)">
+        <textarea class="form-control wiki-ta" id="add-top-content" rows="3" placeholder="Content (Markdown, optional)…" style="min-height:70px;"></textarea>
+        <div style="display:flex;gap:6px;justify-content:flex-end;">
+          <button class="btn btn-ghost btn-sm" onclick="closeAddSection()">Cancel</button>
+          <button class="btn btn-primary btn-sm" onclick="createSection(null)"><i class="fa-solid fa-plus"></i> Add</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{# Section template rendered inline (Djano doesn't support recursive includes easily, so we flatten one level) #}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({
+  startOnLoad: false, theme: 'dark',
+  themeVariables: {primaryColor:'#7c6af7',background:'#111116',mainBkg:'#18181f',nodeBorder:'#7c6af7',lineColor:'#7070a0',textColor:'#e8e8f0'}
+});
+
+const CSRF = '{{ csrf_token }}';
+
+/* ─── Markdown renderer ─────────────────────────────────────── */
+function renderMd(src) {
+  if (!src) return '';
+  let h = src
+    // fenced code blocks
+    .replace(/```[\w]*\n([\s\S]*?)```/g, (_, c) => `<pre><code>${c.replace(/</g,'&lt;')}</code></pre>`)
+    // headings
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,  '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,   '<h1>$1</h1>')
+    // horizontal rule
+    .replace(/^---$/gm, '<hr>')
+    // bold / italic
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+    .replace(/_(.+?)_/g,       '<em>$1</em>')
+    // inline code
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    // links
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    // unordered lists
+    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>[\s\S]+?<\/li>)(\n(?!<li>)|$)/g, s => `<ul>${s}</ul>`)
+    // ordered lists
+    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+    // blockquote
+    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    // paragraphs (double newline)
+    .replace(/\n\n(?!<)/g, '</p><p>')
+  return '<p>' + h + '</p>';
+}
+
+/* ─── Section expand / collapse ─────────────────────────────── */
+function toggleSection(pk) {
+  const el = document.getElementById('sec-' + pk);
+  if (!el) return;
+  el.classList.toggle('open');
+  // persist state async (best effort)
+  fetch(`/wiki/sections/${pk}/update/`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({collapsed: !el.classList.contains('open')}),
+  });
+  // Highlight toc entry
+  document.querySelectorAll('.toc-entry').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll(`.toc-entry[href="#sec-${pk}"]`).forEach(e => e.classList.add('active'));
+}
+
+function expandSection(pk) {
+  const el = document.getElementById('sec-' + pk);
+  if (el && !el.classList.contains('open')) toggleSection(pk);
+  setTimeout(() => document.getElementById('sec-' + pk)?.scrollIntoView({behavior:'smooth', block:'start'}), 50);
+}
+
+/* ─── Inline section edit ───────────────────────────────────── */
+function startEdit(pk) {
+  const sec = document.getElementById('sec-' + pk);
+  sec.classList.add('open');
+  const ed   = document.getElementById('editor-' + pk);
+  const view = document.getElementById('view-' + pk);
+  ed.classList.add('open');
+  view.style.display = 'none';
+  document.getElementById('title-display-' + pk).style.display = 'none';
+  document.getElementById('title-input-wrap-' + pk).style.display = 'flex';
+  document.getElementById('ta-content-' + pk).focus();
+}
+
+function cancelEdit(pk) {
+  document.getElementById('editor-' + pk).classList.remove('open');
+  document.getElementById('view-' + pk).style.display = '';
+  document.getElementById('title-display-' + pk).style.display = '';
+  document.getElementById('title-input-wrap-' + pk).style.display = 'none';
+}
+
+async function saveEdit(pk) {
+  const title   = document.getElementById('title-input-' + pk).value.trim();
+  const content = document.getElementById('ta-content-' + pk).value;
+  const diagram = document.getElementById('ta-diagram-' + pk).value;
+  if (!title) return;
+  const r = await fetch(`/wiki/sections/${pk}/update/`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({title, content_md: content, diagram_mermaid: diagram}),
+  });
+  const d = await r.json();
+  if (!d.ok) return;
+  // Update display inline
+  document.getElementById('title-display-' + pk).textContent = title;
+  document.getElementById('view-' + pk).innerHTML = buildViewHtml(content, diagram);
+  document.getElementById('sec-meta-' + pk).textContent = 'edited ' + d.updated_at;
+  initMermaidIn(document.getElementById('view-' + pk));
+  cancelEdit(pk);
+}
+
+function buildViewHtml(content, diagram) {
+  let h = '';
+  if (content) h += `<div class="wiki-md">${renderMd(content)}</div>`;
+  if (diagram)  h += `<div class="wiki-diagram"><pre class="mermaid">${diagram}</pre></div>`;
+  if (!content && !diagram) h = '<span style="color:var(--text-muted);font-size:12px;font-style:italic;">Empty — click Edit to add content.</span>';
+  return h;
+}
+
+function initMermaidIn(el) {
+  el.querySelectorAll('.mermaid').forEach(async node => {
+    if (node.dataset.processed) return;
+    try {
+      node.dataset.processed = '1';
+      const {svg} = await mermaid.render('mermaid-' + Math.random().toString(36).slice(2), node.textContent);
+      node.innerHTML = svg;
+    } catch(e) {}
+  });
+}
+
+/* ─── Editor tabs ───────────────────────────────────────────── */
+function setEdTab(pk, tab) {
+  document.querySelectorAll(`#editor-${pk} .wiki-ed-tab`).forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById(`ta-content-${pk}`).style.display  = tab === 'content' ? '' : 'none';
+  document.getElementById(`ta-diagram-${pk}`).style.display  = tab === 'diagram' ? '' : 'none';
+}
+
+/* ─── Delete section ────────────────────────────────────────── */
+async function deleteSection(pk) {
+  if (!confirm('Delete this section? Sub-sections will be kept.')) return;
+  await fetch(`/wiki/sections/${pk}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  document.getElementById('sec-' + pk)?.remove();
+  // Remove TOC entry
+  document.querySelectorAll(`.toc-entry[href="#sec-${pk}"]`).forEach(e => e.remove());
+}
+
+/* ─── Add section ───────────────────────────────────────────── */
+function openAddSection(parentPk) {
+  if (parentPk) {
+    const wrap = document.getElementById('add-sub-' + parentPk);
+    if (wrap) { wrap.classList.add('open'); wrap.querySelector('input')?.focus(); }
+  } else {
+    const wrap = document.getElementById('add-top');
+    wrap.classList.add('open');
+    document.getElementById('add-top-title').focus();
+  }
+}
+
+function closeAddSection(parentPk) {
+  if (parentPk) {
+    document.getElementById('add-sub-' + parentPk)?.classList.remove('open');
+  } else {
+    document.getElementById('add-top')?.classList.remove('open');
+  }
+}
+
+async function createSection(parentPk) {
+  const titleEl   = parentPk ? document.getElementById(`add-sub-title-${parentPk}`)   : document.getElementById('add-top-title');
+  const contentEl = parentPk ? document.getElementById(`add-sub-content-${parentPk}`) : document.getElementById('add-top-content');
+  const title = titleEl?.value.trim();
+  if (!title) { titleEl?.focus(); return; }
+  const r = await fetch('/wiki/sections/new/', {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({title, parent_id: parentPk || null}),
+  });
+  const d = await r.json();
+  if (!d.ok) return;
+  // Full reload to get server-rendered HTML with correct IDs
+  location.reload();
+}
+
+/* ─── Notes ─────────────────────────────────────────────────── */
+function toggleNotes(pk) {
+  document.getElementById('notes-' + pk)?.classList.toggle('open');
+}
+
+async function addNote(pk) {
+  const ta = document.getElementById('note-ta-' + pk);
+  const body = ta.value.trim();
+  if (!body) return;
+  const r = await fetch(`/wiki/sections/${pk}/notes/new/`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({body}),
+  });
+  const d = await r.json();
+  if (!d.ok) return;
+  ta.value = '';
+  // Prepend note to list
+  const list = document.getElementById('note-list-' + pk);
+  const div = document.createElement('div');
+  div.className = 'note-item';
+  div.id = 'note-' + d.id;
+  div.innerHTML = noteHtml(d);
+  list.prepend(div);
+}
+
+function noteHtml(n) {
+  return `
+    <div style="flex:1;">
+      <div class="note-body" id="note-body-${n.id}">${escHtml(n.body)}</div>
+      <div class="note-meta">${n.author} · ${n.created_at}</div>
+    </div>
+    <div class="note-acts">
+      <button class="note-act" onclick="editNote(${n.id})" title="Edit"><i class="fa-solid fa-pen"></i></button>
+      <button class="note-act" onclick="pinNote(${n.id}, ${!n.pinned})" title="${n.pinned?'Unpin':'Pin'}">
+        <i class="fa-solid fa-thumbtack" style="${n.pinned?'color:var(--yellow)':''}"></i>
+      </button>
+      <button class="note-act" onclick="deleteNote(${n.id})" title="Delete"><i class="fa-solid fa-trash"></i></button>
+    </div>`;
+}
+
+function editNote(id) {
+  const bodyEl = document.getElementById('note-body-' + id);
+  const orig = bodyEl.textContent;
+  bodyEl.innerHTML = `<textarea class="form-control wiki-ta" style="min-height:60px;font-size:12px;">${escHtml(orig)}</textarea>
+    <div style="display:flex;gap:4px;margin-top:4px;">
+      <button class="btn btn-primary btn-sm" style="font-size:11px;" onclick="saveNoteEdit(${id})">Save</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px;" onclick="cancelNoteEdit(${id},'${escHtml(orig).replace(/'/g,"\\'")}')">Cancel</button>
+    </div>`;
+}
+async function saveNoteEdit(id) {
+  const ta = document.querySelector(`#note-body-${id} textarea`);
+  const body = ta.value.trim();
+  await fetch(`/wiki/notes/${id}/update/`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({body}),
+  });
+  document.getElementById('note-body-' + id).textContent = body;
+}
+function cancelNoteEdit(id, orig) {
+  document.getElementById('note-body-' + id).textContent = orig;
+}
+
+async function pinNote(id, pinned) {
+  await fetch(`/wiki/notes/${id}/update/`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({pinned}),
+  });
+  document.getElementById('note-' + id)?.classList.toggle('pinned', pinned);
+}
+
+async function deleteNote(id) {
+  if (!confirm('Delete note?')) return;
+  await fetch(`/wiki/notes/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  document.getElementById('note-' + id)?.remove();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ─── TOC filter ────────────────────────────────────────────── */
+function filterToc(q) {
+  document.querySelectorAll('.toc-entry').forEach(e => {
+    e.style.display = e.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+/* ─── Init ──────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  // Render markdown in all view panes
+  document.querySelectorAll('.wiki-md[data-raw]').forEach(el => {
+    el.innerHTML = renderMd(el.dataset.raw);
+    delete el.dataset.raw;
+  });
+  // Init mermaid
+  mermaid.run({querySelector: '.mermaid'});
+  // Auto-open sections that were open before (server default: top-level all open)
+});
+</script>
+{% endblock %}

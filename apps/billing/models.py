@@ -13,6 +13,10 @@ class Invoice(models.Model):
         ('void', 'Void'),
     ]
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='invoices')
+    client_fk = models.ForeignKey(
+        'clients.Client', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='invoices',
+    )
     number = models.CharField(max_length=30)          # e.g. INV-031
     client_name = models.CharField(max_length=200)
     client_email = models.EmailField(blank=True)

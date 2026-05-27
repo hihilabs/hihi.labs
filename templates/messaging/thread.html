@@ -1,133 +1,738 @@
 {% extends 'base.html' %}
 {% block title %}{{ thread.subject|default:"Message" }} — HiHi Labs{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Shell ────────────────────────────────────────────────────── */
+.thread-shell { display:flex; flex-direction:column; height:calc(100vh - 60px); overflow:hidden; }
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.thread-hdr { padding:10px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-shrink:0; flex-wrap:wrap; }
+.thread-hdr-info { flex:1; min-width:0; }
+.thread-subject { font-size:14px; font-weight:var(--weight-bold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.thread-meta { font-size:11px; color:var(--text-muted); display:flex; gap:10px; margin-top:3px; flex-wrap:wrap; align-items:center; }
+/* Project token chip */
+.proj-token { display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:20px; border:1px solid var(--border); font-size:11px; cursor:pointer; transition:background .15s; text-decoration:none; color:var(--text-muted); }
+.proj-token:hover { background:var(--bg3); }
+.proj-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.proj-link-btn { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:20px; border:1px dashed var(--border); font-size:11px; cursor:pointer; color:var(--text-muted); background:none; transition:border-color .15s, color .15s; }
+.proj-link-btn:hover { border-color:var(--accent); color:var(--accent); }
+/* Project search panel */
+.proj-search-panel { width:100%; order:10; padding:8px 0 4px 0; display:none; }
+.proj-search-panel.open { display:block; }
+.proj-search-wrap { display:flex; gap:6px; align-items:center; }
+#proj-search-input { flex:1; font-size:12px; }
+#proj-results { margin-top:6px; display:flex; flex-wrap:wrap; gap:4px; }
+.proj-result-item { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; border:1px solid var(--border); font-size:12px; cursor:pointer; background:var(--bg2); transition:background .12s; }
+.proj-result-item:hover { background:var(--bg3); border-color:var(--accent); }
+
+/* ── Messages ─────────────────────────────────────────────────── */
+.thread-messages { flex:1; overflow-y:auto; padding:0; }
+/* Internal */
+.int-msg { padding:10px 20px; border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent); position:relative; }
+.int-meta { display:flex; gap:10px; align-items:baseline; margin-bottom:4px; }
+.int-sender { font-size:12px; font-weight:600; color:var(--accent); }
+.int-mine .int-sender { color:var(--green); }
+.int-time { font-size:11px; color:var(--text-muted); }
+.int-body { font-size:13px; line-height:1.65; }
+.int-mine { background:color-mix(in srgb,var(--accent) 3%,transparent); }
+/* Hover actions */
+.msg-actions { display:none; position:absolute; top:8px; right:12px; gap:2px; }
+.int-msg:hover .msg-actions,
+.email-msg:hover .msg-actions { display:flex; }
+.msg-act-btn { padding:3px 7px; border:none; border-radius:var(--r-sm); background:var(--bg3); color:var(--text-muted); font-size:11px; cursor:pointer; transition:background .12s,color .12s; }
+.msg-act-btn:hover { background:var(--border); color:var(--text); }
+.msg-act-btn.danger:hover { background:color-mix(in srgb,#f87171 20%,transparent); color:#f87171; }
+/* Inline edit */
+.msg-edit-wrap { margin-top:4px; display:none; }
+.msg-edit-ta { width:100%; font-size:13px; font-family:var(--font-mono); resize:vertical; min-height:60px; }
+.msg-edit-actions { display:flex; gap:6px; margin-top:4px; }
+/* Command cards */
+.cmd-card { display:flex; align-items:flex-start; gap:10px; margin-top:8px; padding:10px 12px; border-radius:var(--r-md); border:1px solid var(--border); background:var(--bg3); font-size:12px; }
+.cmd-card.cmd-task    { border-color:color-mix(in srgb,var(--green) 40%,transparent); }
+.cmd-card.cmd-project { border-color:color-mix(in srgb,var(--accent) 40%,transparent); }
+.cmd-card.cmd-flag    { border-color:color-mix(in srgb,var(--yellow) 40%,transparent); }
+.cmd-card.cmd-note    { border-color:color-mix(in srgb,var(--teal) 40%,transparent); }
+.cmd-icon { font-size:14px; flex-shrink:0; margin-top:1px; }
+.cmd-label { font-weight:600; color:var(--text); }
+.cmd-detail { color:var(--text-muted); margin-top:2px; }
+.cmd-warn { color:var(--yellow); font-size:11px; margin-top:4px; }
+/* Email */
+.email-msg { padding:14px 20px; border-bottom:1px solid var(--border); border-left:3px solid var(--border); position:relative; }
+.email-msg.esrc-gmail  { border-left-color:var(--teal); }
+.email-msg.esrc-proton { border-left-color:var(--accent); }
+.email-from-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; }
+.email-from-addr { font-size:12px; color:var(--teal); font-family:var(--font-mono); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.email-date { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+/* View toggle */
+.email-view-toggle { display:inline-flex; gap:2px; margin-bottom:8px; }
+.evt-btn { font-size:10px; padding:2px 8px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text-muted); cursor:pointer; transition:background .12s; }
+.evt-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+/* Email iframe */
+.email-iframe { width:100%; border:none; min-height:80px; display:block; }
+.email-body-pre { font-family:var(--font-mono); font-size:12px; line-height:1.7; white-space:pre-wrap; word-break:break-word; background:none; border:none; padding:0; margin:0; color:var(--text); max-height:320px; overflow:hidden; position:relative; }
+.email-body-pre.expanded { max-height:none; }
+.email-expand-btn { font-size:11px; color:var(--accent); cursor:pointer; margin-top:6px; background:none; border:none; padding:0; }
+
+/* ── Reply bar ─────────────────────────────────────────────────── */
+.reply-bar { padding:12px 20px 14px; border-top:1px solid var(--border); background:var(--bg); flex-shrink:0; position:relative; }
+.reply-toolbar { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.reply-toolbar-label { font-size:11px; color:var(--text-muted); flex:1; display:flex; align-items:center; gap:5px; }
+.reply-attach-btn { font-size:11px; padding:3px 10px; }
+.attach-chips { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; min-height:0; }
+.attach-chip { display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:20px; border:1px solid var(--border); background:var(--bg3); font-size:11px; color:var(--text-muted); }
+.attach-chip .rm { cursor:pointer; opacity:.6; transition:opacity .12s; margin-left:2px; }
+.attach-chip .rm:hover { opacity:1; color:var(--red,#f87171); }
+.reply-actions { display:flex; justify-content:space-between; align-items:center; margin-top:6px; }
+.reply-hint { font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
+#slash-palette-reply { display:none; position:absolute; bottom:100%; left:20px; right:20px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r-lg); padding:4px; z-index:50; margin-bottom:4px; }
+/* Auth warning */
+.gmail-auth-bar { padding:8px 0 6px; font-size:12px; color:var(--yellow); display:none; }
+/* Drive picker modal */
+.drive-picker-modal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.55); align-items:center; justify-content:center; }
+.drive-picker-modal.open { display:flex; }
+.drive-picker-box { background:var(--bg); border:1px solid var(--border); border-radius:var(--r-lg); width:min(600px,95vw); max-height:80vh; display:flex; flex-direction:column; overflow:hidden; }
+.drive-picker-hdr { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+.drive-picker-hdr h3 { flex:1; font-size:14px; margin:0; }
+.drive-picker-list { flex:1; overflow-y:auto; padding:8px; }
+.drive-item { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:var(--r-sm); cursor:pointer; font-size:13px; transition:background .1s; }
+.drive-item:hover { background:var(--bg3); }
+.drive-item-icon { width:20px; text-align:center; flex-shrink:0; color:var(--text-muted); font-size:14px; }
+.drive-item-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.drive-item-type { font-size:11px; color:var(--text-muted); }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-header" style="border-bottom:1px solid var(--border);">
-  <div style="min-width:0;">
-    <div class="page-title" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-      {% if thread.source == 'gmail' %}
-        <span style="color:var(--teal);font-size:12px;margin-right:6px;">◈ gmail</span>
-      {% elif thread.source == 'proton' %}
-        <span style="color:var(--accent);font-size:12px;margin-right:6px;">◈ proton</span>
-      {% endif %}
-      {{ thread.subject|default:"(no subject)" }}
-    </div>
-  </div>
-  <a href="{% url 'messaging:inbox' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
-</div>
+<div class="thread-shell">
 
-<div id="message-list" style="padding:0;max-width:860px;">
-
-{% for msg in messages %}
-
-{% if thread.source == 'internal' %}
-  {# ── Internal: chat bubble style ─────────────────────────────── #}
-  <div class="int-msg {% if msg.sender == request.user %}int-mine{% endif %}">
-    <div class="int-meta">
-      <span class="int-sender">{{ msg.sender.get_short_name|default:msg.sender.username }}</span>
-      <span class="int-time">{{ msg.sent_at|date:"M j · g:i a" }}</span>
-    </div>
-    <div class="int-body">{{ msg.body|linebreaksbr }}</div>
-  </div>
-
-{% else %}
-  {# ── Email: terminal block style ─────────────────────────────── #}
-  <div class="email-msg esrc-{{ thread.source }}">
-    <div class="email-hdr">
-      <div class="email-from">
-        <span class="email-arrow">▸</span>
-        <span class="email-addr">{{ msg.from_email|default:msg.sender.email|default:msg.sender.username }}</span>
+  {# ── Header ── #}
+  <div class="thread-hdr">
+    <a href="{% url 'messaging:inbox' %}?tab={% if thread.source == 'internal' %}internal{% else %}email{% endif %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+    <div class="thread-hdr-info">
+      <div class="thread-subject">
+        {% if thread.flagged %}<span style="margin-right:4px;">🚩</span>{% endif %}
+        {{ thread.subject|default:"(no subject)" }}
       </div>
-      <span class="email-date">{{ msg.sent_at|date:"M j · g:i a" }}</span>
+      <div class="thread-meta">
+        {% if thread.source != 'internal' %}
+        <span style="color:var(--teal);">
+          {% if thread.source == 'gmail' %}<i class="fa-brands fa-google"></i> Gmail
+          {% elif thread.source == 'proton' %}<i class="fa-solid fa-shield"></i> Proton
+          {% else %}<i class="fa-solid fa-at"></i> Email{% endif %}
+        </span>
+        {% endif %}
+        {# Project token #}
+        <span id="proj-token-wrap">
+          {% if thread.project %}
+          <a href="/projects/{{ thread.project.pk }}/" class="proj-token" id="proj-token"
+             style="border-color:{{ thread.project.color }}20;" onclick="toggleProjSearch(event)">
+            <span class="proj-dot" style="background:{{ thread.project.color }};"></span>
+            <span id="proj-token-name">{{ thread.project.name }}</span>
+          </a>
+          {% else %}
+          <button class="proj-link-btn" id="proj-token" onclick="toggleProjSearch(event)">
+            <i class="fa-solid fa-diagram-project" style="font-size:10px;"></i> Link project
+          </button>
+          {% endif %}
+        </span>
+        <span>{{ messages|length }} message{{ messages|length|pluralize }}</span>
+      </div>
     </div>
-    <div class="email-rule"></div>
-    <pre class="email-body">{{ msg.body|urlize }}</pre>
+    {# Discuss button (email threads only) #}
+    {% if thread.source != 'internal' %}
+    <a href="{% url 'messaging:thread_new_from_email' thread.pk %}" class="btn btn-ghost btn-sm" title="Open internal discussion thread" style="font-size:11px;">
+      <i class="fa-solid fa-comment-dots"></i> Discuss
+    </a>
+    {% endif %}
+    {# Project search panel (stretches full width on next row) #}
+    <div class="proj-search-panel" id="proj-search-panel">
+      <div class="proj-search-wrap">
+        <input type="text" id="proj-search-input" class="form-control form-control-sm"
+               placeholder="Search projects…" oninput="searchProjects(this.value)" autocomplete="off">
+        <button class="btn btn-ghost btn-sm" onclick="closeProjSearch()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="proj-results"></div>
+    </div>
   </div>
 
-{% endif %}
+  {# ── Messages ── #}
+  <div class="thread-messages" id="message-list">
+    {% for msg in messages %}
 
-{% endfor %}
+    {% if thread.source == 'internal' %}
+    {# Internal message #}
+    <div class="int-msg {% if msg.sender == request.user %}int-mine{% endif %}" id="msg-{{ msg.pk }}">
+      {# Hover actions — only own messages #}
+      {% if msg.sender == request.user %}
+      <div class="msg-actions">
+        {% if not msg.command %}<button class="msg-act-btn" title="Edit" onclick="startEdit({{ msg.pk }})"><i class="fa-solid fa-pen"></i></button>{% endif %}
+        <button class="msg-act-btn danger" title="Delete" onclick="deleteMsg({{ msg.pk }})"><i class="fa-solid fa-trash"></i></button>
+      </div>
+      {% endif %}
+      <div class="int-meta">
+        <span class="int-sender">{{ msg.sender.get_short_name|default:msg.sender.username }}</span>
+        <span class="int-time">{{ msg.sent_at|date:"M j · g:i a" }}</span>
+      </div>
+      {% if msg.command %}
+      <div class="int-body" style="opacity:.4;font-family:var(--font-mono);font-size:11px;">{{ msg.body }}</div>
+      <div class="cmd-card cmd-{{ msg.command }}">
+        <span class="cmd-icon">{% if msg.command == 'task' %}✅{% elif msg.command == 'project' %}📁{% elif msg.command == 'flag' %}🚩{% elif msg.command == 'note' %}📝{% elif msg.command == 'remind' %}⏰{% endif %}</span>
+        <div>
+          <div class="cmd-label">
+            {% if msg.command == 'task' %}Task created{% if msg.command_meta.project %} in {{ msg.command_meta.project }}{% endif %}
+            {% elif msg.command == 'project' %}{% if msg.command_meta.project_name %}Linked to {{ msg.command_meta.project_name }}{% else %}Project link{% endif %}
+            {% elif msg.command == 'flag' %}{% if msg.command_meta.flagged %}Thread flagged{% else %}Flag removed{% endif %}
+            {% elif msg.command == 'note' %}Note: {{ msg.command_meta.title }}
+            {% elif msg.command == 'remind' %}Reminder: {{ msg.command_meta.when }}{% endif %}
+          </div>
+          {% if msg.command == 'task' and msg.command_meta.task_id %}
+          <div class="cmd-detail"><a href="/projects/tasks/{{ msg.command_meta.task_id }}/" style="color:var(--accent);">{{ msg.command_meta.title }}</a></div>
+          {% endif %}
+          {% if msg.command_meta.warn %}<div class="cmd-warn"><i class="fa-solid fa-triangle-exclamation"></i> {{ msg.command_meta.warn }}</div>{% endif %}
+        </div>
+      </div>
+      {% else %}
+      <div class="int-body" id="body-{{ msg.pk }}">{{ msg.body|linebreaksbr }}</div>
+      <div class="msg-edit-wrap" id="edit-{{ msg.pk }}">
+        <textarea class="form-control msg-edit-ta" id="edit-ta-{{ msg.pk }}">{{ msg.body }}</textarea>
+        <div class="msg-edit-actions">
+          <button class="btn btn-primary btn-sm" onclick="saveEdit({{ msg.pk }})">Save</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelEdit({{ msg.pk }})">Cancel</button>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    {% else %}
+    {# Email message #}
+    <div class="email-msg esrc-{{ thread.source }}" id="msg-{{ msg.pk }}">
+      {# Delete on hover (all messages in email threads) #}
+      <div class="msg-actions">
+        <button class="msg-act-btn danger" title="Remove from thread" onclick="deleteMsg({{ msg.pk }})"><i class="fa-solid fa-trash"></i></button>
+      </div>
+      <div class="email-from-row">
+        <span class="email-from-addr">{{ msg.from_email|default:msg.sender.email|default:msg.sender.username }}</span>
+        <span class="email-date">{{ msg.sent_at|date:"M j · g:i a" }}</span>
+      </div>
+
+      {% if msg.html_body %}
+      <div class="email-view-toggle">
+        <button class="evt-btn active" onclick="setEmailView({{ msg.pk }},'html',this)">HTML</button>
+        <button class="evt-btn" onclick="setEmailView({{ msg.pk }},'text',this)">Text</button>
+      </div>
+      <iframe id="ef-{{ msg.pk }}" class="email-iframe"
+        srcdoc="<html><head><style>*{box-sizing:border-box}body{background:#0d0d12;color:#d8d8e8;font-family:sans-serif;font-size:13px;line-height:1.6;margin:0;padding:12px}a{color:#7c6af7}img{max-width:100%;height:auto}table{max-width:100%;border-collapse:collapse}</style></head><body>{{ msg.html_body|escapejs }}</body></html>"
+        sandbox="allow-same-origin allow-popups" scrolling="no" onload="resizeFrame(this)">
+      </iframe>
+      <pre id="pre-{{ msg.pk }}" class="email-body-pre" style="display:none;">{{ msg.body }}</pre>
+
+      {% elif msg.body|slice:":1" == "<" %}
+      <div class="email-view-toggle">
+        <button class="evt-btn active" onclick="setEmailView({{ msg.pk }},'html',this)">HTML</button>
+        <button class="evt-btn" onclick="setEmailView({{ msg.pk }},'text',this)">Text</button>
+      </div>
+      <iframe id="ef-{{ msg.pk }}" class="email-iframe"
+        srcdoc="<html><head><style>*{box-sizing:border-box}body{background:#0d0d12;color:#d8d8e8;font-family:sans-serif;font-size:13px;line-height:1.6;margin:0;padding:12px}a{color:#7c6af7}img{max-width:100%;height:auto}table{max-width:100%;border-collapse:collapse}</style></head><body>{{ msg.body|escapejs }}</body></html>"
+        sandbox="allow-same-origin allow-popups" scrolling="no" onload="resizeFrame(this)">
+      </iframe>
+      <pre id="pre-{{ msg.pk }}" class="email-body-pre" style="display:none;">{{ msg.body }}</pre>
+
+      {% else %}
+      <pre class="email-body-pre" id="pre-{{ msg.pk }}">{{ msg.body|truncatechars:900 }}</pre>
+      {% if msg.body|length > 900 %}
+      <button class="email-expand-btn" onclick="expandEmail('{{ msg.pk }}',this)">Show more ↓</button>
+      {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% endfor %}
+  </div>
+
+  {# ── Reply bar ── #}
+  {% if thread.source == 'internal' %}
+  <div class="reply-bar">
+    <div id="slash-palette-reply"></div>
+    <div class="reply-input-wrap">
+      <textarea class="form-control" id="reply-body" rows="3"
+        placeholder="Reply… or type / for commands"
+        style="resize:vertical;font-family:var(--font-mono);font-size:13px;min-height:70px;"
+        oninput="checkSlashReply(this)" onkeydown="replyKeydown(event)"></textarea>
+    </div>
+    <div class="reply-actions">
+      <span style="font-size:11px;color:var(--text-muted);">type <code>/task</code> · <code>/project</code> · <code>/flag</code> · <code>/note</code></span>
+      <button class="btn btn-primary btn-sm" onclick="sendReply()"><i class="fa-solid fa-paper-plane"></i> Send</button>
+    </div>
+  </div>
+
+  {% elif thread.source == 'gmail' or thread.source == 'email' or thread.source == 'proton' %}
+  {# ── Email reply bar ── #}
+  <div class="reply-bar" id="email-reply-bar">
+    <div class="gmail-auth-bar" id="gmail-needs-auth">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      Gmail access needed — <a href="{% url 'files:oauth_start' %}" style="color:var(--accent);">re-authorize Google</a>
+    </div>
+    <div class="reply-toolbar">
+      <span class="reply-toolbar-label">
+        {% if thread.source == 'gmail' %}<i class="fa-brands fa-google" style="color:var(--teal);"></i> Via Gmail
+        {% elif thread.source == 'proton' %}<i class="fa-solid fa-shield" style="color:#6d4aff;"></i> Via Proton
+        {% else %}<i class="fa-solid fa-at"></i> Email reply{% endif %}
+      </span>
+      <button class="btn btn-ghost btn-sm reply-attach-btn" onclick="openDrivePicker()" title="Attach from Google Drive">
+        <i class="fa-brands fa-google-drive" style="color:var(--teal);"></i> Attach from Drive
+      </button>
+    </div>
+    <div class="attach-chips" id="attach-chips"></div>
+    <textarea class="form-control" id="email-reply-body" rows="5"
+      placeholder="Reply…"
+      style="resize:vertical;font-size:13px;min-height:100px;"
+      onkeydown="emailReplyKeydown(event)"></textarea>
+    <div class="reply-actions" style="margin-top:8px;">
+      <div style="display:flex;gap:6px;align-items:center;">
+        {% if thread.source == 'gmail' %}
+        <a href="https://mail.google.com/mail/u/0/#inbox" target="_blank" class="btn btn-ghost btn-sm" style="font-size:11px;">Open Gmail ↗</a>
+        {% elif thread.source == 'proton' %}
+        <a href="https://mail.proton.me" target="_blank" class="btn btn-ghost btn-sm" style="font-size:11px;">Open Proton ↗</a>
+        {% endif %}
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="sendEmailReply()">
+        <i class="fa-solid fa-paper-plane"></i> Send
+      </button>
+    </div>
+  </div>
+  {% endif %}
 
 </div>
 
-{% if thread.source == 'internal' %}
-<div class="reply-bar">
-  <textarea class="form-control" id="reply-body" placeholder="Reply… (Ctrl+Enter to send)" rows="2"
-    style="flex:1;resize:none;" onkeydown="replyKeydown(event)"></textarea>
-  <button class="btn btn-primary" onclick="sendReply()">
-    <i class="fa-solid fa-paper-plane"></i>
-  </button>
+{# ── Drive Picker Modal ── #}
+<div class="drive-picker-modal" id="drive-picker-modal">
+  <div class="drive-picker-box">
+    <div class="drive-picker-hdr">
+      <button class="btn btn-ghost btn-sm" id="drive-back-btn" onclick="driveNavUp()" style="display:none;"><i class="fa-solid fa-arrow-left"></i></button>
+      <h3><i class="fa-brands fa-google-drive" style="color:var(--teal);"></i> Google Drive</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeDrivePicker()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="drive-picker-list" id="drive-picker-list">
+      <div style="text-align:center;padding:40px 0;color:var(--text-muted);">Loading…</div>
+    </div>
+  </div>
 </div>
-
-{% elif thread.source == 'gmail' %}
-<div class="reply-bar">
-  <span style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);flex:1;">
-    <span style="color:var(--teal);margin-right:6px;">◈</span>gmail thread
-  </span>
-  <a href="https://mail.google.com/mail/u/0/#search/rfc822msgid%3A{{ thread.external_thread_id|urlencode }}"
-     target="_blank" class="btn btn-ghost btn-sm" style="border-color:var(--teal);color:var(--teal);">
-    <i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Gmail
-  </a>
-  <a href="https://mail.google.com/mail/u/0/#inbox?compose=new&subject=Re%3A+{{ thread.subject|urlencode }}"
-     target="_blank" class="btn btn-primary btn-sm" style="background:var(--teal);border-color:var(--teal);color:#0a0a0c;">
-    <i class="fa-solid fa-reply"></i> Reply in Gmail
-  </a>
-</div>
-
-{% elif thread.source == 'proton' %}
-<div class="reply-bar">
-  <span style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);flex:1;">
-    <i class="fa-solid fa-shield" style="color:#6d4aff;margin-right:6px;"></i>proton encrypted
-  </span>
-  <a href="https://mail.proton.me" target="_blank" class="btn btn-ghost btn-sm"
-     style="border-color:var(--accent);color:var(--accent);">
-    <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Proton Mail
-  </a>
-</div>
-
-{% else %}
-<div class="reply-bar">
-  <span style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">
-    ▸ external email — reply in your mail client
-  </span>
-</div>
-{% endif %}
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-const CSRF = '{{ csrf_token }}';
+const CSRF     = '{{ csrf_token }}';
 const THREAD_ID = {{ thread.pk }};
 
+/* ─── Edit / Delete messages ──────────────────────────────────── */
+function startEdit(pk) {
+  document.getElementById('body-' + pk).style.display = 'none';
+  const wrap = document.getElementById('edit-' + pk);
+  wrap.style.display = 'block';
+  const ta = document.getElementById('edit-ta-' + pk);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+function cancelEdit(pk) {
+  document.getElementById('body-' + pk).style.display = '';
+  document.getElementById('edit-' + pk).style.display = 'none';
+}
+
+async function saveEdit(pk) {
+  const ta = document.getElementById('edit-ta-' + pk);
+  const body = ta.value.trim();
+  if (!body) return;
+  const res = await fetch(`/messaging/message/${pk}/`, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({body}),
+  });
+  const data = await res.json();
+  if (!data.ok) { alert('Save failed'); return; }
+  const bodyEl = document.getElementById('body-' + pk);
+  bodyEl.innerHTML = escHtml(data.body).replace(/\n/g,'<br>');
+  cancelEdit(pk);
+}
+
+async function deleteMsg(pk) {
+  if (!confirm('Delete this message?')) return;
+  const res = await fetch(`/messaging/message/${pk}/`, {
+    method: 'DELETE',
+    headers: {'X-CSRFToken': CSRF},
+  });
+  const data = await res.json();
+  if (data.ok) {
+    const el = document.getElementById('msg-' + pk);
+    el.style.transition = 'opacity .2s';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 200);
+  }
+}
+
+/* ─── Project linking ──────────────────────────────────────────── */
+let projSearchTimeout = null;
+
+function toggleProjSearch(e) {
+  e.preventDefault();
+  const panel = document.getElementById('proj-search-panel');
+  if (panel.classList.contains('open')) {
+    closeProjSearch();
+  } else {
+    panel.classList.add('open');
+    document.getElementById('proj-search-input').focus();
+    searchProjects('');
+  }
+}
+
+function closeProjSearch() {
+  document.getElementById('proj-search-panel').classList.remove('open');
+  document.getElementById('proj-search-input').value = '';
+  document.getElementById('proj-results').innerHTML = '';
+}
+
+function searchProjects(q) {
+  clearTimeout(projSearchTimeout);
+  projSearchTimeout = setTimeout(async () => {
+    const res = await fetch(`/messaging/projects-search/?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    const wrap = document.getElementById('proj-results');
+    if (!data.projects.length) {
+      wrap.innerHTML = '<span style="font-size:12px;color:var(--text-muted);padding:4px;">No projects found</span>';
+      return;
+    }
+    wrap.innerHTML = data.projects.map(p => `
+      <div class="proj-result-item" onclick="linkProject(${p.id},'${escHtml(p.name)}','${escHtml(p.color)}')">
+        <span style="width:8px;height:8px;border-radius:50%;background:${escHtml(p.color)};flex-shrink:0;display:inline-block;"></span>
+        ${escHtml(p.name)}
+      </div>`).join('');
+  }, 200);
+}
+
+async function linkProject(id, name, color) {
+  const res = await fetch(`/messaging/thread/${THREAD_ID}/link-project/`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({project_id: id}),
+  });
+  const data = await res.json();
+  if (!data.ok) return;
+  // Update the token chip
+  const wrap = document.getElementById('proj-token-wrap');
+  wrap.innerHTML = `
+    <a href="/projects/${id}/" class="proj-token" id="proj-token"
+       style="border-color:${color}20;" onclick="toggleProjSearch(event)">
+      <span class="proj-dot" style="background:${color};"></span>
+      <span id="proj-token-name">${escHtml(name)}</span>
+    </a>`;
+  closeProjSearch();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ─── Email view toggle ──────────────────────────────────────── */
+function setEmailView(pk, view, btn) {
+  const frame = document.getElementById('ef-' + pk);
+  const pre   = document.getElementById('pre-' + pk);
+  const allBtns = btn.closest('.email-view-toggle').querySelectorAll('.evt-btn');
+  allBtns.forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (view === 'html') {
+    if (frame) { frame.style.display = 'block'; resizeFrame(frame); }
+    if (pre)   pre.style.display = 'none';
+  } else {
+    if (frame) frame.style.display = 'none';
+    if (pre)   { pre.style.display = 'block'; pre.classList.add('expanded'); }
+  }
+}
+
+function resizeFrame(frame) {
+  try {
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    frame.style.height = (doc.documentElement.scrollHeight + 20) + 'px';
+  } catch(e) {}
+}
+
+function expandEmail(pk, btn) {
+  document.getElementById('pre-' + pk).classList.add('expanded');
+  btn.remove();
+}
+
+/* ─── Slash commands (internal reply) ────────────────────────── */
+const SLASH_COMMANDS = [
+  {cmd:'/task',    icon:'✅', label:'Create task',  hint:'/task [desc]'},
+  {cmd:'/project', icon:'📁', label:'Link project', hint:'/project [name]'},
+  {cmd:'/flag',    icon:'🚩', label:'Toggle flag',  hint:'/flag'},
+  {cmd:'/note',    icon:'📝', label:'Save note',    hint:'/note [title]'},
+  {cmd:'/remind',  icon:'⏰', label:'Remind me',    hint:'/remind [when]'},
+];
+
 function replyKeydown(e) {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendReply();
+  const palette = document.getElementById('slash-palette-reply');
+  if (palette.style.display !== 'none') {
+    const items  = palette.querySelectorAll('.slash-item');
+    const active = palette.querySelector('.slash-item.hover');
+    if (e.key === 'ArrowDown') { e.preventDefault(); activateNext(items, active, 1); return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); activateNext(items, active, -1); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const s = palette.querySelector('.slash-item.hover');
+      if (s) applySlashReply(s.dataset.cmd);
+      return;
+    }
+    if (e.key === 'Escape') { hideReplyPalette(); return; }
+  }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendReply(); }
+}
+
+function activateNext(items, current, dir) {
+  const arr = Array.from(items);
+  let idx = current ? arr.indexOf(current) + dir : (dir > 0 ? 0 : arr.length - 1);
+  idx = (idx + arr.length) % arr.length;
+  arr.forEach(i => i.classList.remove('hover'));
+  arr[idx]?.classList.add('hover');
+}
+
+function checkSlashReply(ta) {
+  const val = ta.value;
+  const lastNL = val.lastIndexOf('\n');
+  const currentLine = val.slice(lastNL + 1);
+  if (currentLine.startsWith('/')) {
+    const query = currentLine.slice(1).toLowerCase();
+    const matches = SLASH_COMMANDS.filter(c => c.cmd.slice(1).startsWith(query) || !query);
+    if (matches.length) { showReplyPalette(matches); return; }
+  }
+  hideReplyPalette();
+}
+
+function showReplyPalette(cmds) {
+  const p = document.getElementById('slash-palette-reply');
+  p.innerHTML = cmds.map((c,i) => `
+    <div class="slash-item ${i===0?'hover':''}" data-cmd="${c.cmd}" onclick="applySlashReply('${c.cmd}')"
+         style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:var(--r-sm);cursor:pointer;">
+      <span style="font-size:14px;">${c.icon}</span>
+      <span style="font-size:13px;font-family:var(--font-mono);">${c.cmd}</span>
+      <span style="font-size:12px;color:var(--text-muted);flex:1;">${c.label}</span>
+      <span style="font-size:10px;color:var(--text-muted);opacity:.6;">${c.hint}</span>
+    </div>`).join('');
+  p.querySelectorAll('.slash-item').forEach(item => {
+    item.addEventListener('mouseenter', () => {
+      p.querySelectorAll('.slash-item').forEach(i => i.classList.remove('hover'));
+      item.classList.add('hover');
+    });
+  });
+  p.style.display = 'block';
+}
+function hideReplyPalette() { document.getElementById('slash-palette-reply').style.display = 'none'; }
+function applySlashReply(cmd) {
+  const ta = document.getElementById('reply-body');
+  const lastNL = ta.value.lastIndexOf('\n');
+  ta.value = ta.value.slice(0, lastNL + 1) + cmd + ' ';
+  hideReplyPalette(); ta.focus();
 }
 
 async function sendReply() {
   const body = document.getElementById('reply-body')?.value.trim();
   if (!body) return;
   const res = await fetch(`/messaging/thread/${THREAD_ID}/reply/`, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    method: 'POST', headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
     body: JSON.stringify({body}),
   });
-  if (res.ok) {
-    const msg = await res.json();
-    const list = document.getElementById('message-list');
-    const div = document.createElement('div');
-    div.className = 'int-msg int-mine';
-    div.innerHTML = `
-      <div class="int-meta">
-        <span class="int-sender">${msg.sender}</span>
-        <span class="int-time">${msg.sent_at}</span>
-      </div>
-      <div class="int-body">${msg.body.replace(/\n/g,'<br>')}</div>
-    `;
-    list.appendChild(div);
-    document.getElementById('reply-body').value = '';
-    div.scrollIntoView({behavior:'smooth'});
+  if (!res.ok) return;
+  const msg = await res.json();
+  const list = document.getElementById('message-list');
+  const div = document.createElement('div');
+  div.className = 'int-msg int-mine';
+  div.id = 'msg-' + msg.id;
+  let inner = `<div class="int-meta"><span class="int-sender">${msg.sender}</span><span class="int-time">${msg.sent_at}</span></div>`;
+  if (msg.command && msg.command_meta) {
+    inner += `<div class="int-body" style="opacity:.4;font-family:var(--font-mono);font-size:11px;">${escHtml(body)}</div>`;
+    inner += renderCmdCard(msg.command, msg.command_meta);
+  } else {
+    inner += `<div class="int-body">${escHtml(body).replace(/\n/g,'<br>')}</div>`;
+  }
+  div.innerHTML = inner;
+  list.appendChild(div);
+  document.getElementById('reply-body').value = '';
+  hideReplyPalette();
+  div.scrollIntoView({behavior:'smooth'});
+}
+
+function renderCmdCard(cmd, meta) {
+  const icons = {task:'✅',project:'📁',flag:'🚩',note:'📝',remind:'⏰'};
+  let label = '', detail = '', warn = '';
+  if (cmd==='task')    { label='Task created'+(meta.project?' in '+meta.project:''); if(meta.task_id) detail=`<a href="/projects/tasks/${meta.task_id}/" style="color:var(--accent);">${escHtml(meta.title||'')}</a>`; }
+  else if(cmd==='project') { label=meta.project_name?'Linked to '+meta.project_name:'Project link'; }
+  else if(cmd==='flag')    { label=meta.flagged?'Thread flagged':'Flag removed'; }
+  else if(cmd==='note')    { label='Note: '+(meta.title||''); }
+  else if(cmd==='remind')  { label='Reminder: '+(meta.when||''); }
+  if(meta.warn) warn=`<div class="cmd-warn"><i class="fa-solid fa-triangle-exclamation"></i> ${escHtml(meta.warn)}</div>`;
+  return `<div class="cmd-card cmd-${cmd}"><span class="cmd-icon">${icons[cmd]||'⚡'}</span><div><div class="cmd-label">${label}</div>${detail?`<div class="cmd-detail">${detail}</div>`:''}${warn}</div></div>`;
+}
+
+/* ─── Email reply ──────────────────────────────────────────────── */
+const attachments = [];  // {id, name, mimeType, webViewLink}
+
+function emailReplyKeydown(e) {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendEmailReply(); }
+}
+
+async function sendEmailReply() {
+  const body = document.getElementById('email-reply-body')?.value.trim();
+  if (!body) return;
+  const btn = document.querySelector('#email-reply-bar .btn-primary');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+  // Append Drive links to body if attachments selected
+  let fullBody = body;
+  if (attachments.length) {
+    fullBody += '\n\n--- Attachments ---\n' + attachments.map(a => `${a.name}: ${a.webViewLink}`).join('\n');
+  }
+
+  const res = await fetch(`/messaging/thread/${THREAD_ID}/email-reply/`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({body: fullBody, attachments}),
+  });
+  const data = await res.json();
+  btn.disabled = false;
+  btn.innerHTML = orig;
+
+  if (data.error === 'needs_gmail_auth') {
+    document.getElementById('gmail-needs-auth').style.display = 'block';
+    return;
+  }
+  if (!data.ok) {
+    alert('Send failed: ' + (data.error || 'unknown error'));
+    return;
+  }
+  const list = document.getElementById('message-list');
+  const div = document.createElement('div');
+  div.className = 'email-msg esrc-{{ thread.source }}';
+  div.innerHTML = `
+    <div class="email-from-row">
+      <span class="email-from-addr">${escHtml(data.sender)}</span>
+      <span class="email-date">${data.sent_at}</span>
+    </div>
+    <pre class="email-body-pre expanded">${escHtml(fullBody)}</pre>`;
+  list.appendChild(div);
+  document.getElementById('email-reply-body').value = '';
+  attachments.length = 0;
+  renderAttachChips();
+  div.scrollIntoView({behavior:'smooth'});
+}
+
+/* ─── Drive picker ─────────────────────────────────────────────── */
+let driveStack = [];  // breadcrumb of folder IDs
+
+function openDrivePicker() {
+  driveStack = ['root'];
+  document.getElementById('drive-picker-modal').classList.add('open');
+  loadDriveFolder('root');
+}
+function closeDrivePicker() {
+  document.getElementById('drive-picker-modal').classList.remove('open');
+}
+
+async function loadDriveFolder(folderId) {
+  const list = document.getElementById('drive-picker-list');
+  list.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-muted);">Loading…</div>';
+  document.getElementById('drive-back-btn').style.display = driveStack.length > 1 ? 'block' : 'none';
+  try {
+    const res = await fetch(`/files/api/browse/?folder_id=${folderId}`);
+    const data = await res.json();
+    if (data.error) {
+      list.innerHTML = `<div style="padding:20px;color:var(--yellow);">${escHtml(data.error)}</div>`;
+      return;
+    }
+    const files = data.files || [];
+    if (!files.length) {
+      list.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-muted);">Empty folder</div>';
+      return;
+    }
+    list.innerHTML = files.map(f => {
+      const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+      const icon = isFolder ? 'fa-folder' : mimeIcon(f.mimeType);
+      const color = isFolder ? 'var(--yellow)' : 'var(--text-muted)';
+      return `<div class="drive-item" onclick="${isFolder ? `driveNavDown('${f.id}')` : `selectDriveFile(${JSON.stringify(f).replace(/"/g,'&quot;')})`}">
+        <span class="drive-item-icon" style="color:${color};"><i class="fa-solid ${icon}"></i></span>
+        <span class="drive-item-name">${escHtml(f.name)}</span>
+        <span class="drive-item-type">${isFolder ? 'Folder' : shortMime(f.mimeType)}</span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="padding:20px;color:var(--red,#f87171);">Error loading Drive</div>`;
   }
 }
+
+function driveNavDown(folderId) {
+  driveStack.push(folderId);
+  loadDriveFolder(folderId);
+}
+function driveNavUp() {
+  if (driveStack.length > 1) driveStack.pop();
+  loadDriveFolder(driveStack[driveStack.length - 1]);
+}
+
+function selectDriveFile(file) {
+  if (!attachments.find(a => a.id === file.id)) {
+    attachments.push({id: file.id, name: file.name, mimeType: file.mimeType, webViewLink: file.webViewLink || ''});
+    renderAttachChips();
+  }
+  closeDrivePicker();
+}
+
+function removeAttachment(id) {
+  const idx = attachments.findIndex(a => a.id === id);
+  if (idx !== -1) attachments.splice(idx, 1);
+  renderAttachChips();
+}
+
+function renderAttachChips() {
+  const wrap = document.getElementById('attach-chips');
+  if (!wrap) return;
+  wrap.innerHTML = attachments.map(a => `
+    <span class="attach-chip">
+      <i class="fa-solid ${mimeIcon(a.mimeType)}" style="font-size:11px;color:var(--teal);"></i>
+      ${escHtml(a.name)}
+      <span class="rm" onclick="removeAttachment('${a.id}')"><i class="fa-solid fa-xmark"></i></span>
+    </span>`).join('');
+}
+
+function mimeIcon(mime) {
+  if (!mime) return 'fa-file';
+  if (mime.includes('folder'))       return 'fa-folder';
+  if (mime.includes('pdf'))          return 'fa-file-pdf';
+  if (mime.includes('spreadsheet') || mime.includes('excel') || mime.includes('csv')) return 'fa-file-excel';
+  if (mime.includes('document') || mime.includes('word'))  return 'fa-file-word';
+  if (mime.includes('presentation') || mime.includes('powerpoint')) return 'fa-file-powerpoint';
+  if (mime.includes('image'))        return 'fa-file-image';
+  if (mime.includes('video'))        return 'fa-file-video';
+  if (mime.includes('audio'))        return 'fa-file-audio';
+  if (mime.includes('zip') || mime.includes('compressed')) return 'fa-file-zipper';
+  return 'fa-file';
+}
+function shortMime(mime) {
+  if (!mime) return '';
+  const m = mime.split('/').pop().replace('vnd.google-apps.','').replace('vnd.openxmlformats-officedocument.','');
+  return m.length > 16 ? m.slice(0,14)+'…' : m;
+}
+
+// Close Drive picker on backdrop click
+document.getElementById('drive-picker-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeDrivePicker();
+});
+
+/* ─── Scroll to bottom on load ─────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  const list = document.getElementById('message-list');
+  if (list) list.scrollTop = list.scrollHeight;
+});
 </script>
+<style>.slash-item.hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }</style>
 {% endblock %}

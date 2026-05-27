@@ -1,0 +1,317 @@
+{% extends 'base.html' %}
+{% block title %}Value Board — HiHi Labs{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Layout ─────────────────────────────────────────────────── */
+.vb-wrap { padding: 0 24px 32px; max-width: 1100px; }
+
+/* ── Summary strip ──────────────────────────────────────────── */
+.vb-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.vb-summary-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 14px 18px;
+}
+.vb-summary-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-bottom: 4px; }
+.vb-summary-val   { font-size: 22px; font-weight: var(--weight-bold); line-height: 1; }
+
+/* ── Board ──────────────────────────────────────────────────── */
+.vb-board { display: flex; flex-direction: column; gap: 14px; }
+
+.vb-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 18px 20px;
+  transition: border-color .15s;
+  border-left: 4px solid var(--border);
+}
+.vb-card.h-urgent  { border-left-color: #f87171; }
+.vb-card.h-stalled { border-left-color: #fb923c; }
+.vb-card.h-blocked { border-left-color: var(--yellow); }
+.vb-card.h-closing { border-left-color: var(--green); }
+.vb-card.h-healthy { border-left-color: var(--accent); }
+.vb-card.h-zombie  { border-left-color: var(--border); opacity: .7; }
+.vb-card.h-new     { border-left-color: var(--teal); }
+
+/* ── Card header ────────────────────────────────────────────── */
+.vb-card-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.vb-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.vb-project-name {
+  font-size: 15px; font-weight: var(--weight-bold);
+  color: var(--text); text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vb-project-name:hover { color: var(--accent); }
+.vb-client-tag {
+  font-size: 11px; color: var(--text-muted); background: var(--bg3);
+  border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+/* ── Health badge ───────────────────────────────────────────── */
+.vb-health {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; padding: 3px 10px;
+  border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+}
+.vb-health.h-urgent  { background: color-mix(in srgb,#f87171 15%,transparent); color: #f87171; }
+.vb-health.h-stalled { background: color-mix(in srgb,#fb923c 15%,transparent); color: #fb923c; }
+.vb-health.h-blocked { background: color-mix(in srgb,var(--yellow) 15%,transparent); color: var(--yellow); }
+.vb-health.h-closing { background: color-mix(in srgb,var(--green) 15%,transparent); color: var(--green); }
+.vb-health.h-healthy { background: color-mix(in srgb,var(--accent) 15%,transparent); color: var(--accent); }
+.vb-health.h-zombie  { background: var(--bg3); color: var(--text-muted); }
+.vb-health.h-new     { background: color-mix(in srgb,var(--teal) 15%,transparent); color: var(--teal); }
+
+/* ── Metrics grid ───────────────────────────────────────────── */
+.vb-metrics {
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  gap: 10px; margin-bottom: 14px;
+}
+.vb-metric-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text-muted); margin-bottom: 3px;
+}
+.vb-metric-val { font-size: 15px; font-weight: var(--weight-bold); line-height: 1.2; }
+.vb-metric-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* ── Progress bars ──────────────────────────────────────────── */
+.vb-bars { display: flex; flex-direction: column; gap: 6px; }
+.vb-bar-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-muted); }
+.vb-bar-label { width: 80px; flex-shrink: 0; }
+.vb-bar-track {
+  flex: 1; height: 6px; background: var(--bg3);
+  border-radius: 999px; overflow: hidden; display: flex;
+}
+.vb-bar-fill { height: 100%; border-radius: 999px; transition: width .4s ease; }
+.vb-bar-pct  { width: 36px; text-align: right; flex-shrink: 0; }
+
+/* ── Task pills ─────────────────────────────────────────────── */
+.vb-task-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.vb-task-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg3); color: var(--text-muted);
+}
+.vb-task-pill.done    { border-color: color-mix(in srgb,var(--green) 40%,transparent); color: var(--green); }
+.vb-task-pill.doing   { border-color: color-mix(in srgb,var(--accent) 40%,transparent); color: var(--accent); }
+.vb-task-pill.blocked { border-color: color-mix(in srgb,var(--yellow) 40%,transparent); color: var(--yellow); }
+.vb-task-pill.urgent  { border-color: color-mix(in srgb,#f87171 40%,transparent); color: #f87171; }
+
+/* ── Draft invoice btn ──────────────────────────────────────── */
+.vb-draft-btn { flex-shrink: 0; }
+
+@media (max-width: 900px) {
+  .vb-metrics { grid-template-columns: repeat(3, 1fr); }
+  .vb-summary { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .vb-metrics { grid-template-columns: repeat(2, 1fr); }
+  .vb-summary { grid-template-columns: 1fr 1fr; }
+  .vb-wrap { padding: 0 12px 24px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <i class="fa-solid fa-chart-line" style="color:var(--green);margin-right:8px;"></i>Value Board
+  </div>
+  <a href="{% url 'projects:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+</div>
+
+{% if not rows %}
+<div class="empty-state" style="margin-top:60px;">
+  <i class="fa-solid fa-chart-line"></i>
+  <p>No active projects yet.</p>
+</div>
+{% else %}
+<div class="vb-wrap">
+
+  {# ── Summary strip ── #}
+  <div class="vb-summary">
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Unbilled Revenue</div>
+      <div class="vb-summary-val" style="color:var(--green);">${{ total_unbilled }}</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Revenue Potential</div>
+      <div class="vb-summary-val" style="color:var(--teal);">{% if total_potential > 0 %}${{ total_potential }}{% else %}—{% endif %}</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Active Projects</div>
+      <div class="vb-summary-val">{{ rows|length }}</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Need Attention</div>
+      <div class="vb-summary-val" style="color:#f87171;">
+        {% with n=0 %}{% for r in rows %}{% if r.health == 'urgent' or r.health == 'stalled' or r.health == 'blocked' %}{{ forloop.counter }}{% endif %}{% endfor %}{% endwith %}
+      </div>
+    </div>
+  </div>
+
+  {# ── Board ── #}
+  <div class="vb-board">
+    {% for row in rows %}
+    <div class="vb-card h-{{ row.health }}" data-pk="{{ row.project.pk }}">
+
+      {# Header #}
+      <div class="vb-card-hdr">
+        <div class="vb-title-row">
+          <span style="width:10px;height:10px;border-radius:50%;background:{{ row.project.color }};flex-shrink:0;display:inline-block;"></span>
+          <a href="{% url 'projects:detail' row.project.pk %}" class="vb-project-name">{{ row.project.name }}</a>
+          {% if row.project.client %}<span class="vb-client-tag">{{ row.project.client }}</span>{% endif %}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          {# Health badge #}
+          <span class="vb-health h-{{ row.health }}">
+            {% if row.health == 'urgent'  %}<i class="fa-solid fa-bolt"></i> Urgent
+            {% elif row.health == 'stalled' %}<i class="fa-solid fa-skull"></i> Let it die?
+            {% elif row.health == 'blocked' %}<i class="fa-solid fa-ban"></i> Blocked
+            {% elif row.health == 'closing' %}<i class="fa-solid fa-flag-checkered"></i> Almost done
+            {% elif row.health == 'healthy' %}<i class="fa-solid fa-circle-check"></i> Healthy
+            {% elif row.health == 'zombie'  %}<i class="fa-solid fa-ghost"></i> Dormant
+            {% elif row.health == 'new'     %}<i class="fa-solid fa-seedling"></i> New
+            {% endif %}
+          </span>
+          <span class="status-badge status-{{ row.project.status }}">{{ row.project.get_status_display }}</span>
+          {% if row.has_unbilled %}
+          <button class="btn btn-primary btn-sm vb-draft-btn" onclick="draftInvoice({{ row.project.pk }}, this)">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Draft Invoice
+          </button>
+          {% endif %}
+        </div>
+      </div>
+
+      {# Metrics #}
+      <div class="vb-metrics">
+        <div>
+          <div class="vb-metric-label">Time Spent</div>
+          <div class="vb-metric-val">{{ row.total_hours }}h</div>
+          <div class="vb-metric-sub">${{ row.project.hourly_rate }}/hr</div>
+        </div>
+        <div>
+          <div class="vb-metric-label">Value Delivered</div>
+          <div class="vb-metric-val">${{ row.total_value }}</div>
+          {% if row.roi_per_hour > 0 %}<div class="vb-metric-sub">${{ row.roi_per_hour }}/hr ROI</div>{% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Unbilled</div>
+          {% if row.has_unbilled %}
+          <div class="vb-metric-val" style="color:var(--green);">${{ row.unbilled_value }}</div>
+          <div class="vb-metric-sub">{{ row.unbilled_hours }}h pending</div>
+          {% else %}
+          <div class="vb-metric-val" style="color:var(--text-muted);">—</div>
+          {% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Potential</div>
+          {% if row.potential_value %}
+          <div class="vb-metric-val" style="color:var(--teal);">${{ row.potential_value }}</div>
+          <div class="vb-metric-sub">at 100% done</div>
+          {% else %}
+          <div class="vb-metric-val" style="color:var(--text-muted);">—</div>
+          {% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Completion</div>
+          <div class="vb-metric-val">{{ row.completion_pct }}%</div>
+          {% if row.tasks_total > 0 %}
+          <div class="vb-metric-sub">{{ row.tasks_done }}/{{ row.tasks_total }} tasks</div>
+          {% else %}
+          <div class="vb-metric-sub" style="color:var(--text-muted);">no tasks</div>
+          {% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Priority Queue</div>
+          {% if row.urgent_open > 0 %}
+          <div class="vb-metric-val" style="color:#f87171;">{{ row.urgent_open }}</div>
+          <div class="vb-metric-sub">urgent/high open</div>
+          {% else %}
+          <div class="vb-metric-val" style="color:var(--text-muted);">—</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# Progress bars #}
+      <div class="vb-bars">
+        {# Task completion #}
+        {% if row.tasks_total > 0 %}
+        <div class="vb-bar-row">
+          <span class="vb-bar-label">Tasks</span>
+          <div class="vb-bar-track">
+            <div class="vb-bar-fill" style="width:{{ row.completion_pct }}%;background:var(--green);"></div>
+            {% if row.tasks_doing > 0 %}
+            <div class="vb-bar-fill" style="width:{% widthratio row.tasks_doing row.tasks_total 100 %}%;background:var(--accent);opacity:.6;"></div>
+            {% endif %}
+          </div>
+          <span class="vb-bar-pct">{{ row.completion_pct }}%</span>
+        </div>
+        {% endif %}
+        {# Billing progress #}
+        {% if row.total_hours > 0 %}
+        <div class="vb-bar-row">
+          <span class="vb-bar-label">Billed</span>
+          <div class="vb-bar-track">
+            {% if row.total_hours > 0 %}
+              {% widthratio row.unbilled_hours row.total_hours 100 as unbilled_pct %}
+              {% if row.unbilled_hours < row.total_hours %}
+              <div class="vb-bar-fill" style="width:{% widthratio row.total_hours|add:"-0" row.total_hours 100 %}%;background:var(--accent);opacity:.45;"></div>
+              {% endif %}
+              <div class="vb-bar-fill" style="width:{{ unbilled_pct }}%;background:var(--green);"></div>
+            {% endif %}
+          </div>
+          <span class="vb-bar-pct">{% if row.total_hours > 0 %}{% widthratio row.unbilled_hours row.total_hours 100 %}%{% endif %}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      {# Task pills #}
+      {% if row.tasks_total > 0 or row.tasks_doing or row.tasks_blocked %}
+      <div class="vb-task-row">
+        {% if row.tasks_done > 0 %}<span class="vb-task-pill done"><i class="fa-solid fa-check"></i> {{ row.tasks_done }} done</span>{% endif %}
+        {% if row.tasks_doing > 0 %}<span class="vb-task-pill doing"><i class="fa-solid fa-circle-half-stroke"></i> {{ row.tasks_doing }} in progress</span>{% endif %}
+        {% if row.tasks_blocked > 0 %}<span class="vb-task-pill blocked"><i class="fa-solid fa-ban"></i> {{ row.tasks_blocked }} blocked</span>{% endif %}
+        {% if row.urgent_open > 0 %}<span class="vb-task-pill urgent"><i class="fa-solid fa-bolt"></i> {{ row.urgent_open }} urgent</span>{% endif %}
+        {% if row.tasks_open > 0 %}
+        <a href="{% url 'projects:detail' row.project.pk %}" style="font-size:11px;color:var(--text-muted);margin-left:4px;">{{ row.tasks_open }} remaining →</a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+async function draftInvoice(pk, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating…';
+  try {
+    const r = await fetch(`/projects/${pk}/draft-invoice/`, {
+      method: 'POST', headers: {'X-CSRFToken': CSRF},
+    });
+    const d = await r.json();
+    if (d.ok) {
+      window.location = d.invoice_url;
+    } else {
+      alert(d.error || 'Could not draft invoice');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i> Draft Invoice';
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-file-invoice-dollar"></i> Draft Invoice';
+  }
+}
+</script>
+{% endblock %}

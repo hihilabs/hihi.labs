@@ -1,140 +1,325 @@
 {% extends 'base.html' %}
-{% block title %}{{ client.name }} · Clients{% endblock %}
+{% block title %}{{ client.display_name }} · Clients{% endblock %}
+
+{% block extra_css %}
+<style>
+.cl-header { padding:24px 24px 0; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.cl-name { font-family:var(--font-ui); font-size:22px; font-weight:700; }
+.cl-company { font-size:14px; color:var(--text-muted); margin-top:2px; }
+.cl-status { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; padding:3px 10px; border-radius:var(--r-full); }
+.cl-status.lead     { background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent); }
+.cl-status.active   { background:color-mix(in srgb,var(--green) 15%,transparent);  color:var(--green); }
+.cl-status.inactive { background:var(--bg3); color:var(--text-muted); }
+.cl-status.archived { background:var(--bg3); color:var(--text-muted); opacity:.6; }
+
+/* Tabs */
+.cl-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 24px; margin-top:16px; }
+.cl-tab  { background:none; border:none; cursor:pointer; color:var(--text-muted); padding:10px 14px; font-size:13px; font-family:var(--font-mono); border-bottom:2px solid transparent; transition:color .1s, border-color .1s; }
+.cl-tab:hover { color:var(--text); }
+.cl-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.cl-tab-count { font-size:10px; background:var(--bg3); border-radius:var(--r-full); padding:1px 6px; margin-left:4px; color:var(--text-muted); }
+
+/* Tab content */
+.cl-panel { display:none; padding:20px 24px; }
+.cl-panel.active { display:block; }
+
+/* Projects */
+.proj-row { display:flex; align-items:center; gap:12px; padding:11px 14px; border-bottom:1px solid var(--border); text-decoration:none; color:var(--text); transition:background .1s; }
+.proj-row:hover { background:var(--bg3); }
+.proj-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.proj-prog-wrap { flex:1; height:4px; background:var(--bg3); border-radius:var(--r-full); overflow:hidden; min-width:60px; }
+.proj-prog-bar { height:100%; border-radius:var(--r-full); transition:width .4s; }
+
+/* Timeline */
+.tl-item { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent); }
+.tl-icon { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; background:var(--bg3); }
+.tl-label { font-size:13px; color:var(--text); }
+.tl-meta  { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+/* Follow-ups */
+.fu-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent); }
+.fu-check { width:18px; height:18px; border-radius:4px; border:2px solid var(--border); cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:10px; transition:all .15s; margin-top:1px; }
+.fu-check.done { background:var(--green); border-color:var(--green); color:#fff; }
+.fu-note  { flex:1; font-size:13px; line-height:1.5; }
+.fu-note.done { text-decoration:line-through; color:var(--text-muted); }
+.fu-due   { font-size:10px; color:var(--text-muted); margin-top:2px; }
+.fu-pri.high   { color:var(--yellow); }
+.fu-pri.normal { color:var(--text-muted); }
+.fu-add   { display:flex; gap:8px; margin-top:14px; align-items:flex-end; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div style="padding:24px;max-width:960px;">
-  <div style="margin-bottom:16px;">
-    <a href="{% url 'clients:index' %}" style="color:var(--text-muted);font-size:13px;text-decoration:none;">← Clients</a>
+
+{# ── Header ── #}
+<div class="cl-header">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+      <div class="proj-dot" style="width:12px;height:12px;background:{{ client.color }};"></div>
+      <div class="cl-name">{{ client.display_name }}</div>
+      <span class="cl-status {{ client.status }}">{{ client.get_status_display }}</span>
+    </div>
+    {% if client.company and client.company != client.name %}<div class="cl-company">{{ client.name }}</div>{% endif %}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;display:flex;gap:16px;flex-wrap:wrap;">
+      {% if client.email %}<a href="mailto:{{ client.email }}" style="color:var(--text-muted);text-decoration:none;"><i class="fa-solid fa-envelope" style="margin-right:4px;"></i>{{ client.email }}</a>{% endif %}
+      {% if client.phone %}<span><i class="fa-solid fa-phone" style="margin-right:4px;"></i>{{ client.phone }}</span>{% endif %}
+      {% if client.website %}<a href="{{ client.website }}" target="_blank" style="color:var(--accent);"><i class="fa-solid fa-globe" style="margin-right:4px;"></i>{{ client.website }}</a>{% endif %}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <a href="{% url 'clients:index' %}" style="font-size:12px;color:var(--text-muted);">← Clients</a>
+    <button class="btn btn-ghost btn-sm" onclick="openEditClient()"><i class="fa-solid fa-pen"></i> Edit</button>
+    <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteClient()"><i class="fa-solid fa-trash"></i></button>
+  </div>
+</div>
+
+{# ── Tabs ── #}
+<div class="cl-tabs">
+  <button class="cl-tab active" onclick="showTab('overview', this)">Overview</button>
+  <button class="cl-tab" onclick="showTab('projects', this)">
+    Projects <span class="cl-tab-count">{{ projects.count }}</span>
+  </button>
+  <button class="cl-tab" onclick="showTab('timeline', this)">
+    Timeline <span class="cl-tab-count">{{ timeline|length }}</span>
+  </button>
+  <button class="cl-tab" onclick="showTab('followups', this)">
+    Follow-ups <span class="cl-tab-count" id="fu-count">{{ followups.filter.done|default:followups|length }}</span>
+  </button>
+  <button class="cl-tab" onclick="showTab('contacts', this)">
+    Contacts <span class="cl-tab-count">{{ contacts.count }}</span>
+  </button>
+</div>
+
+{# ── Overview ── #}
+<div class="cl-panel active" id="panel-overview">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+    <div class="kpi-card">
+      <div class="kpi-icon" style="color:var(--accent);"><i class="fa-solid fa-folder-open"></i></div>
+      <div class="kpi-value">{{ projects.count }}</div>
+      <div class="kpi-label">Projects</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="color:var(--yellow);"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+      <div class="kpi-value">{{ invoices|length }}</div>
+      <div class="kpi-label">Invoices</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="color:var(--teal);"><i class="fa-solid fa-file-pen"></i></div>
+      <div class="kpi-value">{{ proposals|length }}</div>
+      <div class="kpi-label">Proposals</div>
+    </div>
   </div>
 
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap;">
-    <div>
-      <h1 style="font-size:22px;font-weight:var(--weight-bold);">{{ client.name }}</h1>
-      {% if client.company %}<div style="font-size:14px;color:var(--text-muted);margin-top:3px;">{{ client.company }}</div>{% endif %}
+  {% if proposals %}
+  <div class="proj-section" style="margin-bottom:16px;">
+    <div class="proj-files-header">
+      <span class="proj-module-hdr-title"><i class="fa-solid fa-file-pen" style="color:var(--yellow);"></i> Proposals</span>
+      <a href="{% url 'proposals:index' %}" class="btn btn-ghost btn-sm" style="font-size:11px;">View all</a>
     </div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-ghost btn-sm" onclick="openEditClient()"><i class="fa-solid fa-pen"></i> Edit</button>
-      <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteClient()"><i class="fa-solid fa-trash"></i></button>
+    {% for p in proposals %}
+    <a href="{% url 'proposals:detail' p.pk %}" style="text-decoration:none;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:13px;color:var(--text);">{{ p.title }}</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:13px;color:var(--text);">${{ p.total|floatformat:0 }}</span>
+        <span class="status-badge status-{{ p.status }}">{{ p.get_status_display }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if contracts %}
+  <div class="proj-section" style="margin-bottom:16px;">
+    <div class="proj-files-header">
+      <span class="proj-module-hdr-title"><i class="fa-solid fa-file-signature" style="color:var(--green);"></i> Contracts</span>
     </div>
+    {% for c in contracts %}
+    <a href="{% url 'contracts:detail' c.pk %}" style="text-decoration:none;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);">
+      <div style="font-size:13px;color:var(--text);">{{ c.title }}</div>
+      <span class="status-badge status-{{ c.status }}">{{ c.get_status_display }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if client.notes %}
+  <div class="proj-section">
+    <div class="proj-files-header"><span class="proj-module-hdr-title"><i class="fa-solid fa-note-sticky" style="color:var(--text-muted);"></i> Notes</span></div>
+    <div style="padding:12px 16px;font-size:13px;color:var(--text-muted);line-height:1.7;white-space:pre-wrap;">{{ client.notes }}</div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Projects ── #}
+<div class="cl-panel" id="panel-projects">
+  <div class="proj-section">
+    <div class="proj-files-header">
+      <span class="proj-module-hdr-title"><i class="fa-solid fa-folder-open" style="color:var(--accent);"></i> Projects</span>
+      <a href="{% url 'projects:index' %}" class="btn btn-ghost btn-sm" style="font-size:11px;"><i class="fa-solid fa-plus"></i> New</a>
+    </div>
+    {% for p in projects %}
+    {% with ts=p.task_stats %}
+    <a href="{% url 'projects:detail' p.pk %}" class="proj-row" style="--pc:{{ p.color }};">
+      <div class="proj-dot" style="background:{{ p.color }};"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</div>
+        <div style="font-size:11px;color:var(--text-muted);">{{ p.total_hours }}h · {{ ts.done }}/{{ ts.total }} tasks · {{ p.get_status_display }}</div>
+      </div>
+      {% if ts.total > 0 %}
+      <div style="display:flex;align-items:center;gap:8px;min-width:120px;">
+        <div class="proj-prog-wrap">
+          <div class="proj-prog-bar" style="width:{{ ts.pct }}%;background:{{ p.color }};"></div>
+        </div>
+        <span style="font-size:11px;color:{{ p.color }};font-weight:600;white-space:nowrap;">{{ ts.pct }}%</span>
+      </div>
+      {% endif %}
+      <span class="status-dot status-{{ p.status }}">{{ p.get_status_display }}</span>
+    </a>
+    {% endwith %}
+    {% empty %}
+    <div style="padding:20px 16px;font-size:13px;color:var(--text-muted);">No projects linked yet. <a href="{% url 'projects:index' %}" style="color:var(--accent);">Create one →</a></div>
+    {% endfor %}
   </div>
 
-  <div style="display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:20px;align-items:start;">
-    <div>
-      <!-- Contacts -->
-      <div class="proj-section" style="margin-bottom:16px;">
-        <div class="proj-files-header">
-          <span class="proj-module-hdr-title"><i class="fa-solid fa-users" style="color:var(--teal);"></i> Contacts</span>
-          <button class="btn btn-ghost btn-sm" onclick="openAddContact()"><i class="fa-solid fa-plus"></i> Add</button>
-        </div>
-        <div id="contacts-list">
-        {% for contact in contacts %}
-        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-size:13px;font-weight:var(--weight-mid);">{{ contact.full_name }}</div>
-            <div style="font-size:11px;color:var(--text-muted);">
-              {% if contact.role %}{{ contact.role }} · {% endif %}{{ contact.email }}{% if contact.phone %} · {{ contact.phone }}{% endif %}
-            </div>
-          </div>
-          <button onclick="deleteContact({{ contact.pk }}, this)" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        {% empty %}
-        <div id="contacts-empty" style="padding:12px 16px;font-size:13px;color:var(--text-muted);">No contacts yet.</div>
-        {% endfor %}
-        </div>
+  {% if invoices %}
+  <div class="proj-section" style="margin-top:16px;">
+    <div class="proj-files-header">
+      <span class="proj-module-hdr-title"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--yellow);"></i> Invoices</span>
+      <a href="{% url 'billing:index' %}" class="btn btn-ghost btn-sm" style="font-size:11px;">View all</a>
+    </div>
+    {% for inv in invoices %}
+    <a href="{% url 'billing:invoice_detail' inv.pk %}" style="text-decoration:none;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:13px;color:var(--text);">{{ inv.number }}</div>
+        <div style="font-size:11px;color:var(--text-muted);">{{ inv.issued_date }}</div>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:13px;font-family:var(--font-mono);color:var(--text);">${{ inv.total|floatformat:0 }}</span>
+        <span class="status-badge status-{{ inv.status }}">{{ inv.get_status_display }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
 
-      <!-- Proposals -->
-      {% if proposals %}
-      <div class="proj-section" style="margin-bottom:16px;">
-        <div class="proj-files-header">
-          <span class="proj-module-hdr-title"><i class="fa-solid fa-file-pen" style="color:var(--yellow);"></i> Proposals</span>
-          <a href="{% url 'proposals:index' %}" class="btn btn-ghost btn-sm" style="font-size:11px;">View all</a>
-        </div>
-        {% for p in proposals %}
-        <a href="{% url 'proposals:detail' p.pk %}" style="text-decoration:none;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);">
-          <div style="font-size:13px;color:var(--text);">{{ p.title }}</div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:13px;color:var(--text);">${{ p.total|floatformat:0 }}</span>
-            <span class="status-badge status-{{ p.status }}">{{ p.get_status_display }}</span>
-          </div>
-        </a>
-        {% endfor %}
+{# ── Timeline ── #}
+<div class="cl-panel" id="panel-timeline">
+  {% if timeline %}
+  <div style="max-width:600px;">
+    {% for item in timeline %}
+    <div class="tl-item">
+      <div class="tl-icon" style="background:color-mix(in srgb,{{ item.color }} 15%,transparent);color:{{ item.color }};">
+        <i class="fa-solid {{ item.icon }}"></i>
       </div>
-      {% endif %}
+      <div style="flex:1;min-width:0;">
+        <a href="{{ item.url }}" class="tl-label" style="text-decoration:none;color:var(--text);">{{ item.label }}</a>
+        <div class="tl-meta">
+          <span class="status-badge status-{{ item.status }}" style="font-size:9px;padding:1px 6px;">{{ item.status }}</span>
+          <span style="margin-left:6px;">{{ item.date|date:"M j, Y" }}</span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state"><i class="fa-solid fa-timeline"></i><p>No activity recorded yet.</p></div>
+  {% endif %}
+</div>
 
-      <!-- Contracts -->
-      {% if contracts %}
-      <div class="proj-section">
-        <div class="proj-files-header">
-          <span class="proj-module-hdr-title"><i class="fa-solid fa-file-contract" style="color:var(--green);"></i> Contracts</span>
+{# ── Follow-ups ── #}
+<div class="cl-panel" id="panel-followups">
+  <div style="max-width:600px;">
+    <div id="fu-list">
+      {% for fu in followups %}
+      <div class="fu-item" id="fu-{{ fu.pk }}">
+        <div class="fu-check {% if fu.done %}done{% endif %}" onclick="toggleFollowup({{ fu.pk }}, {{ fu.done|yesno:'true,false' }})">
+          {% if fu.done %}<i class="fa-solid fa-check"></i>{% endif %}
         </div>
-        {% for c in contracts %}
-        <a href="{% url 'contracts:detail' c.pk %}" style="text-decoration:none;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);">
-          <div style="font-size:13px;color:var(--text);">{{ c.title }}</div>
-          <span class="status-badge status-{{ c.status }}">{{ c.get_status_display }}</span>
-        </a>
-        {% endfor %}
+        <div style="flex:1;">
+          <div class="fu-note {% if fu.done %}done{% endif %}">{{ fu.note }}</div>
+          <div class="fu-due">
+            {% if fu.due_date %}<i class="fa-solid fa-calendar" style="margin-right:3px;"></i>{{ fu.due_date|date:"M j" }} · {% endif %}
+            <span class="fu-pri {{ fu.priority }}">{{ fu.get_priority_display }}</span>
+          </div>
+        </div>
+        <button onclick="deleteFollowup({{ fu.pk }})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;opacity:0;transition:opacity .15s;" class="fu-del"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      {% endif %}
+      {% empty %}
+      <div id="fu-empty" style="font-size:13px;color:var(--text-muted);padding:8px 0;">No follow-ups yet.</div>
+      {% endfor %}
     </div>
 
-    <!-- Sidebar -->
-    <div>
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">Contact Info</div>
-        {% if client.email %}<div style="font-size:12px;margin-bottom:8px;"><i class="fa-solid fa-envelope" style="opacity:.5;width:16px;margin-right:4px;"></i><a href="mailto:{{ client.email }}" style="color:var(--text);text-decoration:none;">{{ client.email }}</a></div>{% endif %}
-        {% if client.phone %}<div style="font-size:12px;margin-bottom:8px;"><i class="fa-solid fa-phone" style="opacity:.5;width:16px;margin-right:4px;"></i>{{ client.phone }}</div>{% endif %}
-        {% if client.website %}<div style="font-size:12px;margin-bottom:8px;"><i class="fa-solid fa-globe" style="opacity:.5;width:16px;margin-right:4px;"></i><a href="{{ client.website }}" target="_blank" style="color:var(--accent);">{{ client.website }}</a></div>{% endif %}
+    <div class="fu-add">
+      <div style="flex:1;">
+        <textarea id="fu-note-input" class="form-control" rows="2" placeholder="Add a follow-up note…" style="min-height:40px;resize:none;"></textarea>
       </div>
-      {% if client.notes %}
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">Notes</div>
-        <p style="font-size:12px;color:var(--text-muted);line-height:1.6;">{{ client.notes }}</p>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <input type="date" id="fu-date-input" class="form-control" style="font-size:12px;padding:5px 8px;">
+        <select id="fu-pri-input" class="form-control" style="font-size:12px;padding:5px 8px;">
+          <option value="normal">Normal</option>
+          <option value="high">High</option>
+          <option value="low">Low</option>
+        </select>
       </div>
-      {% endif %}
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">Projects</div>
-        {% for project in client.projects.all %}
-        <a href="{% url 'projects:detail' project.pk %}" style="display:block;font-size:12px;color:var(--text);text-decoration:none;margin-bottom:6px;">
-          <i class="fa-solid fa-list-check" style="opacity:.5;margin-right:4px;"></i>{{ project.name }}
-        </a>
-        {% empty %}
-        <div style="font-size:12px;color:var(--text-muted);">No projects linked.</div>
-        {% endfor %}
-      </div>
+      <button class="btn btn-primary btn-sm" onclick="addFollowup()" style="align-self:flex-end;"><i class="fa-solid fa-plus"></i></button>
     </div>
   </div>
 </div>
 
-<!-- Add Contact Modal -->
+{# ── Contacts ── #}
+<div class="cl-panel" id="panel-contacts">
+  <div class="proj-section" style="max-width:600px;">
+    <div class="proj-files-header">
+      <span class="proj-module-hdr-title"><i class="fa-solid fa-users" style="color:var(--teal);"></i> Contacts</span>
+      <button class="btn btn-ghost btn-sm" onclick="openAddContact()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+    <div id="contacts-list">
+    {% for contact in contacts %}
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:13px;font-weight:500;">{{ contact.full_name }}{% if contact.is_primary %} <span style="font-size:10px;color:var(--accent);margin-left:6px;">PRIMARY</span>{% endif %}</div>
+        <div style="font-size:11px;color:var(--text-muted);">
+          {% if contact.role %}{{ contact.role }}{% if contact.email %} · {% endif %}{% endif %}
+          {{ contact.email }}{% if contact.phone %} · {{ contact.phone }}{% endif %}
+        </div>
+      </div>
+      <button onclick="deleteContact({{ contact.pk }}, this)" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    {% empty %}
+    <div id="contacts-empty" style="padding:12px 16px;font-size:13px;color:var(--text-muted);">No contacts yet.</div>
+    {% endfor %}
+    </div>
+  </div>
+
+  {% if hosting %}
+  <div class="proj-section" style="margin-top:16px;max-width:600px;">
+    <div class="proj-files-header"><span class="proj-module-hdr-title"><i class="fa-solid fa-server" style="color:var(--text-muted);"></i> Hosting</span></div>
+    {% for h in hosting %}
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-size:13px;">
+      <div style="font-weight:500;">{{ h.domain }}</div>
+      <div style="font-size:11px;color:var(--text-muted);">{{ h.plan_name }} · {{ h.price_display }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{# ── Modals ── #}
 <div id="contact-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:440px;margin:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-      <h2 style="font-size:16px;font-weight:var(--weight-bold);">Add Contact</h2>
+      <h2 style="font-size:16px;font-weight:700;">Add Contact</h2>
       <button onclick="closeAddContact()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-      <div>
-        <label class="label" style="display:block;margin-bottom:5px;">First Name</label>
-        <input id="c-first" type="text" class="input" style="width:100%;box-sizing:border-box;">
-      </div>
-      <div>
-        <label class="label" style="display:block;margin-bottom:5px;">Last Name</label>
-        <input id="c-last" type="text" class="input" style="width:100%;box-sizing:border-box;">
-      </div>
+      <div><label class="label" style="display:block;margin-bottom:5px;">First Name</label><input id="c-first" type="text" class="input" style="width:100%;box-sizing:border-box;"></div>
+      <div><label class="label" style="display:block;margin-bottom:5px;">Last Name</label><input id="c-last" type="text" class="input" style="width:100%;box-sizing:border-box;"></div>
     </div>
-    <div style="margin-bottom:12px;">
-      <label class="label" style="display:block;margin-bottom:5px;">Role</label>
-      <input id="c-role" type="text" class="input" placeholder="e.g. CEO, Project Lead" style="width:100%;box-sizing:border-box;">
-    </div>
+    <div style="margin-bottom:12px;"><label class="label" style="display:block;margin-bottom:5px;">Role</label><input id="c-role" type="text" class="input" placeholder="CEO, PM…" style="width:100%;box-sizing:border-box;"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
-      <div>
-        <label class="label" style="display:block;margin-bottom:5px;">Email</label>
-        <input id="c-email" type="email" class="input" style="width:100%;box-sizing:border-box;">
-      </div>
-      <div>
-        <label class="label" style="display:block;margin-bottom:5px;">Phone</label>
-        <input id="c-phone" type="text" class="input" style="width:100%;box-sizing:border-box;">
-      </div>
+      <div><label class="label" style="display:block;margin-bottom:5px;">Email</label><input id="c-email" type="email" class="input" style="width:100%;box-sizing:border-box;"></div>
+      <div><label class="label" style="display:block;margin-bottom:5px;">Phone</label><input id="c-phone" type="text" class="input" style="width:100%;box-sizing:border-box;"></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeAddContact()">Cancel</button>
@@ -143,17 +328,25 @@
   </div>
 </div>
 
-<!-- Edit Client Modal -->
 <div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:500px;margin:16px;max-height:90vh;overflow-y:auto;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-      <h2 style="font-size:16px;font-weight:var(--weight-bold);">Edit Client</h2>
+      <h2 style="font-size:16px;font-weight:700;">Edit Client</h2>
       <button onclick="closeEditClient()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;">×</button>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Status</label>
+      <select id="edit-status" class="input" style="width:100%;box-sizing:border-box;">
+        <option value="lead" {% if client.status == 'lead' %}selected{% endif %}>Lead</option>
+        <option value="active" {% if client.status == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if client.status == 'inactive' %}selected{% endif %}>Inactive</option>
+        <option value="archived" {% if client.status == 'archived' %}selected{% endif %}>Archived</option>
+      </select>
     </div>
     {% for pair in edit_fields %}
     <div style="margin-bottom:12px;">
       <label class="label" style="display:block;margin-bottom:5px;">{{ pair.1 }}</label>
-      <input id="edit-{{ pair.0 }}" type="text" class="input" value="{{ client|getattr:pair.0 }}" style="width:100%;box-sizing:border-box;">
+      <input id="edit-{{ pair.0 }}" type="text" class="input" value="{{ pair.2 }}" style="width:100%;box-sizing:border-box;">
     </div>
     {% endfor %}
     <div style="margin-bottom:12px;">
@@ -168,46 +361,46 @@
 </div>
 
 {% endblock %}
+
 {% block extra_js %}
 <script>
 const CSRF = '{{ csrf_token }}';
 const CLIENT_ID = {{ client.pk }};
 
-// Edit client
+// ── Tabs ──────────────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.cl-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.cl-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Edit client ───────────────────────────────────────────────
 function openEditClient() { document.getElementById('edit-modal').style.display = 'flex'; }
 function closeEditClient() { document.getElementById('edit-modal').style.display = 'none'; }
 async function saveEditClient() {
-  const fields = ['name','company','email','phone','website','address','notes'];
+  const fields = ['name','company','email','phone','website','address','city','state','country','notes','status'];
   const data = {};
-  fields.forEach(f => {
-    const el = document.getElementById('edit-' + f);
-    if (el) data[f] = el.value;
-  });
+  fields.forEach(f => { const el = document.getElementById('edit-' + f); if (el) data[f] = el.value; });
   const btn = document.getElementById('edit-save');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
     await fetch(`/clients/${CLIENT_ID}/update/`, {
-      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-      body: JSON.stringify(data)
+      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body: JSON.stringify(data),
     });
     location.reload();
   } finally { btn.disabled = false; btn.textContent = 'Save'; }
 }
 
-// Delete client
 async function deleteClient() {
-  if (!confirm('Delete this client and all contacts?')) return;
-  await fetch(`/clients/${CLIENT_ID}/delete/`, {
-    method: 'POST', headers: {'X-CSRFToken': CSRF}
-  });
+  if (!confirm('Delete this client?')) return;
+  await fetch(`/clients/${CLIENT_ID}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
   window.location = '/clients/';
 }
 
-// Add contact
-function openAddContact() {
-  document.getElementById('contact-modal').style.display = 'flex';
-  document.getElementById('c-first').focus();
-}
+// ── Contacts ──────────────────────────────────────────────────
+function openAddContact() { document.getElementById('contact-modal').style.display = 'flex'; document.getElementById('c-first').focus(); }
 function closeAddContact() {
   document.getElementById('contact-modal').style.display = 'none';
   ['c-first','c-last','c-role','c-email','c-phone'].forEach(id => document.getElementById(id).value = '');
@@ -217,26 +410,85 @@ async function saveContact() {
   btn.disabled = true; btn.textContent = 'Adding…';
   try {
     const r = await fetch(`/clients/${CLIENT_ID}/contacts/new/`, {
-      method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
       body: JSON.stringify({
         first_name: document.getElementById('c-first').value.trim(),
         last_name:  document.getElementById('c-last').value.trim(),
         role:       document.getElementById('c-role').value.trim(),
         email:      document.getElementById('c-email').value.trim(),
         phone:      document.getElementById('c-phone').value.trim(),
-      })
+      }),
     });
-    const d = await r.json();
-    if (d.ok) { closeAddContact(); location.reload(); }
+    if ((await r.json()).ok) { closeAddContact(); location.reload(); }
   } finally { btn.disabled = false; btn.textContent = 'Add Contact'; }
 }
 async function deleteContact(contactId, btn) {
   if (!confirm('Delete contact?')) return;
   btn.disabled = true;
-  await fetch(`/clients/${CLIENT_ID}/contacts/${contactId}/delete/`, {
-    method: 'POST', headers: {'X-CSRFToken': CSRF}
+  await fetch(`/clients/${CLIENT_ID}/contacts/${contactId}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  btn.closest('div[style*="padding:10px"]').remove();
+}
+
+// ── Follow-ups ────────────────────────────────────────────────
+document.querySelectorAll('.fu-item').forEach(el => {
+  el.addEventListener('mouseenter', () => el.querySelector('.fu-del').style.opacity = '1');
+  el.addEventListener('mouseleave', () => el.querySelector('.fu-del').style.opacity = '0');
+});
+
+async function addFollowup() {
+  const note = document.getElementById('fu-note-input').value.trim();
+  if (!note) return;
+  const r = await fetch(`/clients/${CLIENT_ID}/followups/new/`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({
+      note,
+      due_date: document.getElementById('fu-date-input').value || null,
+      priority: document.getElementById('fu-pri-input').value,
+    }),
   });
-  btn.closest('[style*="padding:10px"]').remove();
+  const d = await r.json();
+  if (!d.ok) return;
+  document.getElementById('fu-note-input').value = '';
+  document.getElementById('fu-date-input').value = '';
+  const empty = document.getElementById('fu-empty');
+  if (empty) empty.remove();
+  const list = document.getElementById('fu-list');
+  const el = document.createElement('div');
+  el.className = 'fu-item'; el.id = 'fu-' + d.id;
+  el.innerHTML = `
+    <div class="fu-check" onclick="toggleFollowup(${d.id}, false)"></div>
+    <div style="flex:1;">
+      <div class="fu-note">${escHtml(d.note)}</div>
+      <div class="fu-due">${d.due_date ? '<i class="fa-solid fa-calendar" style="margin-right:3px;"></i>' + d.due_date + ' · ' : ''}<span class="fu-pri ${d.priority}">${d.priority}</span></div>
+    </div>
+    <button onclick="deleteFollowup(${d.id})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:12px;padding:4px;opacity:0;transition:opacity .15s;" class="fu-del"><i class="fa-solid fa-xmark"></i></button>`;
+  el.addEventListener('mouseenter', () => el.querySelector('.fu-del').style.opacity = '1');
+  el.addEventListener('mouseleave', () => el.querySelector('.fu-del').style.opacity = '0');
+  list.prepend(el);
+}
+
+async function toggleFollowup(id, currentlyDone) {
+  const newDone = !currentlyDone;
+  await fetch(`/clients/${CLIENT_ID}/followups/${id}/update/`, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({done: newDone}),
+  });
+  const el = document.getElementById('fu-' + id);
+  const check = el.querySelector('.fu-check');
+  const note  = el.querySelector('.fu-note');
+  check.classList.toggle('done', newDone);
+  check.innerHTML = newDone ? '<i class="fa-solid fa-check"></i>' : '';
+  check.onclick = () => toggleFollowup(id, newDone);
+  note.classList.toggle('done', newDone);
+}
+
+async function deleteFollowup(id) {
+  await fetch(`/clients/${CLIENT_ID}/followups/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  document.getElementById('fu-' + id)?.remove();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 document.addEventListener('keydown', e => {

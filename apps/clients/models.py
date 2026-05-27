@@ -65,6 +65,24 @@ class Contact(models.Model):
         return f'{self.first_name} {self.last_name}'.strip()
 
 
+class FollowUp(models.Model):
+    PRIORITY = [('low', 'Low'), ('normal', 'Normal'), ('high', 'High')]
+    client     = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='followups')
+    owner      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='followups')
+    note       = models.TextField()
+    due_date   = models.DateField(null=True, blank=True)
+    priority   = models.CharField(max_length=10, choices=PRIORITY, default='normal')
+    done       = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    done_at    = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['done', 'due_date', '-created_at']
+
+    def __str__(self):
+        return f'Follow-up: {self.client.display_name} — {self.note[:60]}'
+
+
 class HostingSubscription(models.Model):
     CYCLE = [('monthly', 'Monthly'), ('annual', 'Annual'), ('one-time', 'One-time')]
     owner              = models.ForeignKey(User, on_delete=models.CASCADE, related_name='hosting_subscriptions')

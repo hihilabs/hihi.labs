@@ -1,190 +1,336 @@
 {% extends 'base.html' %}
-{% block title %}Inbox — HiHi Labs{% endblock %}
+{% block title %}Messages — HiHi Labs{% endblock %}
+
+{% block extra_css %}
+<style>
+.msg-main { display:flex; flex-direction:column; height:calc(100vh - 60px); overflow:hidden; }
+.msg-toolbar { padding:10px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-shrink:0; min-height:48px; }
+.msg-toolbar-title { font-size:14px; font-weight:var(--weight-bold); flex:1; }
+.msg-list { flex:1; overflow-y:auto; }
+.thread-row-wrap { position:relative; border-bottom:1px solid var(--border); }
+.thread-row-wrap:hover .row-del-btn { opacity:1; }
+.row-del-btn { position:absolute; right:12px; top:50%; transform:translateY(-50%); opacity:0; transition:opacity .15s; background:none; border:none; color:var(--text-muted); cursor:pointer; padding:4px 8px; border-radius:var(--r-sm); z-index:2; }
+.row-del-btn:hover { color:#f87171; background:color-mix(in srgb,#f87171 12%,transparent); }
+.msg-thread-row { display:flex; align-items:center; gap:12px; padding:12px 44px 12px 20px; border-bottom:none; color:var(--text); text-decoration:none; transition:background .1s; }
+.msg-thread-row:hover { background:var(--bg3); }
+.msg-thread-row.unread { background:color-mix(in srgb,var(--accent) 4%,transparent); }
+.msg-thread-row.unread .msg-subject { font-weight:600; }
+.msg-thread-row.flagged .msg-subject::before { content:'🚩 '; }
+.notif-item { position:relative; }
+.notif-item:hover .row-del-btn { opacity:1; }
+.msg-src-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+.src-internal { background:color-mix(in srgb,var(--green) 15%,transparent); color:var(--green); }
+.src-gmail    { background:color-mix(in srgb,var(--teal) 15%,transparent); color:var(--teal); }
+.src-proton   { background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent); }
+.src-email    { background:var(--bg3); color:var(--text-muted); }
+.msg-body-row { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.msg-subject { font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.msg-preview { font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.msg-date { font-size:11px; color:var(--text-muted); white-space:nowrap; flex-shrink:0; }
+.compose-panel { border-top:1px solid var(--border); padding:16px 20px; background:var(--bg2); flex-shrink:0; display:none; }
+.compose-panel.open { display:block; }
+.notif-item { display:flex; align-items:flex-start; gap:12px; padding:12px 20px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+.notif-item:hover { background:var(--bg3); }
+.notif-item.unread { background:color-mix(in srgb,var(--accent) 4%,transparent); }
+.notif-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; background:var(--bg3); color:var(--text-muted); }
+.notif-dot.green  { background:color-mix(in srgb,var(--green) 15%,transparent); color:var(--green); }
+.notif-dot.purple { background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent); }
+.notif-dot.yellow { background:color-mix(in srgb,var(--yellow) 15%,transparent); color:var(--yellow); }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <div class="page-title">Inbox</div>
-  <div style="display:flex;gap:8px;">
-    <a href="{% url 'messaging:email_accounts' %}" class="btn btn-ghost btn-sm" title="Email accounts">
-      <i class="fa-solid fa-at"></i>
-    </a>
-    <button class="btn btn-primary btn-sm" onclick="showNewThread()">
-      <i class="fa-solid fa-pen-to-square"></i> Compose
-    </button>
-  </div>
-</div>
+<div class="msg-main">
 
-{# Compose panel #}
-<div id="compose-panel" style="display:none;padding:0 24px 16px;">
-  <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;">
-    <input class="form-control" id="msg-subject" placeholder="Subject" style="margin-bottom:8px;">
-    <textarea class="form-control" id="msg-body" placeholder="Message..." rows="4" style="margin-bottom:8px;"></textarea>
+  {% if active_tab == 'internal' %}
+  {# ── Internal ── #}
+  <div class="msg-toolbar">
+    <span class="msg-toolbar-title"><i class="fa-solid fa-comments" style="color:var(--green);margin-right:6px;"></i>Internal</span>
+    <button class="btn btn-primary btn-sm" onclick="openCompose()"><i class="fa-solid fa-pen-to-square"></i> New</button>
+  </div>
+  <div class="msg-list">
+    {% for thread in internal_threads %}
+    {% with unread=thread.unread_count last=thread.last_message %}
+    <div class="thread-row-wrap" id="trow-{{ thread.pk }}">
+      <a href="{% url 'messaging:thread_detail' thread.pk %}" class="msg-thread-row {% if unread %}unread{% endif %} {% if thread.flagged %}flagged{% endif %}">
+        <div class="msg-src-dot src-internal"><i class="fa-solid fa-comments"></i></div>
+        <div style="flex:1;min-width:0;">
+          <div class="msg-body-row">
+            <span class="msg-subject">{{ thread.subject|default:"(no subject)" }}</span>
+            <span class="msg-date">{{ thread.updated_at|date:"M j" }}</span>
+          </div>
+          {% if last %}
+          <div class="msg-preview">
+            {% if last.command == 'task' %}📋 Task: {{ last.command_meta.title|default:last.body|striptags|truncatechars:60 }}
+            {% elif last.command == 'flag' %}🚩 Flagged
+            {% elif last.command == 'note' %}📝 Note: {{ last.command_meta.title|default:"" }}
+            {% else %}{{ last.body|striptags|truncatechars:70 }}{% endif %}
+          </div>
+          {% endif %}
+        </div>
+        {% if unread %}<span style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-right:28px;"></span>{% endif %}
+      </a>
+      <button class="row-del-btn" onclick="deleteThread({{ thread.pk }})" title="Delete thread"><i class="fa-solid fa-trash"></i></button>
+    </div>
+    {% endwith %}
+    {% empty %}
+    <div class="empty-state" style="padding:80px 0;">
+      <i class="fa-solid fa-comments"></i>
+      <p>No internal threads yet.</p>
+      <button class="btn btn-primary btn-sm" onclick="openCompose()"><i class="fa-solid fa-plus"></i> New thread</button>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="compose-panel" id="compose-panel">
+    <div style="margin-bottom:8px;">
+      <input class="form-control" id="compose-subject" placeholder="Subject (optional)" style="margin-bottom:8px;">
+      <div style="position:relative;">
+        <textarea class="form-control" id="compose-body" rows="3" placeholder="Message… or type / for commands" style="resize:none;font-family:var(--font-mono);font-size:13px;" oninput="checkSlash(this)" onkeydown="composeKeydown(event)"></textarea>
+        <div id="slash-palette" style="display:none;position:absolute;bottom:100%;left:0;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-lg);padding:4px;z-index:50;min-width:280px;margin-bottom:4px;"></div>
+      </div>
+    </div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-size:12px;color:var(--text-muted);">Internal message (team only)</span>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost btn-sm" onclick="hideCompose()">Cancel</button>
-        <button class="btn btn-primary btn-sm" onclick="sendMessage()">Send</button>
+      <span style="font-size:11px;color:var(--text-muted);">Ctrl+Enter to send &nbsp;·&nbsp; type <code>/</code> for commands</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="closeCompose()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="sendNewThread()"><i class="fa-solid fa-paper-plane"></i> Send</button>
       </div>
     </div>
   </div>
-</div>
 
-{# Tab bar: Messages / Notifications / Email #}
-<div style="display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 24px;">
-  <button class="inbox-tab active" onclick="showTab('threads', this)">
-    <i class="fa-solid fa-comments"></i> Messages
-    {% with total=threads|length %}{% if total %}<span class="badge">{{ total }}</span>{% endif %}{% endwith %}
-  </button>
-  <button class="inbox-tab" onclick="showTab('notifs', this)">
-    <i class="fa-solid fa-bell"></i> Notifications
-    {% if unread_notif %}<span class="badge">{{ unread_notif }}</span>{% endif %}
-  </button>
-  {% if email_accounts %}
-  <button class="inbox-tab" onclick="showTab('email', this)">
-    <i class="fa-solid fa-at"></i> Email
-    {% for acc in email_accounts %}<span style="font-size:11px;color:var(--text-muted);">{{ acc.label }}</span>{% endfor %}
-  </button>
-  {% endif %}
-</div>
-
-{# Threads list #}
-<div id="tab-threads" style="padding: 0 24px;">
-  {% for thread in threads %}
-  {% with unread=thread.unread_count|default:0 last=thread.last_message %}
-  <a href="{% url 'messaging:thread_detail' thread.pk %}" class="thread-row {% if unread %}thread-unread{% endif %}">
-    <div class="thread-source source-{{ thread.source }}">
-      {% if thread.source == 'gmail' %}<i class="fa-brands fa-google"></i>
-      {% elif thread.source == 'proton' %}<i class="fa-solid fa-shield"></i>
-      {% else %}<i class="fa-solid fa-comments"></i>{% endif %}
+  {% elif active_tab == 'email' %}
+  {# ── Email ── #}
+  <div class="msg-toolbar">
+    <span class="msg-toolbar-title"><i class="fa-solid fa-envelope" style="color:var(--teal);margin-right:6px;"></i>Email</span>
+    {% for acc in email_accounts %}
+    <button class="btn btn-ghost btn-sm" onclick="syncAccount({{ acc.pk }}, this)" title="Sync {{ acc.label }}">
+      <i class="fa-solid fa-rotate"></i> {{ acc.label }}
+    </button>
+    {% endfor %}
+    <a href="{% url 'messaging:email_accounts' %}" class="btn btn-ghost btn-sm" title="Manage accounts"><i class="fa-solid fa-at"></i></a>
+  </div>
+  <div class="msg-list">
+    {% for thread in email_threads %}
+    {% with unread=thread.unread_count last=thread.last_message %}
+    <div class="thread-row-wrap" id="trow-{{ thread.pk }}">
+      <a href="{% url 'messaging:thread_detail' thread.pk %}" class="msg-thread-row {% if unread %}unread{% endif %}">
+        <div class="msg-src-dot src-{{ thread.source }}">
+          {% if thread.source == 'gmail' %}<i class="fa-brands fa-google"></i>
+          {% elif thread.source == 'proton' %}<i class="fa-solid fa-shield"></i>
+          {% else %}<i class="fa-solid fa-at"></i>{% endif %}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div class="msg-body-row">
+            <span class="msg-subject">{{ thread.subject|default:"(no subject)" }}</span>
+            <span class="msg-date">{{ thread.updated_at|date:"M j" }}</span>
+          </div>
+          {% if last %}<div class="msg-preview">{{ last.body|striptags|slice:":100"|truncatechars:80 }}</div>{% endif %}
+        </div>
+        {% if unread %}<span style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-right:28px;"></span>{% endif %}
+      </a>
+      <button class="row-del-btn" onclick="deleteThread({{ thread.pk }})" title="Delete thread"><i class="fa-solid fa-trash"></i></button>
     </div>
-    <div style="flex:1;min-width:0;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
-        <span style="font-weight:{% if unread %}600{% else %}400{% endif %};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          {{ thread.subject|default:"(no subject)" }}
-        </span>
-        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">{{ thread.updated_at|date:"M j" }}</span>
-      </div>
-      {% if last %}
-      <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-        {{ last.body|striptags|truncatechars:80 }}
-      </div>
+    {% endwith %}
+    {% empty %}
+    <div class="empty-state" style="padding:80px 0;">
+      <i class="fa-solid fa-envelope"></i>
+      <p>No email threads synced.</p>
+      {% if email_accounts %}
+      <button class="btn btn-primary btn-sm" onclick="syncAccount({{ email_accounts.0.pk }}, this)"><i class="fa-solid fa-rotate"></i> Sync now</button>
+      {% else %}
+      <a href="{% url 'messaging:email_accounts' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Add email account</a>
       {% endif %}
     </div>
-    {% if unread %}<span class="badge" style="flex-shrink:0;">{{ unread }}</span>{% endif %}
-  </a>
-  {% endwith %}
-  {% empty %}
-  <div class="empty-state" style="padding:60px 0;">
-    <i class="fa-solid fa-inbox"></i>
-    <p>No messages yet.</p>
+    {% endfor %}
   </div>
-  {% endfor %}
-</div>
 
-{# Notifications list #}
-<div id="tab-notifs" style="display:none;padding:0 24px;">
-  {% if unread_notif %}
-  <div style="padding:12px 0;display:flex;justify-content:flex-end;">
-    <button class="btn btn-ghost btn-sm" onclick="markAllRead()">Mark all read</button>
+  {% elif active_tab == 'notifs' %}
+  {# ── Notifications ── #}
+  <div class="msg-toolbar">
+    <span class="msg-toolbar-title"><i class="fa-solid fa-bell" style="color:var(--yellow);margin-right:6px;"></i>Notifications</span>
+    {% if unread_notif %}<button class="btn btn-ghost btn-sm" onclick="markAllRead()">Mark all read</button>{% endif %}
+  </div>
+  <div class="msg-list">
+    {% for n in notifications %}
+    <div class="notif-item {% if not n.read %}unread{% endif %}" id="nrow-{{ n.pk }}" onclick="markRead({{ n.pk }}, '{{ n.link }}')">
+      <div class="notif-dot {% if n.type == 'invoice_paid' or n.type == 'task_done' %}green{% elif n.type == 'message' %}purple{% elif 'subscription' in n.type %}yellow{% endif %}">
+        {% if n.type == 'invoice_paid' %}<i class="fa-solid fa-circle-check"></i>
+        {% elif n.type == 'task_done' %}<i class="fa-solid fa-check"></i>
+        {% elif n.type == 'message' %}<i class="fa-solid fa-comment"></i>
+        {% elif n.type == 'timer_stopped' %}<i class="fa-solid fa-clock"></i>
+        {% elif 'subscription' in n.type %}<i class="fa-solid fa-rocket"></i>
+        {% else %}<i class="fa-solid fa-bell"></i>{% endif %}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:{% if not n.read %}600{% else %}400{% endif %};">{{ n.title }}</div>
+        {% if n.body %}<div style="font-size:12px;color:var(--text-muted);">{{ n.body }}</div>{% endif %}
+      </div>
+      <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;margin-right:28px;">{{ n.created_at|date:"M j" }}</span>
+      <button class="row-del-btn" onclick="event.stopPropagation();deleteNotif({{ n.pk }})" title="Delete"><i class="fa-solid fa-trash"></i></button>
+    </div>
+    {% empty %}
+    <div class="empty-state" style="padding:80px 0;">
+      <i class="fa-solid fa-bell-slash"></i>
+      <p>All caught up.</p>
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
-  {% for n in notifications %}
-  <div class="notif-row {% if not n.read %}notif-unread{% endif %}" onclick="markRead({{ n.pk }}, '{{ n.link }}')">
-    <div class="notif-icon type-{{ n.type }}">
-      {% if n.type == 'invoice_paid' %}<i class="fa-solid fa-circle-check"></i>
-      {% elif n.type == 'message' %}<i class="fa-solid fa-comment"></i>
-      {% elif n.type == 'timer_stopped' %}<i class="fa-solid fa-clock"></i>
-      {% elif 'subscription' in n.type %}<i class="fa-solid fa-rocket"></i>
-      {% else %}<i class="fa-solid fa-bell"></i>{% endif %}
-    </div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-weight:{% if not n.read %}600{% else %}400{% endif %};font-size:13px;">{{ n.title }}</div>
-      {% if n.body %}<div style="font-size:12px;color:var(--text-muted);">{{ n.body }}</div>{% endif %}
-    </div>
-    <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;">{{ n.created_at|date:"M j" }}</span>
-  </div>
-  {% empty %}
-  <div class="empty-state" style="padding:60px 0;">
-    <i class="fa-solid fa-bell-slash"></i>
-    <p>No notifications.</p>
-  </div>
-  {% endfor %}
-</div>
 
-{% if email_accounts %}
-<div id="tab-email" style="display:none;padding:0 24px 24px;">
-  {% for acc in email_accounts %}
-  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
-    <div>
-      <div style="font-weight:500;">{{ acc.label }}</div>
-      <div style="font-size:12px;color:var(--text-muted);">{{ acc.email_address }} · {{ acc.get_provider_display }}</div>
-      {% if acc.last_synced %}<div style="font-size:11px;color:var(--text-muted);">Last synced {{ acc.last_synced|date:"M j, g:i a" }}</div>{% endif %}
-    </div>
-    <button class="btn btn-ghost btn-sm" onclick="syncAccount({{ acc.pk }}, this)">
-      <i class="fa-solid fa-rotate"></i> Sync
-    </button>
-  </div>
-  {% endfor %}
-  <div style="margin-top:16px;">
-    <a href="{% url 'messaging:email_accounts' %}" class="btn btn-ghost btn-sm">
-      <i class="fa-solid fa-plus"></i> Add email account
-    </a>
-  </div>
 </div>
-{% endif %}
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
 const CSRF = '{{ csrf_token }}';
 
-function showTab(name, btn) {
-  document.querySelectorAll('[id^="tab-"]').forEach(t => t.style.display = 'none');
-  document.querySelectorAll('.inbox-tab').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).style.display = 'block';
-  btn.classList.add('active');
+const SLASH_COMMANDS = [
+  {cmd: '/task',    icon: 'fa-check-square', label: 'Create task',         hint: '/task [description]'},
+  {cmd: '/project', icon: 'fa-folder',       label: 'Link project',        hint: '/project [name]'},
+  {cmd: '/note',    icon: 'fa-sticky-note',  label: 'Save as note',        hint: '/note [title]'},
+  {cmd: '/flag',    icon: 'fa-flag',         label: 'Flag thread',         hint: '/flag'},
+  {cmd: '/remind',  icon: 'fa-clock',        label: 'Remind me',           hint: '/remind [when]'},
+];
+
+function openCompose() {
+  document.getElementById('compose-panel').classList.add('open');
+  document.getElementById('compose-body').focus();
+}
+function closeCompose() {
+  document.getElementById('compose-panel').classList.remove('open');
+  document.getElementById('compose-subject').value = '';
+  document.getElementById('compose-body').value = '';
+  hidePalette();
 }
 
-function showNewThread() {
-  document.getElementById('compose-panel').style.display = 'block';
-  document.getElementById('msg-subject').focus();
-}
-function hideCompose() {
-  document.getElementById('compose-panel').style.display = 'none';
+function composeKeydown(e) {
+  const palette = document.getElementById('slash-palette');
+  if (palette.style.display !== 'none') {
+    const items = palette.querySelectorAll('.slash-item');
+    const active = palette.querySelector('.slash-item.hover');
+    if (e.key === 'ArrowDown') { e.preventDefault(); activateNext(items, active, 1); return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); activateNext(items, active, -1); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const sel = palette.querySelector('.slash-item.hover');
+      if (sel) applySlash(sel.dataset.cmd);
+      return;
+    }
+    if (e.key === 'Escape') { hidePalette(); return; }
+  }
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendNewThread(); }
 }
 
-async function sendMessage() {
-  const subject = document.getElementById('msg-subject').value.trim();
-  const body = document.getElementById('msg-body').value.trim();
+function activateNext(items, current, dir) {
+  const arr = Array.from(items);
+  let idx = current ? arr.indexOf(current) + dir : (dir > 0 ? 0 : arr.length - 1);
+  idx = (idx + arr.length) % arr.length;
+  arr.forEach(i => i.classList.remove('hover'));
+  arr[idx]?.classList.add('hover');
+}
+
+function checkSlash(ta) {
+  const val = ta.value;
+  const lastNewline = val.lastIndexOf('\n');
+  const currentLine = val.slice(lastNewline + 1);
+  if (currentLine.startsWith('/')) {
+    const query = currentLine.slice(1).toLowerCase();
+    const matches = SLASH_COMMANDS.filter(c => c.cmd.slice(1).startsWith(query) || !query);
+    if (matches.length) { showPalette(matches, currentLine); return; }
+  }
+  hidePalette();
+}
+
+function showPalette(cmds, currentLine) {
+  const p = document.getElementById('slash-palette');
+  p.innerHTML = cmds.map((c, i) => `
+    <div class="slash-item ${i===0?'hover':''}" data-cmd="${c.cmd}" onclick="applySlash('${c.cmd}')"
+         style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:var(--r-sm);cursor:pointer;">
+      <i class="fa-solid ${c.icon}" style="width:16px;color:var(--accent);font-size:12px;"></i>
+      <span style="font-size:13px;font-family:var(--font-mono);">${c.cmd}</span>
+      <span style="font-size:12px;color:var(--text-muted);flex:1;">${c.label}</span>
+      <span style="font-size:10px;color:var(--text-muted);opacity:.6;">${c.hint}</span>
+    </div>
+  `).join('');
+  // hover style
+  p.querySelectorAll('.slash-item').forEach(item => {
+    item.addEventListener('mouseenter', () => {
+      p.querySelectorAll('.slash-item').forEach(i => i.classList.remove('hover'));
+      item.classList.add('hover');
+    });
+  });
+  p.style.display = 'block';
+}
+
+function hidePalette() {
+  document.getElementById('slash-palette').style.display = 'none';
+}
+
+function applySlash(cmd) {
+  const ta = document.getElementById('compose-body');
+  const val = ta.value;
+  const lastNL = val.lastIndexOf('\n');
+  ta.value = val.slice(0, lastNL + 1) + cmd + ' ';
+  hidePalette();
+  ta.focus();
+}
+
+async function sendNewThread() {
+  const subject = document.getElementById('compose-subject').value.trim();
+  const body = document.getElementById('compose-body').value.trim();
   if (!body) return;
   const res = await fetch('/messaging/thread/new/', {
     method: 'POST',
-    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
     body: JSON.stringify({subject, body, recipients: []}),
   });
   if (res.ok) {
     const {id} = await res.json();
-    window.location = `/messaging/thread/${id}/`;
+    window.location = '/messaging/thread/' + id + '/';
   }
 }
 
 async function markRead(id, link) {
-  await fetch(`/messaging/notifications/${id}/read/`, {method:'POST',headers:{'X-CSRFToken':CSRF}});
+  await fetch(`/messaging/notifications/${id}/read/`, {method: 'POST', headers: {'X-CSRFToken': CSRF}});
   if (link) window.location = link;
 }
-
 async function markAllRead() {
-  await fetch('/messaging/notifications/read-all/', {method:'POST',headers:{'X-CSRFToken':CSRF}});
+  await fetch('/messaging/notifications/read-all/', {method: 'POST', headers: {'X-CSRFToken': CSRF}});
   location.reload();
 }
-
 async function syncAccount(id, btn) {
+  const orig = btn.innerHTML;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-  const res = await fetch(`/messaging/email-accounts/${id}/sync/`, {method:'POST',headers:{'X-CSRFToken':CSRF}});
+  const res = await fetch(`/messaging/email-accounts/${id}/sync/`, {method: 'POST', headers: {'X-CSRFToken': CSRF}});
   const data = await res.json();
-  if (data.ok) { alert(`Synced ${data.synced} new messages.`); location.reload(); }
-  else { alert('Sync error: ' + data.error); btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync'; }
+  btn.innerHTML = orig;
+  if (data.ok) location.reload();
+  else alert('Sync error: ' + data.error);
 }
+
+async function deleteThread(pk) {
+  if (!confirm('Delete this thread and all its messages?')) return;
+  const r = await fetch(`/messaging/thread/${pk}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  if ((await r.json()).ok) {
+    const el = document.getElementById('trow-' + pk);
+    el.style.transition = 'opacity .2s';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 200);
+  }
+}
+
+async function deleteNotif(pk) {
+  const r = await fetch(`/messaging/notifications/${pk}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  if ((await r.json()).ok) {
+    const el = document.getElementById('nrow-' + pk);
+    el.style.transition = 'opacity .2s';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 200);
+  }
+}
+
 </script>
+<style>
+.slash-item.hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+</style>
 {% endblock %}

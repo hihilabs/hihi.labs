@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% block title %}{{ board.title }} — Whiteboard{% endblock %}
+
+{% block extra_css %}
+<style>
+.wb-shell { display: flex; flex-direction: column; height: calc(100vh - 60px); overflow: hidden; }
+.wb-topbar { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg2); }
+.wb-title-in { background: none; border: none; color: var(--text); font-family: var(--font-ui); font-size: 14px; font-weight: var(--weight-bold); outline: none; flex: 1; padding: 4px 8px; border-radius: var(--r-sm); }
+.wb-title-in:hover { background: var(--bg3); }
+.wb-title-in:focus { background: var(--bg3); }
+.wb-toolbar { display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; background: var(--bg2); }
+.wb-tool { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid transparent; cursor: pointer; background: none; color: var(--text-muted); font-size: 14px; transition: all .12s; }
+.wb-tool:hover { background: var(--bg3); color: var(--text); }
+.wb-tool.active { background: rgba(124,106,247,.15); border-color: var(--primary); color: var(--primary); }
+.wb-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+.wb-canvas-wrap { flex: 1; overflow: hidden; position: relative; background: var(--bg); cursor: crosshair; }
+.wb-canvas-wrap canvas { display: block; }
+.wb-status { position: absolute; bottom: 8px; right: 12px; font-size: 10px; color: var(--text-muted); letter-spacing: .04em; }
+.wb-color-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; }
+.wb-color-swatch.active { border-color: var(--text); }
+.color-picker-wrap { position: relative; }
+#color-picker { position: absolute; opacity: 0; width: 0; height: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wb-shell">
+  <div class="wb-topbar">
+    <a href="{% url 'whiteboards:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+    <input id="wb-title" class="wb-title-in" value="{{ board.title }}">
+    <div id="save-status" style="font-size:11px;color:var(--text-muted);">Saved</div>
+    <button class="btn btn-ghost btn-sm" onclick="deleteBoard()"><i class="fa-solid fa-trash"></i></button>
+  </div>
+
+  <div class="wb-toolbar" id="toolbar">
+    <button class="wb-tool active" id="tool-select" onclick="setTool('select')" title="Select (V)"><i class="fa-solid fa-arrow-pointer"></i></button>
+    <button class="wb-tool" id="tool-pencil" onclick="setTool('pencil')" title="Draw (D)"><i class="fa-solid fa-pencil"></i></button>
+    <button class="wb-tool" id="tool-text" onclick="setTool('text')" title="Text (T)"><i class="fa-solid fa-font"></i></button>
+    <div class="wb-sep"></div>
+    <button class="wb-tool" onclick="addRect()" title="Rectangle"><i class="fa-regular fa-square"></i></button>
+    <button class="wb-tool" onclick="addCircle()" title="Circle"><i class="fa-regular fa-circle"></i></button>
+    <button class="wb-tool" onclick="addArrow()" title="Arrow"><i class="fa-solid fa-arrow-right"></i></button>
+    <button class="wb-tool" onclick="addStickyNote()" title="Sticky note"><i class="fa-solid fa-note-sticky"></i></button>
+    <div class="wb-sep"></div>
+    <button class="wb-tool" onclick="undo()" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+    <button class="wb-tool" onclick="redo()" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+    <button class="wb-tool" onclick="deleteSelected()" title="Delete (Del)"><i class="fa-solid fa-trash-can"></i></button>
+    <div class="wb-sep"></div>
+    <div class="wb-tool" style="cursor:default;gap:4px;width:auto;padding:0 4px;" title="Stroke color">
+      <span style="font-size:10px;color:var(--text-muted);">Color</span>
+      <div id="current-color" style="width:18px;height:18px;border-radius:3px;background:#7c6af7;border:1px solid var(--border);cursor:pointer;" onclick="document.getElementById('color-picker').click()"></div>
+      <div class="color-picker-wrap"><input type="color" id="color-picker" value="#7c6af7" oninput="setColor(this.value)"></div>
+    </div>
+    <div class="wb-sep"></div>
+    <button class="wb-tool" onclick="canvas.setZoom(canvas.getZoom()*1.15)" title="Zoom in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+    <button class="wb-tool" onclick="canvas.setZoom(1)" title="Reset zoom"><i class="fa-solid fa-compress"></i></button>
+    <button class="wb-tool" onclick="canvas.setZoom(canvas.getZoom()/1.15)" title="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+    <div class="wb-sep"></div>
+    <button class="wb-tool" onclick="saveNow()" title="Save (Ctrl+S)" style="color:var(--green);"><i class="fa-solid fa-floppy-disk"></i></button>
+  </div>
+
+  <div class="wb-canvas-wrap" id="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div class="wb-status" id="wb-status">—</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<script>
+const CSRF = '{{ csrf_token }}';
+const BOARD_ID = {{ board.pk }};
+const SAVED_DATA = {{ board.data|safe }};
+
+// Init canvas
+const wrap = document.getElementById('canvas-wrap');
+const canvas = new fabric.Canvas('c', {
+  width: wrap.clientWidth,
+  height: wrap.clientHeight,
+  backgroundColor: '#0a0a0c',
+  selection: true,
+});
+
+// Load saved data
+if (SAVED_DATA && SAVED_DATA.objects) {
+  canvas.loadFromJSON(SAVED_DATA, canvas.renderAll.bind(canvas));
+}
+
+window.addEventListener('resize', () => {
+  canvas.setWidth(wrap.clientWidth);
+  canvas.setHeight(wrap.clientHeight);
+  canvas.renderAll();
+});
+
+// ── Tool state ──────────────────────────────────────────────────────────────
+let currentTool = 'select';
+let currentColor = '#7c6af7';
+let history = [];
+let redoStack = [];
+
+function setTool(tool) {
+  currentTool = tool;
+  document.querySelectorAll('.wb-tool[id^="tool-"]').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('tool-' + tool);
+  if (btn) btn.classList.add('active');
+
+  canvas.isDrawingMode = tool === 'pencil';
+  canvas.defaultCursor = tool === 'text' ? 'text' : (tool === 'pencil' ? 'crosshair' : 'default');
+
+  if (tool === 'pencil') {
+    canvas.freeDrawingBrush.color = currentColor;
+    canvas.freeDrawingBrush.width = 2;
+  }
+}
+
+function setColor(c) {
+  currentColor = c;
+  document.getElementById('current-color').style.background = c;
+  if (canvas.isDrawingMode) canvas.freeDrawingBrush.color = c;
+  const active = canvas.getActiveObject();
+  if (active) { active.set({stroke: c}); canvas.renderAll(); markDirty(); }
+}
+
+// ── Object creation ─────────────────────────────────────────────────────────
+function addRect() {
+  const r = new fabric.Rect({
+    left: 120, top: 120, width: 160, height: 100,
+    fill: 'transparent', stroke: currentColor, strokeWidth: 2,
+    rx: 6, ry: 6,
+  });
+  canvas.add(r); canvas.setActiveObject(r); pushHistory(); markDirty();
+}
+
+function addCircle() {
+  const c = new fabric.Circle({
+    left: 160, top: 140, radius: 60,
+    fill: 'transparent', stroke: currentColor, strokeWidth: 2,
+  });
+  canvas.add(c); canvas.setActiveObject(c); pushHistory(); markDirty();
+}
+
+function addArrow() {
+  const line = new fabric.Line([80, 200, 280, 200], {
+    stroke: currentColor, strokeWidth: 2,
+    selectable: true,
+  });
+  const head = new fabric.Triangle({
+    left: 274, top: 193, width: 14, height: 14,
+    fill: currentColor, angle: 90,
+  });
+  const grp = new fabric.Group([line, head]);
+  canvas.add(grp); canvas.setActiveObject(grp); pushHistory(); markDirty();
+}
+
+function addStickyNote() {
+  const rect = new fabric.Rect({
+    width: 160, height: 120, fill: '#fbbf24', rx: 6, ry: 6,
+    shadow: new fabric.Shadow({color:'rgba(0,0,0,.4)', blur: 8, offsetY: 3}),
+  });
+  const text = new fabric.IText('Note…', {
+    left: 10, top: 10, fontSize: 13,
+    fill: '#1a1a1a', fontFamily: 'DM Mono, monospace',
+    width: 140, editable: true,
+  });
+  const grp = new fabric.Group([rect, text], {left: 100, top: 100});
+  canvas.add(grp); canvas.setActiveObject(grp); pushHistory(); markDirty();
+}
+
+// ── Text tool click ──────────────────────────────────────────────────────────
+canvas.on('mouse:down', function(opt) {
+  if (currentTool !== 'text') return;
+  const p = canvas.getPointer(opt.e);
+  const t = new fabric.IText('Text', {
+    left: p.x, top: p.y, fontSize: 16,
+    fill: currentColor, fontFamily: 'DM Mono, monospace',
+    editable: true,
+  });
+  canvas.add(t);
+  canvas.setActiveObject(t);
+  t.enterEditing();
+  setTool('select');
+  pushHistory(); markDirty();
+});
+
+// ── History ──────────────────────────────────────────────────────────────────
+function pushHistory() {
+  history.push(JSON.stringify(canvas.toJSON()));
+  redoStack = [];
+  if (history.length > 40) history.shift();
+}
+function undo() {
+  if (history.length < 2) return;
+  redoStack.push(history.pop());
+  canvas.loadFromJSON(JSON.parse(history[history.length - 1]), () => { canvas.renderAll(); markDirty(); });
+}
+function redo() {
+  if (!redoStack.length) return;
+  const s = redoStack.pop();
+  history.push(s);
+  canvas.loadFromJSON(JSON.parse(s), () => { canvas.renderAll(); markDirty(); });
+}
+canvas.on('object:added', pushHistory);
+canvas.on('object:modified', () => { pushHistory(); markDirty(); });
+
+function deleteSelected() {
+  const obj = canvas.getActiveObject();
+  if (!obj) return;
+  if (obj.type === 'activeSelection') obj.getObjects().forEach(o => canvas.remove(o));
+  else canvas.remove(obj);
+  canvas.discardActiveObject();
+  canvas.renderAll();
+  pushHistory(); markDirty();
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────────
+let dirty = false;
+let saveTimer = null;
+
+function markDirty() {
+  dirty = true;
+  document.getElementById('save-status').textContent = 'Unsaved';
+  document.getElementById('save-status').style.color = 'var(--yellow)';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(autoSave, 3000);
+}
+
+async function autoSave() { if (dirty) await saveNow(); }
+
+async function saveNow() {
+  const titleVal = document.getElementById('wb-title').value.trim();
+  const statusEl = document.getElementById('save-status');
+  statusEl.textContent = 'Saving…';
+  await fetch(`/whiteboards/${BOARD_ID}/save/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({canvas: canvas.toJSON(), title: titleVal}),
+  });
+  dirty = false;
+  statusEl.textContent = 'Saved';
+  statusEl.style.color = 'var(--green)';
+  setTimeout(() => { if (!dirty) { statusEl.textContent = '—'; statusEl.style.color = ''; } }, 2000);
+}
+
+async function deleteBoard() {
+  if (!confirm('Delete this whiteboard?')) return;
+  await fetch(`/whiteboards/${BOARD_ID}/delete/`, {method: 'POST', headers: {'X-CSRFToken': CSRF}});
+  window.location = '/whiteboards/';
+}
+
+// ── Keyboard shortcuts ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  if (['INPUT','TEXTAREA'].includes(tag)) return;
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNow(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') { deleteSelected(); return; }
+  if (e.key === 'v' || e.key === 'V') setTool('select');
+  if (e.key === 'd' || e.key === 'D') setTool('pencil');
+  if (e.key === 't' || e.key === 'T') setTool('text');
+});
+
+// Init history
+pushHistory();
+setTool('select');
+</script>
+{% endblock %}

@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ thread.subject }}{% endblock %}
+
+{% block content %}
+<div class="thread-container">
+    <div class="thread-header">
+        <a href="{% url 'messaging:inbox' %}" class="btn-back">← Back to Inbox</a>
+        <h2>{{ thread.subject }}</h2>
+        <span class="thread-meta">{{ messages|length }} message{{ messages|length|pluralize }}</span>
+    </div>
+
+    <div class="thread-messages">
+        {% for message in messages %}
+        <div class="thread-message {% if message.sender == request.user %}sent{% else %}received{% endif %}">
+            <div class="msg-header">
+                <strong>{{ message.sender.get_full_name|default:message.sender.username }}</strong>
+                <small>{{ message.sent_at|date:"M d, Y H:i" }}</small>
+            </div>
+            <div class="msg-body">
+                {{ message.body|linebreaks|urlize }}
+            </div>
+            {% if message.is_internal %}
+            <span class="badge-internal">Internal note</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Reply composer sticky at bottom -->
+    <div class="thread-reply-box">
+        <form id="reply-form" method="POST">
+            {% csrf_token %}
+            <div class="reply-header">
+                <label><input type="checkbox" id="toggle-internal" name="is_internal" value="1"> Internal note only</label>
+            </div>
+            <textarea 
+                id="reply-body" 
+                name="body" 
+                placeholder="Type your reply..." 
+                required
+                autocomplete="off"
+            ></textarea>
+            <div class="reply-actions">
+                <button type="submit" class="btn-send">Send Reply</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.thread-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 900px;
+    margin: 0 auto;
+    background: #fff;
+}
+
+.thread-header {
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+    background: #f9f9f9;
+}
+
+.thread-header h2 {
+    margin: 10px 0 0 0;
+    font-size: 20px;
+}
+
+.btn-back {
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: #f0f0f0;
+    color: #333;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-back:hover {
+    background: #e0e0e0;
+}
+
+.thread-meta {
+    display: block;
+    font-size: 12px;
+    color: #999;
+    margin-top: 8px;
+}
+
+.thread-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.thread-message {
+    padding: 15px;
+    border-radius: 8px;
+    max-width: 85%;
+    word-wrap: break-word;
+    line-height: 1.5;
+}
+
+.thread-message.received {
+    background: #f5f5f5;
+    align-self: flex-start;
+    border-left: 4px solid #ddd;
+}
+
+.thread-message.sent {
+    background: #e3f2fd;
+    align-self: flex-end;
+    border-left: 4px solid #2196F3;
+}
+
+.msg-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+
+.msg-header strong {
+    font-weight: 600;
+    color: #333;
+}
+
+.msg-header small {
+    color: #999;
+    white-space: nowrap;
+}
+
+.msg-body {
+    font-size: 14px;
+    color: #333;
+}
+
+.badge-internal {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 4px 8px;
+    background: #fff3cd;
+    color: #856404;
+    font-size: 11px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+/* Sticky reply box at bottom */
+.thread-reply-box {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid #ddd;
+    padding: 15px;
+    z-index: 100;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.thread-reply-box form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.reply-header {
+    font-size: 12px;
+}
+
+.reply-header label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: #666;
+}
+
+.reply-header input[type="checkbox"] {
+    cursor: pointer;
+}
+
+#reply-body {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    min-height: 100px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+#reply-body:focus {
+    border-color: #2196F3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.reply-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.btn-send {
+    padding: 10px 24px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.btn-send:hover {
+    background: #45a049;
+}
+
+.btn-send:active {
+    background: #3d8b40;
+}
+
+.btn-send:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+</style>
+
+<script>
+document.getElementById('reply-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const body = document.getElementById('reply-body').value.trim();
+    const is_internal = document.getElementById('toggle-internal').checked;
+    const btn = document.querySelector('.btn-send');
+    
+    if (!body) {
+        alert('Please type a reply');
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    
+    try {
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: JSON.stringify({
+                body: body,
+                is_internal: is_internal ? 1 : 0,
+            }),
+        });
+        
+        if (!response.ok) {
+            const err = await response.json();
+            alert(`Error: ${err.error || 'Unknown error'}`);
+            return;
+        }
+        
+        const data = await response.json();
+        
+        // Reload to show new message
+        location.reload();
+        
+    } catch (err) {
+        console.error('Reply error:', err);
+        alert(`Error: ${err.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Reply';
+    }
+});
+
+// Auto-scroll messages to bottom
+const messagesDiv = document.querySelector('.thread-messages');
+if (messagesDiv) {
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// Focus reply textarea
+document.getElementById('reply-body').focus();
+</script>
+{% endblock %}

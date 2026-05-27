@@ -21,4 +21,11 @@ urlpatterns = [
     path('timer/status/', views.timer_status, name='timer_status'),
     path('time-log/', views.time_log, name='time_log'),
     path('time-log/<int:pk>/delete/', views.time_entry_delete, name='time_entry_delete'),
+
+    # Global Tasks
+    path('tasks/', views.global_tasks, name='global_tasks'),
+
+    # Value Board
+    path('value/', views.value_board, name='value_board'),
+    path('<int:pk>/draft-invoice/', views.draft_invoice, name='draft_invoice'),
 ]

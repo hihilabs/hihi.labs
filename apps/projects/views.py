@@ -218,3 +218,165 @@ def time_entry_delete(request, pk):
     entry = get_object_or_404(TimeEntry, pk=pk, owner=request.user)
     entry.delete()
     return JsonResponse({'ok': True})
+
+
+# ── Global Tasks ─────────────────────────────────────────────────────────────
+
+@login_required
+def global_tasks(request):
+    status_filter = request.GET.get('status', '')
+    projects = Project.objects.filter(owner=request.user).exclude(status='archived').prefetch_related('tasks')
+    task_groups = []
+    total = 0
+    for p in projects:
+        qs = p.tasks.all()
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        tasks = list(qs)
+        if tasks:
+            task_groups.append({'project': p, 'tasks': tasks})
+            total += len(tasks)
+    from datetime import date
+    return render(request, 'projects/tasks.html', {
+        'task_groups': task_groups,
+        'total': total,
+        'status_filter': status_filter,
+        'today': date.today(),
+        'all_projects': Project.objects.filter(owner=request.user).exclude(status='archived'),
+    })
+
+
+# ── Value Board ───────────────────────────────────────────────────────────────
+
+@login_required
+def value_board(request):
+    projects = Project.objects.filter(owner=request.user).exclude(status='archived')
+    rows = []
+    for p in projects:
+        entries = list(p.time_entries.filter(ended_at__isnull=False))
+        total_secs = sum(e.duration_seconds() for e in entries)
+        unbilled_secs = sum(e.duration_seconds() for e in entries if not e.billed)
+        total_hours = round(total_secs / 3600, 2)
+        unbilled_hours = round(unbilled_secs / 3600, 2)
+        rate = float(p.hourly_rate)
+        unbilled_value = round(rate * unbilled_hours, 2)
+        total_value = round(rate * total_hours, 2)
+
+        # Task metrics
+        tasks = list(p.tasks.all())
+        tasks_total = len(tasks)
+        tasks_done  = sum(1 for t in tasks if t.status == 'done')
+        tasks_doing = sum(1 for t in tasks if t.status == 'doing')
+        tasks_blocked = sum(1 for t in tasks if t.status == 'blocked')
+        tasks_open  = tasks_total - tasks_done
+        completion_pct = round(tasks_done / tasks_total * 100) if tasks_total > 0 else 0
+
+        # Potential value: extrapolate total value when 100% done
+        if completion_pct >= 5 and total_hours > 0:
+            potential_value = round(total_value / (completion_pct / 100), 2)
+        elif total_hours > 0:
+            potential_value = None  # too early to extrapolate
+        else:
+            potential_value = None
+
+        # ROI: value per hour
+        roi_per_hour = round(total_value / total_hours, 2) if total_hours > 0 else 0
+
+        # Priority urgency
+        urgent_open = sum(1 for t in tasks if t.priority in ('high', 'urgent') and t.status != 'done')
+
+        # Health signal
+        if tasks_total == 0 and total_hours == 0:
+            health = 'zombie'       # no activity at all
+        elif total_hours >= 4 and completion_pct < 15:
+            health = 'stalled'      # significant investment, almost no progress
+        elif tasks_blocked > 0:
+            health = 'blocked'
+        elif urgent_open > 0:
+            health = 'urgent'
+        elif completion_pct >= 80:
+            health = 'closing'      # almost done — push to finish
+        elif completion_pct >= 40 or total_hours > 0:
+            health = 'healthy'
+        else:
+            health = 'new'
+
+        # Priority sort score: unbilled + urgency boost
+        sort_score = unbilled_value + (urgent_open * 500) + (total_hours * rate * 0.1)
+
+        rows.append({
+            'project': p,
+            'total_hours': total_hours,
+            'unbilled_hours': unbilled_hours,
+            'unbilled_value': unbilled_value,
+            'total_value': total_value,
+            'has_unbilled': unbilled_hours > 0,
+            'tasks_total': tasks_total,
+            'tasks_done': tasks_done,
+            'tasks_doing': tasks_doing,
+            'tasks_blocked': tasks_blocked,
+            'tasks_open': tasks_open,
+            'completion_pct': completion_pct,
+            'potential_value': potential_value,
+            'roi_per_hour': roi_per_hour,
+            'urgent_open': urgent_open,
+            'health': health,
+            'sort_score': sort_score,
+        })
+
+    rows.sort(key=lambda r: r['sort_score'], reverse=True)
+    total_unbilled = sum(r['unbilled_value'] for r in rows)
+    total_potential = sum(r['potential_value'] for r in rows if r['potential_value'])
+    return render(request, 'projects/value_board.html', {
+        'rows': rows,
+        'total_unbilled': round(total_unbilled, 2),
+        'total_potential': round(total_potential, 2),
+    })
+
+
+@login_required
+@require_POST
+def draft_invoice(request, pk):
+    from apps.billing.models import Invoice, InvoiceLine
+    from datetime import date, timedelta
+
+    project = get_object_or_404(Project, pk=pk, owner=request.user)
+    unbilled = list(project.time_entries.filter(ended_at__isnull=False, billed=False))
+    if not unbilled:
+        return JsonResponse({'ok': False, 'error': 'No unbilled entries'}, status=400)
+
+    client_name = ''
+    client_email = ''
+    if hasattr(project, 'client_ref') and project.client_ref:
+        client_name = project.client_ref.name
+        client_email = project.client_ref.email or ''
+    elif project.client:
+        client_name = project.client
+
+    inv = Invoice.objects.create(
+        owner=request.user,
+        number=Invoice.next_number(request.user),
+        client_name=client_name,
+        client_email=client_email,
+        status='draft',
+        issued_date=date.today(),
+        due_date=date.today() + timedelta(days=30),
+        notes=f'Time entries for {project.name}',
+    )
+
+    total_secs = sum(e.duration_seconds() for e in unbilled)
+    total_hours = round(total_secs / 3600, 2)
+    InvoiceLine.objects.create(
+        invoice=inv,
+        description=f'{project.name} — engineering services',
+        quantity=total_hours,
+        rate=project.hourly_rate,
+        project=project,
+        order=0,
+    )
+
+    # Mark entries as billed
+    project.time_entries.filter(ended_at__isnull=False, billed=False).update(billed=True)
+
+    from django.urls import reverse
+    return JsonResponse({'ok': True, 'invoice_url': reverse('billing:detail', args=[inv.pk])})

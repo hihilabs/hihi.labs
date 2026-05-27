@@ -28,6 +28,9 @@ urlpatterns = [
     path('proposals/', include('apps.proposals.urls', namespace='proposals')),
     path('contracts/', include('apps.contracts.urls', namespace='contracts')),
     path('services/', include('apps.services.urls', namespace='services')),
+    path('files/', include('apps.files.urls', namespace='files')),
+    path('wiki/', include('apps.wiki.urls', namespace='wiki')),
+    path('whiteboards/', include('apps.whiteboards.urls', namespace='whiteboards')),
     # PWA
     path('sw.js',           core_views.service_worker,   name='service_worker'),
     path('offline/',        core_views.offline,          name='offline'),

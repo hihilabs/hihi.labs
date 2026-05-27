@@ -15,8 +15,13 @@ class Thread(models.Model):
         'projects.Project', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='threads',
     )
+    client = models.ForeignKey(
+        'clients.Client', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='threads',
+    )
     source = models.CharField(max_length=20, choices=SOURCE, default='internal')
-    external_thread_id = models.CharField(max_length=500, blank=True)  # Gmail thread ID, etc.
+    external_thread_id = models.CharField(max_length=500, blank=True)
+    flagged = models.BooleanField(default=False)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_threads')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -41,6 +46,9 @@ class Message(models.Model):
     html_body = models.TextField(blank=True)  # for email import
     from_email = models.CharField(max_length=300, blank=True)  # for inbound email
     external_message_id = models.CharField(max_length=500, blank=True)
+    is_internal = models.BooleanField(default=False)
+    command = models.CharField(max_length=20, blank=True, default='')
+    command_meta = models.JSONField(default=dict, blank=True)
     sent_at = models.DateTimeField(auto_now_add=True)
     read_by = models.ManyToManyField(User, blank=True, related_name='read_messages')
 

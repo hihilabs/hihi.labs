@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block title %}Tasks — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <i class="fa-solid fa-list-check" style="color:var(--primary);margin-right:8px;"></i>
+    Tasks
+    <span style="font-size:13px;font-weight:400;color:var(--text-muted);margin-left:8px;">{{ total }} showing</span>
+  </div>
+  <a href="{% url 'projects:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+</div>
+
+<div style="padding:0 24px 24px;">
+
+  {# Status filter tabs #}
+  <div class="filter-tabs" style="margin-bottom:16px;">
+    <a href="{% url 'projects:global_tasks' %}" class="filter-chip {% if not status_filter %}active{% endif %}">All</a>
+    <a href="?status=todo"    class="filter-chip {% if status_filter == 'todo' %}active{% endif %}">To Do</a>
+    <a href="?status=doing"   class="filter-chip {% if status_filter == 'doing' %}active{% endif %}" style="{% if status_filter == 'doing' %}background:rgba(167,139,250,.15);border-color:var(--primary);color:var(--primary);{% endif %}">Doing</a>
+    <a href="?status=blocked" class="filter-chip {% if status_filter == 'blocked' %}active{% endif %}" style="{% if status_filter == 'blocked' %}background:rgba(248,113,113,.12);border-color:var(--red);color:var(--red);{% endif %}">Blocked</a>
+    <a href="?status=done"    class="filter-chip {% if status_filter == 'done' %}active{% endif %}">Done</a>
+  </div>
+
+  {% if not task_groups %}
+  <div class="empty-state" style="margin-top:60px;">
+    <i class="fa-solid fa-list-check"></i>
+    <p>No tasks{% if status_filter %} with status "{{ status_filter }}"{% endif %}.</p>
+  </div>
+  {% else %}
+
+  <div id="task-groups">
+    {% for group in task_groups %}
+    <div class="gt-group" data-proj="{{ group.project.pk }}">
+      <div class="gt-proj-hdr" onclick="toggleGroup(this)">
+        <span class="gt-proj-dot" style="background:{{ group.project.color }};"></span>
+        <span class="gt-proj-name">{{ group.project.name }}</span>
+        {% if group.project.client %}<span class="gt-proj-client">{{ group.project.client }}</span>{% endif %}
+        <span class="gt-proj-ct">{{ group.tasks|length }}</span>
+        <i class="fa-solid fa-chevron-down gt-chevron"></i>
+      </div>
+      <div class="gt-task-list">
+        {% for task in group.tasks %}
+        <div class="gt-task-row {% if task.status == 'done' %}gt-task-done{% endif %}" data-id="{{ task.pk }}" data-status="{{ task.status }}">
+          <div class="gt-check" onclick="toggleTask({{ task.pk }}, this)">
+            {% if task.status == 'done' %}
+              <i class="fa-solid fa-circle-check" style="color:var(--green)"></i>
+            {% else %}
+              <i class="fa-regular fa-circle"></i>
+            {% endif %}
+          </div>
+          <div class="gt-task-body" onclick="openTaskDetail({{ task.pk }}, this)">
+            <div class="gt-task-title">{{ task.title }}</div>
+            {% if task.status == 'doing' %}<span class="task-status-badge task-status-doing">doing</span>{% endif %}
+            {% if task.status == 'blocked' %}<span class="task-status-badge task-status-blocked">blocked</span>{% endif %}
+            {% if task.notes %}
+            <div class="gt-task-notes-preview" id="notes-preview-{{ task.pk }}">{{ task.notes|truncatechars:80 }}</div>
+            {% endif %}
+          </div>
+          <div class="gt-task-meta">
+            <span class="priority-dot priority-{{ task.priority }}">{{ task.get_priority_display }}</span>
+            {% if task.due_date %}<span class="gt-due {% if task.due_date < today %}gt-due--overdue{% endif %}">{{ task.due_date|date:"M j" }}</span>{% endif %}
+            <a href="{% url 'projects:detail' group.project.pk %}" class="btn-icon" title="{{ group.project.name }}"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+          </div>
+        </div>
+        {# Inline notes edit — hidden by default #}
+        <div class="gt-notes-editor" id="notes-editor-{{ task.pk }}" style="display:none;">
+          <textarea id="notes-ta-{{ task.pk }}" rows="3" class="form-control" style="font-size:12px;resize:vertical;">{{ task.notes }}</textarea>
+          <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end;">
+            <button class="btn btn-ghost btn-sm" onclick="closeNotes({{ task.pk }})">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="saveNotes({{ task.pk }})">Save</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% endif %}
+
+  {# Add task bar #}
+  <div class="gt-add-bar">
+    <input class="form-control" id="new-task-title" placeholder="New task..." style="flex:2;">
+    <select class="form-control" id="new-task-project" style="flex:1;max-width:200px;">
+      <option value="">— Project —</option>
+      {% for p in all_projects %}
+      <option value="{{ p.pk }}">{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    <select class="form-control" id="new-task-priority" style="width:100px;">
+      <option value="normal">Normal</option>
+      <option value="high">High</option>
+      <option value="urgent">Urgent</option>
+      <option value="low">Low</option>
+    </select>
+    <button class="btn btn-primary" onclick="addGlobalTask()"><i class="fa-solid fa-plus"></i> Add</button>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+function toggleGroup(hdr) {
+  const list = hdr.nextElementSibling;
+  const chev = hdr.querySelector('.gt-chevron');
+  const collapsed = list.style.display === 'none';
+  list.style.display = collapsed ? '' : 'none';
+  chev.style.transform = collapsed ? '' : 'rotate(-90deg)';
+}
+
+async function toggleTask(id, el) {
+  const row = el.closest('.gt-task-row');
+  const isDone = row.dataset.status === 'done';
+  const newStatus = isDone ? 'todo' : 'done';
+  await fetch(`/projects/tasks/${id}/update/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({status: newStatus}),
+  });
+  location.reload();
+}
+
+function openTaskDetail(id, bodyEl) {
+  const editor = document.getElementById('notes-editor-' + id);
+  if (!editor) return;
+  const isOpen = editor.style.display !== 'none';
+  if (isOpen) { closeNotes(id); return; }
+  editor.style.display = '';
+  const ta = document.getElementById('notes-ta-' + id);
+  ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length;
+}
+
+function closeNotes(id) {
+  document.getElementById('notes-editor-' + id).style.display = 'none';
+}
+
+async function saveNotes(id) {
+  const val = document.getElementById('notes-ta-' + id).value;
+  await fetch(`/projects/tasks/${id}/update/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({notes: val}),
+  });
+  const preview = document.getElementById('notes-preview-' + id);
+  if (preview) preview.textContent = val.slice(0, 80);
+  else if (val) {
+    const div = document.createElement('div');
+    div.className = 'gt-task-notes-preview';
+    div.id = 'notes-preview-' + id;
+    div.textContent = val.slice(0, 80);
+    document.getElementById('notes-editor-' + id).previousElementSibling.querySelector('.gt-task-body').appendChild(div);
+  }
+  closeNotes(id);
+}
+
+async function addGlobalTask() {
+  const title = document.getElementById('new-task-title').value.trim();
+  const projId = document.getElementById('new-task-project').value;
+  if (!title || !projId) { alert('Title and project required'); return; }
+  const res = await fetch(`/projects/${projId}/tasks/new/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      title,
+      priority: document.getElementById('new-task-priority').value,
+    }),
+  });
+  if (res.ok) location.reload();
+}
+
+document.getElementById('new-task-title')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') addGlobalTask();
+});
+</script>
+{% endblock %}

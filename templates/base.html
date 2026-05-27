@@ -42,27 +42,85 @@
       <i class="fa-solid fa-microphone"></i> Voice Notes
     </a></li>
     <li class="sidenav-divider"></li>
-    <li><a href="{% url 'projects:index' %}">
-      <i class="fa-solid fa-list-check"></i> Projects
-    </a></li>
+    <li class="has-subnav">
+      <button class="subnav-toggle {% if request.resolver_match.app_name == 'projects' %}open{% endif %}"
+              id="toggle-projects" onclick="toggleSubnav('projects')">
+        <i class="fa-solid fa-list-check"></i> Projects
+        <i class="fa-solid fa-chevron-right subnav-chevron"></i>
+      </button>
+      <ul class="subnav {% if request.resolver_match.app_name == 'projects' %}open{% endif %}" id="subnav-projects">
+        <li><a href="{% url 'projects:index' %}" class="{% if request.resolver_match.app_name == 'projects' and 'tasks' not in request.path and 'value' not in request.path and 'draft-invoice' not in request.path %}active{% endif %}">
+          <i class="fa-solid fa-folder-open"></i> All Projects
+        </a></li>
+        <li><a href="{% url 'projects:global_tasks' %}" class="{% if 'projects/tasks' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-circle-check"></i> Tasks
+        </a></li>
+        <li><a href="{% url 'projects:value_board' %}" class="{% if 'projects/value' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-chart-line"></i> Value Board
+        </a></li>
+      </ul>
+    </li>
     <li><a href="{% url 'clients:index' %}" class="{% if 'clients' in request.path %}active{% endif %}">
       <i class="fa-solid fa-address-book"></i> Clients
     </a></li>
-    <li><a href="{% url 'proposals:index' %}" class="{% if 'proposals' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-file-pen"></i> Proposals
+    <li class="has-subnav">
+      <button class="subnav-toggle {% if 'billing' in request.path or 'proposals' in request.path or 'contracts' in request.path or 'services' in request.path %}open{% endif %}"
+              id="toggle-billing" onclick="toggleSubnav('billing')">
+        <i class="fa-solid fa-file-invoice-dollar"></i> Billing
+        <i class="fa-solid fa-chevron-right subnav-chevron"></i>
+      </button>
+      <ul class="subnav {% if 'billing' in request.path or 'proposals' in request.path or 'contracts' in request.path or 'services' in request.path %}open{% endif %}" id="subnav-billing">
+        <li><a href="{% url 'billing:index' %}" class="{% if 'billing' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-receipt"></i> Invoices
+        </a></li>
+        <li><a href="{% url 'proposals:index' %}" class="{% if 'proposals' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-file-pen"></i> Proposals
+        </a></li>
+        <li><a href="{% url 'contracts:index' %}" class="{% if 'contracts' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-file-contract"></i> Contracts
+        </a></li>
+        <li><a href="{% url 'services:index' %}" class="{% if 'services' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-tags"></i> Services
+        </a></li>
+      </ul>
+    </li>
+    <li><a href="{% url 'files:index' %}" class="{% if 'files' in request.path %}active{% endif %}">
+      <i class="fa-brands fa-google-drive"></i> Files
     </a></li>
-    <li><a href="{% url 'contracts:index' %}" class="{% if 'contracts' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-file-contract"></i> Contracts
+    <li class="has-subnav">
+      <button class="subnav-toggle {% if 'messaging' in request.path %}open{% endif %}"
+              id="toggle-messaging" onclick="toggleSubnav('messaging')" style="position:relative;">
+        <i class="fa-solid fa-inbox"></i> Messages
+        <span id="nav-msg-badge" style="display:none;background:var(--accent);color:#fff;border-radius:999px;font-size:10px;padding:1px 5px;min-width:16px;text-align:center;font-weight:700;"></span>
+        <i class="fa-solid fa-chevron-right subnav-chevron"></i>
+      </button>
+      <ul class="subnav {% if 'messaging' in request.path %}open{% endif %}" id="subnav-messaging">
+        <li><a href="{% url 'messaging:inbox' %}?tab=internal"
+               class="{% if 'messaging' in request.path and request.GET.tab != 'email' and request.GET.tab != 'notifs' and 'email-accounts' not in request.path and 'thread' not in request.path %}active{% endif %}">
+          <i class="fa-solid fa-comments"></i> Internal
+        </a></li>
+        <li><a href="{% url 'messaging:inbox' %}?tab=email"
+               class="{% if request.GET.tab == 'email' %}active{% endif %}">
+          <i class="fa-solid fa-envelope"></i> Email
+        </a></li>
+        <li><a href="{% url 'messaging:inbox' %}?tab=notifs"
+               class="{% if request.GET.tab == 'notifs' %}active{% endif %}">
+          <i class="fa-solid fa-bell"></i> Notifications
+        </a></li>
+        <li><a href="{% url 'messaging:email_accounts' %}"
+               class="{% if 'email-accounts' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-at"></i> Email Accounts
+        </a></li>
+      </ul>
+    </li>
+    <li><a href="{% url 'wiki:index' %}" class="{% if 'wiki' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-book-open"></i> Wiki
     </a></li>
-    <li><a href="{% url 'billing:index' %}" class="{% if 'billing' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-file-invoice-dollar"></i> Billing
-    </a></li>
-    <li><a href="{% url 'messaging:inbox' %}" class="{% if 'messaging' in request.path %}active{% endif %}" style="position:relative;">
-      <i class="fa-solid fa-inbox"></i> Messages
-      <span id="nav-msg-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--accent);color:#fff;border-radius:999px;font-size:10px;padding:1px 5px;min-width:16px;text-align:center;"></span>
+    <li><a href="{% url 'whiteboards:index' %}" class="{% if 'whiteboards' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-chalkboard"></i> Whiteboards
     </a></li>
     <li><a href="{% url 'sound:index' %}" class="{% if 'sound' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-waveform-lines"></i> Sound
+      <i class="fa-solid fa-music"></i> Sound
     </a></li>
     <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path %}active{% endif %}">
       <i class="fa-solid fa-server"></i> Servers
@@ -101,22 +159,72 @@
 
 {% if user.is_authenticated %}
 <nav class="mobile-tabs">
-  <a href="{% url 'ai:index' %}" class="mobile-tab {% if request.resolver_match.app_name == 'ai' %}active{% endif %}">
-    <i class="fa-solid fa-comments"></i><span>Chat</span>
-  </a>
-  <a href="{% url 'ai:templates' %}" class="mobile-tab {% if 'templates' in request.path %}active{% endif %}">
-    <i class="fa-solid fa-wand-magic-sparkles"></i><span>Templates</span>
+  <a href="{% url 'dashboard' %}" class="mobile-tab {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+    <i class="fa-solid fa-gauge-high"></i><span>Home</span>
   </a>
   <a href="{% url 'projects:index' %}" class="mobile-tab {% if request.resolver_match.app_name == 'projects' %}active{% endif %}">
     <i class="fa-solid fa-list-check"></i><span>Projects</span>
   </a>
-  <a href="{% url 'ai:voice' %}" class="mobile-tab {% if 'voice' in request.path %}active{% endif %}">
-    <i class="fa-solid fa-microphone"></i><span>Voice</span>
+  <a href="{% url 'clients:index' %}" class="mobile-tab {% if 'clients' in request.path %}active{% endif %}">
+    <i class="fa-solid fa-address-book"></i><span>Clients</span>
   </a>
-  <a href="{% url 'billing:index' %}" class="mobile-tab">
+  <a href="{% url 'billing:index' %}" class="mobile-tab {% if 'billing' in request.path %}active{% endif %}">
     <i class="fa-solid fa-file-invoice-dollar"></i><span>Billing</span>
   </a>
+  <button class="mobile-tab" id="mob-more-btn" onclick="toggleMobileDrawer()">
+    <i class="fa-solid fa-bars"></i><span>More</span>
+  </button>
 </nav>
+
+<!-- Mobile nav drawer -->
+<div id="mob-overlay" onclick="closeMobileDrawer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:290;backdrop-filter:blur(2px);"></div>
+<div id="mob-drawer" class="mob-drawer" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;">
+  <div class="mob-drawer-hdr">
+    <div style="font-family:var(--font-ui);font-size:18px;font-weight:700;">
+      <span class="logo-hi">hi</span><span style="color:var(--text-muted);">hi</span>
+      <span style="font-size:10px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-left:6px;font-family:var(--font-mono);vertical-align:middle;">labs</span>
+    </div>
+    <button onclick="closeMobileDrawer()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px;">×</button>
+  </div>
+  <div class="mob-drawer-body">
+    <div class="mob-nav-group">
+      <a href="{% url 'ai:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-comments"></i> Chat</a>
+      <a href="{% url 'ai:templates' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-wand-magic-sparkles"></i> Templates</a>
+      <a href="{% url 'ai:documents' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-file-lines"></i> Documents</a>
+      <a href="{% url 'ai:voice' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-microphone"></i> Voice Notes</a>
+    </div>
+    <div class="mob-nav-divider"></div>
+    <div class="mob-nav-group">
+      <a href="{% url 'projects:global_tasks' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-circle-check"></i> Tasks</a>
+      <a href="{% url 'projects:value_board' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-chart-line"></i> Value Board</a>
+    </div>
+    <div class="mob-nav-divider"></div>
+    <div class="mob-nav-group">
+      <a href="{% url 'proposals:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-file-pen"></i> Proposals</a>
+      <a href="{% url 'contracts:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-file-contract"></i> Contracts</a>
+      <a href="{% url 'services:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-tags"></i> Services</a>
+    </div>
+    <div class="mob-nav-divider"></div>
+    <div class="mob-nav-group">
+      <a href="{% url 'messaging:inbox' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-inbox"></i> Messages</a>
+      <a href="{% url 'wiki:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-book-open"></i> Wiki</a>
+      <a href="{% url 'files:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-brands fa-google-drive"></i> Files</a>
+      <a href="{% url 'sound:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-music"></i> Sound</a>
+    </div>
+    <div class="mob-nav-divider"></div>
+    <div class="mob-nav-group">
+      <a href="{% url 'servers:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-server"></i> Servers</a>
+      <a href="{% url 'workers:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-microchip"></i> Workers</a>
+      <a href="{% url 'tax:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-receipt"></i> Expenses</a>
+      <a href="{% url 'modules:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-cubes"></i> Modules</a>
+      <a href="{% url 'whiteboards:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-chalkboard"></i> Whiteboards</a>
+    </div>
+    <div class="mob-nav-divider"></div>
+    <div class="mob-nav-group">
+      <a href="{% url 'logout' %}" class="mob-nav-link" style="color:var(--red);"><i class="fa-solid fa-right-from-bracket"></i> Log out</a>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 <main class="content">
@@ -143,6 +251,16 @@
 </div>
 
 <script>
+// Collapsible sub-nav
+function toggleSubnav(group) {
+  const toggle = document.getElementById('toggle-' + group);
+  const subnav = document.getElementById('subnav-' + group);
+  if (!toggle || !subnav) return;
+  const isOpen = subnav.classList.contains('open');
+  subnav.classList.toggle('open', !isOpen);
+  toggle.classList.toggle('open', !isOpen);
+}
+
 // Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -253,6 +371,36 @@ async function togglePush(btn) {
     }
   }
 }
+// ── Mobile nav drawer ──────────────────────────────────────────────────────
+function toggleMobileDrawer() {
+  const drawer = document.getElementById('mob-drawer');
+  if (drawer.classList.contains('open')) closeMobileDrawer();
+  else openMobileDrawer();
+}
+function openMobileDrawer() {
+  const drawer = document.getElementById('mob-drawer');
+  drawer.style.display = 'flex';
+  drawer.style.flexDirection = 'column';
+  // Let browser paint with display:flex before adding transform transition
+  requestAnimationFrame(() => requestAnimationFrame(() => drawer.classList.add('open')));
+  document.getElementById('mob-overlay').style.display = 'block';
+  const btn = document.getElementById('mob-more-btn');
+  if (btn) btn.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeMobileDrawer() {
+  const drawer = document.getElementById('mob-drawer');
+  drawer.classList.remove('open');
+  drawer.addEventListener('transitionend', () => {
+    if (!drawer.classList.contains('open')) drawer.style.display = 'none';
+  }, {once: true});
+  document.getElementById('mob-overlay').style.display = 'none';
+  const btn = document.getElementById('mob-more-btn');
+  if (btn) btn.classList.remove('active');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMobileDrawer(); });
+
 // ── Power Search (Alt+K) ────────────────────────────────────────────────────
 function openPSR() {
   document.getElementById('psr-overlay').style.display = 'flex';
@@ -305,6 +453,31 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && document.getElementById('psr-overlay').style.display === 'flex') {
     closePSR();
   }
+});
+
+// ── KPI count-up animation ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.kpi-value').forEach(el => {
+    const raw = el.textContent.trim();
+    // parse leading $ or trailing h
+    const prefix = raw.startsWith('$') ? '$' : '';
+    const suffix = raw.endsWith('h') ? 'h' : '';
+    const num = parseFloat(raw.replace(/[$,h]/g, ''));
+    if (isNaN(num) || num === 0) return;
+    const isInt = Number.isInteger(num);
+    let start = null;
+    const dur = 600;
+    el.textContent = prefix + '0' + suffix;
+    function step(ts) {
+      if (!start) start = ts;
+      const pct = Math.min((ts - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - pct, 3); // ease-out cubic
+      const cur = num * eased;
+      el.textContent = prefix + (isInt ? Math.round(cur) : cur.toFixed(1)) + suffix;
+      if (pct < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
 });
 
 </script>

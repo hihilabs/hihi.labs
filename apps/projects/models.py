@@ -12,6 +12,10 @@ class Project(models.Model):
     ]
     name = models.CharField(max_length=200)
     client = models.CharField(max_length=150, blank=True)
+    client_fk = models.ForeignKey(
+        'clients.Client', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='projects',
+    )
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS, default='active')
     color = models.CharField(max_length=7, default='#7c6af7')
@@ -38,6 +42,13 @@ class Project(models.Model):
     def unbilled_hours(self):
         secs = sum(e.duration_seconds() for e in self.time_entries.filter(ended_at__isnull=False, billed=False))
         return round(secs / 3600, 2)
+
+    def task_stats(self):
+        tasks = self.tasks.all()
+        total = tasks.count()
+        done  = tasks.filter(status='done').count()
+        pct   = round(done / total * 100) if total else 0
+        return {'total': total, 'done': done, 'pct': pct}
 
 
 class Task(models.Model):

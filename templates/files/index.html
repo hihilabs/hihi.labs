@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% block title %}Files — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <i class="fa-brands fa-google-drive" style="color:#4285F4;margin-right:8px;"></i>
+    Files
+  </div>
+</div>
+
+<div style="padding:0 24px 24px;">
+
+{% if not connected %}
+{# ── Not connected ── #}
+<div style="max-width:480px;margin:60px auto;text-align:center;">
+  <div style="font-size:48px;margin-bottom:16px;opacity:.4;"><i class="fa-brands fa-google-drive"></i></div>
+  <h2 style="font-size:18px;font-weight:var(--weight-bold);margin-bottom:8px;">Connect Google Drive</h2>
+  <p style="font-size:13px;color:var(--text-muted);margin-bottom:24px;line-height:1.6;">
+    Link your Google Drive to browse and attach files directly to projects and clients.
+  </p>
+  <a href="{% url 'files:oauth_start' %}" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:8px;">
+    <i class="fa-brands fa-google"></i> Connect Google Drive
+  </a>
+</div>
+
+{% else %}
+{# ── Connected ── #}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;"></span>
+    <span style="font-size:13px;color:var(--text-muted);">Connected as <strong style="color:var(--text);">{{ credential.email }}</strong></span>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-ghost btn-sm" onclick="openRootBrowser()"><i class="fa-solid fa-folder-open"></i> Browse Drive</button>
+    <form method="post" action="{% url 'files:oauth_disconnect' %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--text-muted);">Disconnect</button>
+    </form>
+  </div>
+</div>
+
+{# Linked folders #}
+{% if folders %}
+<div class="proj-section" style="margin-bottom:20px;">
+  <div class="proj-files-header">
+    <span class="proj-module-hdr-title"><i class="fa-solid fa-folder-tree" style="color:var(--yellow);"></i> Linked Folders</span>
+  </div>
+  {% for folder in folders %}
+  <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);">
+    <i class="fa-solid fa-folder" style="color:var(--yellow);font-size:14px;flex-shrink:0;"></i>
+    <div style="flex:1;min-width:0;">
+      <a href="?folder={{ folder.drive_folder_id }}" style="font-size:13px;color:var(--text);text-decoration:none;">{{ folder.name }}</a>
+      <div style="font-size:11px;color:var(--text-muted);">
+        {% if folder.project %}Project: {{ folder.project.name }}{% endif %}
+        {% if folder.client %}Client: {{ folder.client.name }}{% endif %}
+      </div>
+    </div>
+    <button class="btn-icon danger" onclick="unlinkFolder({{ folder.pk }}, this)" title="Unlink"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# File browser #}
+<div class="proj-section" id="file-browser" style="{% if not active_folder_id %}display:none{% endif %}">
+  <div class="proj-files-header">
+    <span class="proj-module-hdr-title" id="browser-title">
+      <i class="fa-solid fa-folder-open" style="color:var(--yellow);"></i>
+      <span id="browser-folder-name">Drive</span>
+    </span>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button class="btn btn-ghost btn-sm" id="link-folder-btn" onclick="promptLinkFolder()" style="display:none;"><i class="fa-solid fa-link"></i> Link to project</button>
+      <button class="btn btn-ghost btn-sm" onclick="navigateUp()"><i class="fa-solid fa-arrow-up"></i></button>
+    </div>
+  </div>
+  <div id="file-list" style="min-height:60px;">
+    <div style="padding:16px;font-size:13px;color:var(--text-muted);">Loading…</div>
+  </div>
+</div>
+
+{% if active_folder_id and files %}
+{# Preloaded files on server-render #}
+<script>
+window._preloadedFiles = {{ files|safe }};
+window._preloadedFolderName = "{{ current_folder.name|escapejs }}";
+window._activeFolderId = "{{ active_folder_id }}";
+</script>
+{% endif %}
+
+{% endif %}
+
+</div>
+
+{# Link folder modal #}
+<div id="link-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:420px;margin:16px;">
+    <h3 style="font-size:15px;font-weight:var(--weight-bold);margin-bottom:16px;">Link Folder to…</h3>
+    <input type="hidden" id="link-folder-id">
+    <input type="hidden" id="link-folder-name-val">
+    <div style="margin-bottom:12px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Project (optional)</label>
+      <select id="link-project" class="form-control" style="width:100%;">
+        <option value="">— No project —</option>
+        {# Filled via JS from global projects list #}
+      </select>
+    </div>
+    <div style="margin-bottom:18px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Client (optional)</label>
+      <select id="link-client" class="form-control" style="width:100%;">
+        <option value="">— No client —</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeLinkModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLink()">Link Folder</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if connected %}
+<script>
+const CSRF = '{{ csrf_token }}';
+let currentFolderId = null;
+let folderStack = [];
+
+const MIME_ICONS = {
+  'application/vnd.google-apps.folder': {icon: 'fa-folder', color: 'var(--yellow)'},
+  'application/pdf': {icon: 'fa-file-pdf', color: 'var(--red)'},
+  'image/': {icon: 'fa-file-image', color: 'var(--teal)'},
+  'video/': {icon: 'fa-file-video', color: 'var(--primary)'},
+  'audio/': {icon: 'fa-file-audio', color: 'var(--primary)'},
+  'application/vnd.google-apps.document': {icon: 'fa-file-word', color: '#4285F4'},
+  'application/vnd.google-apps.spreadsheet': {icon: 'fa-file-excel', color: '#0F9D58'},
+  'application/vnd.google-apps.presentation': {icon: 'fa-file-powerpoint', color: '#DB4437'},
+};
+
+function getIcon(mime) {
+  if (!mime) return {icon: 'fa-file', color: 'var(--text-muted)'};
+  for (const [k, v] of Object.entries(MIME_ICONS)) {
+    if (mime.startsWith(k)) return v;
+  }
+  return {icon: 'fa-file', color: 'var(--text-muted)'};
+}
+
+function fmtSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+async function browseFolder(folderId, folderName) {
+  currentFolderId = folderId;
+  const browser = document.getElementById('file-browser');
+  const list = document.getElementById('file-list');
+  const nameEl = document.getElementById('browser-folder-name');
+  browser.style.display = '';
+  nameEl.textContent = folderName || 'Drive';
+  document.getElementById('link-folder-btn').style.display = folderId !== 'root' ? '' : 'none';
+  list.innerHTML = '<div style="padding:16px;font-size:13px;color:var(--text-muted);">Loading…</div>';
+
+  try {
+    const r = await fetch(`/files/api/browse/?folder_id=${encodeURIComponent(folderId)}`);
+    const d = await r.json();
+    renderFiles(d.files || []);
+  } catch(e) {
+    list.innerHTML = '<div style="padding:16px;color:var(--red);font-size:13px;">Error loading files</div>';
+  }
+}
+
+function renderFiles(files) {
+  const list = document.getElementById('file-list');
+  if (!files.length) {
+    list.innerHTML = '<div style="padding:16px;font-size:13px;color:var(--text-muted);">Empty folder</div>';
+    return;
+  }
+  const isFolder = f => f.mimeType === 'application/vnd.google-apps.folder';
+  list.innerHTML = files.map(f => {
+    const {icon, color} = getIcon(f.mimeType);
+    const size = fmtSize(parseInt(f.size||0));
+    const mod = f.modifiedTime ? new Date(f.modifiedTime).toLocaleDateString() : '';
+    if (isFolder(f)) {
+      return `<div style="display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="pushFolder('${f.id}','${f.name.replace(/'/g,"\\'")}')">
+        <i class="fa-solid ${icon}" style="color:${color};font-size:14px;flex-shrink:0;"></i>
+        <span style="flex:1;font-size:13px;color:var(--text);">${f.name}</span>
+        <i class="fa-solid fa-chevron-right" style="color:var(--text-muted);font-size:11px;"></i>
+      </div>`;
+    }
+    return `<div style="display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);">
+      <i class="fa-solid ${icon}" style="color:${color};font-size:14px;flex-shrink:0;"></i>
+      <div style="flex:1;min-width:0;">
+        <a href="${f.webViewLink||'#'}" target="_blank" rel="noopener" style="font-size:13px;color:var(--text);text-decoration:none;">${f.name}</a>
+        <div style="font-size:10px;color:var(--text-muted);">${size ? size + ' · ' : ''}${mod}</div>
+      </div>
+      ${f.webViewLink ? `<a href="${f.webViewLink}" target="_blank" rel="noopener" class="btn-icon" title="Open in Drive"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function pushFolder(id, name) {
+  if (currentFolderId) folderStack.push({id: currentFolderId, name: document.getElementById('browser-folder-name').textContent});
+  browseFolder(id, name);
+}
+
+function navigateUp() {
+  if (folderStack.length) {
+    const prev = folderStack.pop();
+    browseFolder(prev.id, prev.name);
+  } else {
+    browseFolder('root', 'My Drive');
+  }
+}
+
+function openRootBrowser() {
+  folderStack = [];
+  browseFolder('root', 'My Drive');
+}
+
+function promptLinkFolder() {
+  document.getElementById('link-folder-id').value = currentFolderId;
+  document.getElementById('link-folder-name-val').value = document.getElementById('browser-folder-name').textContent;
+  document.getElementById('link-modal').style.display = 'flex';
+}
+function closeLinkModal() {
+  document.getElementById('link-modal').style.display = 'none';
+}
+async function saveLink() {
+  const fid = document.getElementById('link-folder-id').value;
+  const fname = document.getElementById('link-folder-name-val').value;
+  const projId = document.getElementById('link-project').value;
+  const clientId = document.getElementById('link-client').value;
+  const r = await fetch('/files/link/', {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({folder_id: fid, folder_name: fname, project_id: projId || null, client_id: clientId || null}),
+  });
+  if (r.ok) location.reload();
+}
+
+async function unlinkFolder(pk, btn) {
+  if (!confirm('Unlink this folder?')) return;
+  btn.disabled = true;
+  await fetch(`/files/unlink/${pk}/`, {method: 'POST', headers: {'X-CSRFToken': CSRF}});
+  btn.closest('[style*="border-bottom"]').remove();
+}
+
+// Load prerendered files on page load
+if (typeof window._preloadedFiles !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    currentFolderId = window._activeFolderId;
+    document.getElementById('file-browser').style.display = '';
+    document.getElementById('browser-folder-name').textContent = window._preloadedFolderName;
+    document.getElementById('link-folder-btn').style.display = '';
+    renderFiles(window._preloadedFiles);
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

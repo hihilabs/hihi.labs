@@ -1,38 +1,42 @@
 {% extends 'base.html' %}
 {% block title %}Clients · HiHi Labs{% endblock %}
 {% block content %}
-<div style="padding:24px;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-    <h1 style="font-size:20px;font-weight:var(--weight-bold);">Clients</h1>
-    <button class="btn btn-primary btn-sm" onclick="openNewClient()">
-      <i class="fa-solid fa-plus"></i> New Client
-    </button>
-  </div>
-
-  {% if clients %}
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
-    {% for client in clients %}
-    <a href="{% url 'clients:detail' client.pk %}" style="text-decoration:none;">
-      <div class="proj-card" style="padding:16px;">
-        <div style="font-size:15px;font-weight:var(--weight-bold);color:var(--text);margin-bottom:4px;">{{ client.name }}</div>
-        {% if client.company %}<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">{{ client.company }}</div>{% endif %}
-        <div style="font-size:11px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap;">
-          {% if client.email %}<span><i class="fa-solid fa-envelope" style="opacity:.5;"></i> {{ client.email }}</span>{% endif %}
-          {% if client.contacts.count %}<span><i class="fa-solid fa-users" style="opacity:.5;"></i> {{ client.contacts.count }}</span>{% endif %}
-        </div>
-      </div>
-    </a>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
-    <i class="fa-solid fa-address-book" style="font-size:32px;opacity:.3;margin-bottom:12px;display:block;"></i>
-    No clients yet. <button class="btn btn-ghost" onclick="openNewClient()">Add your first client</button>
-  </div>
-  {% endif %}
+<div class="page-header">
+  <div class="page-title"><i class="fa-solid fa-address-book" style="color:var(--brand);"></i> Clients</div>
+  <button class="btn btn-primary btn-sm" onclick="openNewClient()">
+    <i class="fa-solid fa-plus"></i> New Client
+  </button>
 </div>
 
-<!-- New Client Modal -->
+<div style="padding:0 24px 32px;">
+
+  {# Kanban columns #}
+  <div class="kb-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start;">
+
+    {% for col_status, col_label, col_color in status_cols %}
+    {% with col_clients=grouped|default_if_none:'' %}
+    <div class="kb-col" data-status="{{ col_status }}"
+         ondragover="event.preventDefault()" ondrop="dropCard(event,'{{ col_status }}')">
+      <div class="kb-col-hdr">
+        <span class="kb-col-dot" style="background:{{ col_color }};"></span>
+        <span class="kb-col-label">{{ col_label }}</span>
+        <span class="kb-col-count">{% if col_status == 'lead' %}{{ grouped.lead|length }}{% elif col_status == 'active' %}{{ grouped.active|length }}{% elif col_status == 'inactive' %}{{ grouped.inactive|length }}{% else %}{{ grouped.archived|length }}{% endif %}</span>
+      </div>
+      <div class="kb-cards" id="col-{{ col_status }}">
+        {% if col_status == 'lead' %}{% for c in grouped.lead %}{% include "clients/_kb_card.html" %}{% empty %}<div class="kb-empty">No leads</div>{% endfor %}
+        {% elif col_status == 'active' %}{% for c in grouped.active %}{% include "clients/_kb_card.html" %}{% empty %}<div class="kb-empty">No active clients</div>{% endfor %}
+        {% elif col_status == 'inactive' %}{% for c in grouped.inactive %}{% include "clients/_kb_card.html" %}{% empty %}<div class="kb-empty">No inactive</div>{% endfor %}
+        {% else %}{% for c in grouped.archived %}{% include "clients/_kb_card.html" %}{% empty %}<div class="kb-empty">No archived</div>{% endfor %}
+        {% endif %}
+      </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+
+  </div>
+</div>
+
+{# New Client Modal #}
 <div id="client-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:480px;margin:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
@@ -57,6 +61,14 @@
         <input id="nc-phone" type="text" class="input" placeholder="+1 555 000 0000" style="width:100%;box-sizing:border-box;">
       </div>
     </div>
+    <div style="margin-bottom:14px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Status</label>
+      <select id="nc-status" class="input" style="width:100%;box-sizing:border-box;">
+        <option value="lead">Lead</option>
+        <option value="active" selected>Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeNewClient()">Cancel</button>
       <button id="nc-save" class="btn btn-primary" onclick="saveNewClient()">Create Client</button>
@@ -64,10 +76,71 @@
   </div>
 </div>
 
+<style>
+.kb-col {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  min-height: 200px;
+  transition: background .15s;
+}
+.kb-col.drag-over { background: color-mix(in srgb, var(--brand) 8%, var(--bg2)); border-color: var(--brand); }
+.kb-col-hdr {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+}
+.kb-col-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.kb-col-label { flex: 1; }
+.kb-col-count {
+  background: var(--bg3);
+  border-radius: var(--r-full);
+  padding: 1px 7px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.kb-cards { padding: 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+.kb-empty { font-size: 12px; color: var(--text-muted); padding: 16px 4px; text-align: center; opacity: .5; }
+.kb-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+  cursor: grab;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+  text-decoration: none;
+  display: block;
+  position: relative;
+}
+.kb-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--kc, var(--brand));
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  opacity: .7;
+}
+.kb-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,.25); border-color: var(--border-focus); }
+.kb-card:active { cursor: grabbing; }
+.kb-card-name { font-size: 13px; font-weight: var(--weight-bold); color: var(--text); margin-bottom: 2px; }
+.kb-card-company { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+.kb-card-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 10px; color: var(--text-muted); align-items: center; }
+.kb-card-meta i { opacity: .6; }
+</style>
 {% endblock %}
+
 {% block extra_js %}
 <script>
 const CSRF = '{{ csrf_token }}';
+
 function openNewClient() {
   document.getElementById('client-modal').style.display = 'flex';
   document.getElementById('nc-name').focus();
@@ -86,17 +159,77 @@ async function saveNewClient() {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
       body: JSON.stringify({
-        name, company: document.getElementById('nc-company').value.trim(),
-        email: document.getElementById('nc-email').value.trim(),
-        phone: document.getElementById('nc-phone').value.trim(),
+        name,
+        company: document.getElementById('nc-company').value.trim(),
+        email:   document.getElementById('nc-email').value.trim(),
+        phone:   document.getElementById('nc-phone').value.trim(),
+        status:  document.getElementById('nc-status').value,
       })
     });
     const d = await r.json();
     if (d.redirect) window.location = d.redirect;
   } finally { btn.disabled = false; btn.textContent = 'Create Client'; }
 }
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeNewClient();
+
+// Drag-and-drop kanban
+let dragId = null;
+document.addEventListener('dragstart', e => {
+  const card = e.target.closest('.kb-card');
+  if (!card) return;
+  dragId = card.dataset.id;
+  card.style.opacity = '.4';
 });
+document.addEventListener('dragend', e => {
+  const card = e.target.closest('.kb-card');
+  if (card) card.style.opacity = '1';
+  document.querySelectorAll('.kb-col').forEach(c => c.classList.remove('drag-over'));
+});
+document.querySelectorAll('.kb-col').forEach(col => {
+  col.addEventListener('dragenter', () => col.classList.add('drag-over'));
+  col.addEventListener('dragleave', e => {
+    if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+  });
+});
+async function dropCard(e, newStatus) {
+  e.preventDefault();
+  if (!dragId) return;
+  const col = e.currentTarget;
+  col.classList.remove('drag-over');
+  const card = document.querySelector(`.kb-card[data-id="${dragId}"]`);
+  if (!card) return;
+  const oldStatus = card.dataset.status;
+  if (oldStatus === newStatus) return;
+
+  card.dataset.status = newStatus;
+  document.getElementById('col-' + newStatus).appendChild(card);
+  updateColCounts();
+
+  await fetch(`/clients/${dragId}/update/`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({status: newStatus})
+  });
+  dragId = null;
+}
+function updateColCounts() {
+  document.querySelectorAll('.kb-col').forEach(col => {
+    const status = col.dataset.status;
+    const count = col.querySelectorAll('.kb-card').length;
+    const badge = col.querySelector('.kb-col-count');
+    if (badge) badge.textContent = count;
+    const cards = col.querySelector('.kb-cards');
+    const empty = cards.querySelector('.kb-empty');
+    if (count === 0 && !empty) {
+      const div = document.createElement('div');
+      div.className = 'kb-empty';
+      div.textContent = 'Drop here';
+      cards.appendChild(div);
+    } else if (count > 0 && empty) {
+      empty.remove();
+    }
+  });
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNewClient(); });
 </script>
 {% endblock %}

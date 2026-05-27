@@ -17,7 +17,7 @@
 {% endif %}
 
 {# KPI row #}
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:0 24px 20px;">
+<div class="kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:0 24px 20px;">
   <div class="kpi-card">
     <div class="kpi-icon" style="color:var(--brand);"><i class="fa-solid fa-folder-open"></i></div>
     <div class="kpi-value">{{ active_project_count }}</div>
@@ -46,7 +46,7 @@
 </div>
 
 {# Main 2-col #}
-<div style="display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;padding:0 24px 24px;align-items:start;">
+<div class="dash-main-grid" style="display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;padding:0 24px 24px;align-items:start;">
 
   <div>
     <div class="proj-files-section">
@@ -56,18 +56,29 @@
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;">
         {% for p in active_projects %}
+        {% with ts=p.task_stats %}
         <a href="{% url 'projects:detail' p.pk %}" class="dash-proj-card" style="--pc:{{ p.color }};">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
             <span style="width:7px;height:7px;border-radius:50%;background:var(--pc);flex-shrink:0;"></span>
             <span class="dash-proj-name">{{ p.name }}</span>
           </div>
-          {% if p.client %}<div class="dash-proj-client">{{ p.client }}</div>{% endif %}
+          {% if p.client_fk %}<div class="dash-proj-client">{{ p.client_fk.display_name }}</div>
+          {% elif p.client %}<div class="dash-proj-client">{{ p.client }}</div>{% endif %}
           <div class="dash-proj-stats">
             <span>{{ p.total_hours }}h logged</span>
             {% if p.unbilled_hours > 0 %}<span style="color:var(--yellow);">{{ p.unbilled_hours }}h unbilled</span>{% endif %}
-            <span>{{ p.open_tasks_count }} open tasks</span>
+            <span>{{ p.open_tasks_count }} open</span>
           </div>
+          {% if ts.total > 0 %}
+          <div style="margin-top:6px;">
+            <div style="height:2px;background:var(--bg);border-radius:var(--r-full);overflow:hidden;">
+              <div style="height:100%;width:{{ ts.pct }}%;background:var(--pc);border-radius:var(--r-full);"></div>
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">{{ ts.pct }}% complete</div>
+          </div>
+          {% endif %}
         </a>
+        {% endwith %}
         {% empty %}
         <div style="padding:24px;color:var(--text-muted);font-size:13px;grid-column:1/-1;">
           No active projects. <a href="{% url 'projects:index' %}">Create one.</a>
@@ -96,23 +107,68 @@
       {% endfor %}
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">Modules</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-        <a href="{% url 'ai:index' %}" class="dash-module-link"><i class="fa-solid fa-comments"></i> Chat</a>
-        <a href="{% url 'billing:index' %}" class="dash-module-link"><i class="fa-solid fa-file-invoice-dollar"></i> Billing</a>
-        <a href="{% url 'sound:index' %}" class="dash-module-link"><i class="fa-solid fa-waveform-lines"></i> Sound</a>
-        <a href="{% url 'servers:index' %}" class="dash-module-link"><i class="fa-solid fa-server"></i> Servers</a>
-        <a href="{% url 'messaging:inbox' %}" class="dash-module-link"><i class="fa-solid fa-inbox"></i> Messages</a>
-        <a href="{% url 'tax:index' %}" class="dash-module-link"><i class="fa-solid fa-receipt"></i> Expenses</a>
-        <a href="{% url 'workers:index' %}" class="dash-module-link"><i class="fa-solid fa-microchip"></i> Workers</a>
-        <a href="{% url 'modules:index' %}" class="dash-module-link"><i class="fa-solid fa-cubes"></i> Modules</a>
+    {# ── System panel ─────────────────────────────── #}
+    {% if servers %}
+    <div class="sidebar-section sys-panel">
+      <div class="sidebar-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span><i class="fa-solid fa-server" style="color:var(--teal);margin-right:5px;"></i>Servers</span>
+        <a href="{% url 'servers:index' %}" style="font-size:10px;color:var(--text-muted);text-decoration:none;">manage →</a>
       </div>
+      {% for sv in servers %}
+      <div class="sys-row" id="sv-row-{{ sv.pk }}">
+        <span class="sys-dot" id="sv-dot-{{ sv.pk }}"></span>
+        <span class="sys-name">{{ sv.name }}</span>
+        <span class="sys-host">{{ sv.host }}</span>
+        <span class="sys-latency" id="sv-ms-{{ sv.pk }}">—</span>
+      </div>
+      {% endfor %}
     </div>
+    {% endif %}
+
+    {# ── Alerts ───────────────────────────────────── #}
+    {% if alerts or due_followups %}
+    <div class="sidebar-section">
+      <div class="sidebar-section-title"><i class="fa-solid fa-triangle-exclamation" style="color:var(--yellow);margin-right:5px;"></i>Alerts</div>
+
+      {% for fu in due_followups %}
+      <a href="{% url 'clients:detail' fu.client.pk %}" style="text-decoration:none;display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+        <span style="flex-shrink:0;margin-top:2px;width:7px;height:7px;border-radius:50%;background:{% if fu.priority == 'high' %}var(--red){% else %}var(--yellow){% endif %};"></span>
+        <div style="min-width:0;flex:1;">
+          <div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ fu.client.display_name }}</div>
+          <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ fu.note|truncatechars:40 }}</div>
+        </div>
+        <span style="font-size:10px;color:var(--red);white-space:nowrap;flex-shrink:0;">
+          {% if fu.due_date < today %}overdue{% else %}today{% endif %}
+        </span>
+      </a>
+      {% endfor %}
+
+      {% for n in alerts %}
+      {% if n.link %}
+      <a href="{{ n.link }}" style="text-decoration:none;display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+      {% else %}
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+      {% endif %}
+        <span style="flex-shrink:0;margin-top:2px;width:7px;height:7px;border-radius:50%;background:var(--accent);"></span>
+        <div style="min-width:0;flex:1;">
+          <div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ n.title }}</div>
+          {% if n.body %}<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ n.body|truncatechars:40 }}</div>{% endif %}
+        </div>
+        <span style="font-size:10px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;">{{ n.created_at|date:"M j" }}</span>
+      {% if n.link %}</a>{% else %}</div>{% endif %}
+      {% endfor %}
+
+      {% if not alerts and not due_followups %}
+      <div style="font-size:12px;color:var(--text-muted);padding:8px 0;opacity:.6;">All clear</div>
+      {% endif %}
+    </div>
+    {% endif %}
   </div>
 
 </div>
 {% endblock %}
+
+
 
 {% block extra_js %}
 <script>
@@ -130,5 +186,38 @@ async function stopTimer() {
   await fetch("{% url 'projects:timer_stop' %}", {method:'POST',headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},body:'{}'});
   location.reload();
 }
+
+// ── Server ping ────────────────────────────────────────────────
+{% if servers %}
+const SERVER_IDS = [{% for sv in servers %}{{ sv.pk }}{% if not forloop.last %},{% endif %}{% endfor %}];
+async function pingServer(id) {
+  const dot = document.getElementById('sv-dot-' + id);
+  const ms  = document.getElementById('sv-ms-'  + id);
+  const t0  = performance.now();
+  try {
+    const r = await fetch('/servers/' + id + '/ping/', {signal: AbortSignal.timeout(5000)});
+    const d = await r.json();
+    const elapsed = Math.round(performance.now() - t0);
+    if (d.up) {
+      dot.className = 'sys-dot up';
+      ms.textContent = elapsed + 'ms';
+      ms.className = 'sys-latency ' + (elapsed < 200 ? 'fast' : 'slow');
+    } else {
+      dot.className = 'sys-dot down';
+      ms.textContent = 'down';
+      ms.className = 'sys-latency';
+      ms.style.color = 'var(--red)';
+    }
+  } catch {
+    dot.className = 'sys-dot down';
+    ms.textContent = 'timeout';
+    ms.className = 'sys-latency';
+  }
+}
+// Stagger pings so they don't all hit at once
+SERVER_IDS.forEach((id, i) => setTimeout(() => pingServer(id), i * 400));
+// Refresh every 60s
+setInterval(() => SERVER_IDS.forEach((id, i) => setTimeout(() => pingServer(id), i * 400)), 60000);
+{% endif %}
 </script>
 {% endblock %}
