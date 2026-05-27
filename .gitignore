@@ -36,3 +36,15 @@ Thumbs.db
 .idea/
 *.swp
 *~
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+
+# Build output
+tldraw_src/dist/
+worker_bundle/config.env
