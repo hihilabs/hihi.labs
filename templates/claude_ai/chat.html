@@ -13,7 +13,7 @@
 .t-prompt{font-size:11px;font-weight:600;letter-spacing:.5px;font-family:var(--font-mono)}
 .t-ts{font-size:9px;color:var(--text-muted);opacity:.4;margin-top:2px}
 .t-msg-body{flex:1;min-width:0;font-size:13px;padding-top:1px}
-.t-msg.t-user{border-left-color:var(--user-c)}.t-msg.t-user .t-prompt{color:var(--user-c)}
+.t-msg.t-user{border-left-color:var(--user-c)}.t-msg.t-user .t-msg-body{white-space:pre-wrap}.t-msg.t-user .t-prompt{color:var(--user-c)}
 .t-msg.t-assistant{border-left-color:var(--neon)}.t-msg.t-assistant .t-prompt{color:var(--neon);text-shadow:var(--neon-glow)}
 .t-msg.t-system{border-left-color:var(--ok-c);opacity:.75}.t-msg.t-system .t-prompt{color:var(--ok-c)}.t-msg.t-system .t-msg-body{font-size:12px;color:var(--text-muted)}
 
@@ -547,9 +547,11 @@ function appendMsg(role, text, imgUrl) {
   wrap.innerHTML =
     '<div class="t-msg-meta"><span class="t-prompt">' + label + '</span><span class="t-ts">' + ts + '</span></div>' +
     '<div class="t-msg-body">' + imgHtml + '</div>';
+  var bodyEl = wrap.querySelector('.t-msg-body');
+  if (role === 'user' && text) { bodyEl.textContent = text; }
   msgsEl.insertBefore(wrap, typing);
   scrollBottom();
-  return wrap.querySelector('.t-msg-body');
+  return bodyEl;
 }
 
 function appendSystem(html) {

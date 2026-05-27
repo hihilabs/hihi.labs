@@ -101,7 +101,7 @@ def _job_progress() -> Progress:
         TextColumn("[bold cyan]{task.fields[phase]:<16}"),
         BarColumn(bar_width=None, style="dim cyan", complete_style="bright_cyan"),
         TaskProgressColumn(style="cyan"),
-        MofNCompleteColumn(style="dim"),
+        MofNCompleteColumn(),
         TextColumn("  [bold green]{task.fields[assets]}[/] assets"),
         TextColumn(" [blue]{task.fields[ocr]}[/] OCR"),
         TextColumn(" [yellow]{task.fields[skip]}[/] skip"),
