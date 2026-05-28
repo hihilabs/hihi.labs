@@ -1,6 +1,20 @@
 {% extends 'base.html' %}
 {% block title %}Dashboard — HiHi Labs{% endblock %}
 
+{% block extra_css %}
+<style>
+@media (max-width: 680px) {
+  .proj-cards-inner { display: flex !important; flex-direction: column !important; }
+  .kpi-grid { grid-template-columns: repeat(2,1fr) !important; padding: 10px 16px 14px !important; gap: 8px !important; }
+  .dash-main-grid { grid-template-columns: 1fr !important; padding: 0 16px 20px !important; gap: 12px !important; }
+  .timer-bar { margin: 0 16px 12px !important; }
+}
+@media (max-width: 900px) {
+  .dash-main-grid { grid-template-columns: 1fr !important; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <div class="page-title">Dashboard</div>
@@ -54,7 +68,7 @@
         <span class="proj-module-hdr-title"><i class="fa-solid fa-folder-open" style="color:var(--brand);"></i> Active Projects</span>
         <a href="{% url 'projects:index' %}" class="btn btn-ghost btn-sm" style="font-size:10px;"><i class="fa-solid fa-arrow-right"></i> All</a>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;">
+      <div class="proj-cards-inner" style="display:grid;grid-template-columns:1fr 1fr;">
         {% for p in active_projects %}
         {% with ts=p.task_stats %}
         <a href="{% url 'projects:detail' p.pk %}" class="dash-proj-card" style="--pc:{{ p.color }};">

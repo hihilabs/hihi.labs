@@ -295,8 +295,14 @@ body::after {
 /* ── Contact ───────────────────────────────────────────────────────────── */
 .wk-contact {
   position: relative; z-index: 10;
-  max-width: 520px; margin: 0 auto;
+  max-width: 1060px; margin: 0 auto;
   padding: 0 32px 100px;
+}
+.contact-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
 }
 .contact-card {
   background: var(--bg2); border: 1px solid var(--border);
@@ -355,12 +361,22 @@ textarea.wk-input { resize: vertical; min-height: 90px; margin-bottom: 14px; }
 /* ── Mobile ────────────────────────────────────────────────────────────── */
 @media (max-width: 680px) {
   .wk-nav { padding: 14px 20px; }
+  .wk-nav-links .wk-nav-work { display: none; }
   .wk-hero { padding: 100px 20px 60px; }
+  .hero-title { font-size: clamp(36px, 11vw, 52px) !important; }
   .hero-stats { gap: 20px; }
-  .wk-filters { padding: 0 20px 36px; }
+  /* Filter pills: horizontal scroll instead of wrapping */
+  .wk-filters {
+    flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start;
+    padding: 0 16px 36px; gap: 6px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .wk-filters::-webkit-scrollbar { display: none; }
+  .wk-filter { flex-shrink: 0; }
   .wk-section { padding: 0 16px 60px; }
   .wk-grid { grid-template-columns: 1fr; gap: 12px; }
   .wk-contact { padding: 0 16px 60px; }
+  .contact-pair { grid-template-columns: 1fr; gap: 16px; }
   .contact-card { padding: 24px 22px; }
   .wk-input-row { grid-template-columns: 1fr; }
   .orb-1 { width: 400px; height: 400px; }
@@ -382,7 +398,7 @@ textarea.wk-input { resize: vertical; min-height: 90px; margin-bottom: 14px; }
 <nav class="wk-nav" id="wk-nav">
   <a href="/" class="wk-logo">hi<span>hi</span> labs</a>
   <div class="wk-nav-links">
-    <a href="#works">Work</a>
+    <a href="#works" class="wk-nav-work">Work</a>
     <a href="#contact" class="cta">Get in touch</a>
   </div>
 </nav>
@@ -485,6 +501,23 @@ textarea.wk-input { resize: vertical; min-height: 90px; margin-bottom: 14px; }
 
 <!-- Contact -->
 <section class="wk-contact" id="contact">
+  <div class="contact-pair">
+
+  <!-- Client login -->
+  <div class="contact-card">
+    <div class="contact-label">Client Access</div>
+    <h2 class="contact-title">Sign in.</h2>
+    <p class="contact-sub">Your projects, invoices, and files &mdash; all in one place.</p>
+    <form method="post" action="/login/" id="login-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="/ai/">
+      <input type="text" class="wk-input" name="username" placeholder="Username" autocomplete="username" required>
+      <input type="password" class="wk-input" name="password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit" class="contact-btn">Sign in &rarr;</button>
+    </form>
+  </div>
+
+  <!-- Build card -->
   <div class="contact-card">
     <div class="contact-label">Let's build</div>
     <h2 class="contact-title">What are we making?</h2>
@@ -509,7 +542,8 @@ textarea.wk-input { resize: vertical; min-height: 90px; margin-bottom: 14px; }
       <i class="fa-solid fa-circle-check" style="font-size:24px;display:block;margin-bottom:8px;"></i>
       Received &mdash; I'll be in touch.
     </div>
-  </div>
+  </div><!-- /build card -->
+  </div><!-- /contact-pair -->
 </section>
 
 <footer class="wk-footer">
@@ -557,6 +591,7 @@ function filterWorks(type) {
 
 // ── Parallax (mousemove + gyro) ──────────────────────────────────────────────
 var _px = 0, _py = 0, _raf = null;
+var _isMobile = window.matchMedia('(max-width: 680px)').matches;
 var orb1 = document.getElementById('orb1');
 var orb2 = document.getElementById('orb2');
 var orb3 = document.getElementById('orb3');
@@ -566,7 +601,7 @@ function applyParallax() {
   orb1.style.transform = 'translate3d(' + (_px * 22) + 'px,' + (_py * 14) + 'px,0)';
   orb2.style.transform = 'translate3d(' + (-_px * 16) + 'px,' + (-_py * 10) + 'px,0)';
   orb3.style.transform = 'translate3d(' + (_px * 12) + 'px,' + (_py * 8) + 'px,0)';
-  grid.style.transform  = 'translate3d(' + (_px * 3) + 'px,' + (_py * 2) + 'px,0)';
+  if (!_isMobile) grid.style.transform = 'translate3d(' + (_px * 3) + 'px,' + (_py * 2) + 'px,0)';
   _raf = null;
 }
 
