@@ -48,13 +48,24 @@ def project_detail(request, pk):
     entries = project.time_entries.filter(ended_at__isnull=False)[:20]
     running = TimeEntry.objects.filter(owner=request.user, ended_at__isnull=True).first()
     from apps.sound.models import Track
+    from apps.whiteboards.models import Whiteboard
+    from apps.files.models import ClientFile
     tracks = Track.objects.filter(project=project).order_by('-created_at')
+    whiteboards = Whiteboard.objects.filter(project=project).order_by('-updated_at')
+    files = ClientFile.objects.filter(project=project).order_by('-created_at')
+    notes = project.notes.select_related('author')
+    from apps.tickets.models import Ticket
+    proj_tickets = Ticket.objects.filter(project=project).order_by('-created_at')
     return render(request, 'projects/detail.html', {
         'project': project,
         'tasks': tasks,
         'entries': entries,
         'running': running,
         'tracks': tracks,
+        'whiteboards': whiteboards,
+        'files': files,
+        'notes': notes,
+        'proj_tickets': proj_tickets,
     })
 
 
@@ -401,3 +412,75 @@ def draft_invoice(request, pk):
 
     from django.urls import reverse
     return JsonResponse({'ok': True, 'invoice_url': reverse('billing:detail', args=[inv.pk])})
+
+
+@login_required
+@require_POST
+def project_file_upload(request, pk):
+    project = _get_project(pk, request.user)
+    from apps.files.models import ClientFile
+    results = []
+    for f in request.FILES.getlist('files'):
+        cf = ClientFile.objects.create(
+            owner=request.user,
+            project=project,
+            name=f.name,
+            file=f,
+            mime_type=f.content_type or '',
+            size=f.size,
+            source='upload',
+        )
+        results.append({'id': cf.pk, 'name': cf.name, 'size': cf.size,
+                        'ext': cf.ext, 'url': cf.file.url})
+    return JsonResponse({'ok': True, 'files': results})
+
+
+@login_required
+@require_POST
+def project_file_delete(request, pk, file_pk):
+    from apps.files.models import ClientFile
+    if request.user.is_superuser:
+        cf = get_object_or_404(ClientFile, pk=file_pk)
+    else:
+        cf = get_object_or_404(ClientFile, pk=file_pk, project__pk=pk, owner=request.user)
+    if cf.file:
+        cf.file.delete(save=False)
+    cf.delete()
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@require_POST
+def note_create(request, pk):
+    from apps.projects.models import ProjectNote
+    project = _get_project(pk, request.user)
+    data = json.loads(request.body)
+    body = data.get('body', '').strip()
+    if not body:
+        return JsonResponse({'error': 'empty'}, status=400)
+    note = ProjectNote.objects.create(
+        project=project,
+        author=request.user,
+        body=body,
+        visibility=data.get('visibility', 'internal'),
+    )
+    return JsonResponse({
+        'ok': True, 'id': note.pk,
+        'author': request.user.get_full_name() or request.user.username,
+        'visibility': note.visibility,
+        'created_at': note.created_at.strftime('%b %-d, %-I:%M %p'),
+        'body': note.body,
+    })
+
+
+@login_required
+@require_POST
+def note_delete(request, pk, note_pk):
+    from apps.projects.models import ProjectNote
+    project = _get_project(pk, request.user)
+    if request.user.is_superuser:
+        note = get_object_or_404(ProjectNote, pk=note_pk, project=project)
+    else:
+        note = get_object_or_404(ProjectNote, pk=note_pk, project=project, author=request.user)
+    note.delete()
+    return JsonResponse({'ok': True})

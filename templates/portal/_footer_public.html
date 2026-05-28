@@ -1,0 +1,44 @@
+{% if public_footer and public_footer.html_content or public_footer and public_footer.show_ticket_form %}
+<footer class="site-footer public-footer">
+  {% if public_footer.html_content %}
+  <div class="footer-content">{{ public_footer.html_content|safe }}</div>
+  {% endif %}
+  {% if public_footer.show_ticket_form %}
+  <div class="footer-ticket-form">
+    <div class="footer-ticket-title">{{ public_footer.ticket_form_title }}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+      <input type="text" id="pft-name" class="form-control" placeholder="Your name" style="max-width:150px;">
+      <input type="email" id="pft-email" class="form-control" placeholder="Email" style="max-width:200px;">
+      <input type="text" id="pft-title" class="form-control" placeholder="What's the issue?" style="flex:1;min-width:200px;">
+      <button class="btn btn-primary btn-sm" onclick="submitPublicTicket()">
+        <i class="fa-solid fa-ticket"></i> Submit
+      </button>
+    </div>
+    <div id="pft-success" style="display:none;font-size:13px;color:var(--green);margin-top:8px;">
+      <i class="fa-solid fa-circle-check"></i> Got it — we'll be in touch.
+    </div>
+  </div>
+  {% endif %}
+</footer>
+<script>
+async function submitPublicTicket() {
+  const title = document.getElementById('pft-title').value.trim();
+  if (!title) return;
+  const r = await fetch('/portal/submit/', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      title,
+      name:  document.getElementById('pft-name').value.trim(),
+      email: document.getElementById('pft-email').value.trim(),
+    }),
+  });
+  if (r.ok) {
+    ['pft-name','pft-email','pft-title'].forEach(id => document.getElementById(id).value = '');
+    const s = document.getElementById('pft-success');
+    s.style.display = 'block';
+    setTimeout(() => s.style.display = 'none', 5000);
+  }
+}
+</script>
+{% endif %}

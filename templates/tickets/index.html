@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Tickets — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title"><i class="fa-solid fa-ticket" style="color:var(--brand);margin-right:8px;"></i>Tickets</div>
+  <button class="btn btn-primary btn-sm" onclick="openNewTicket()">
+    <i class="fa-solid fa-plus"></i> New Ticket
+  </button>
+</div>
+
+<div style="display:flex;gap:8px;padding:0 24px 16px;flex-wrap:wrap;">
+  <a href="{% url 'tickets:index' %}" class="stat-chip {% if not status_filter %}active-filter{% endif %}" style="text-decoration:none;{% if not status_filter %}border-color:var(--brand);color:var(--brand);{% endif %}">All</a>
+  {% for val,label in tickets.model.STATUS %}
+  <a href="?status={{ val }}" class="stat-chip" style="text-decoration:none;{% if status_filter == val %}border-color:var(--brand);color:var(--brand);{% endif %}">{{ label }}
+    {% if val == 'open' and open_count %}<span style="margin-left:4px;background:var(--yellow);color:#000;border-radius:var(--r-full);padding:0 5px;font-size:10px;font-weight:700;">{{ open_count }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div style="padding:0 24px 24px;">
+  {% for t in tickets %}
+  <a href="{% url 'tickets:detail' t.pk %}" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:6px;transition:border-color .15s;">
+    <span style="width:8px;height:8px;border-radius:50%;background:{{ t.status_color }};flex-shrink:0;"></span>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ t.title }}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+        {% if t.project %}{{ t.project.name }} · {% endif %}
+        {{ t.get_type_display }} · {{ t.created_at|date:"M j, Y" }}
+      </div>
+    </div>
+    <span class="priority-dot priority-{{ t.priority }}" style="flex-shrink:0;font-size:11px;">{{ t.get_priority_display }}</span>
+    <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;white-space:nowrap;">{{ t.get_status_display }}</span>
+  </a>
+  {% empty %}
+  <div class="empty-state" style="padding:60px 0;">
+    <i class="fa-solid fa-ticket"></i>
+    <p>No tickets{% if status_filter %} with status "{{ status_filter }}"{% endif %}.</p>
+    <button class="btn btn-primary btn-sm" onclick="openNewTicket()">
+      <i class="fa-solid fa-plus"></i> Open first ticket
+    </button>
+  </div>
+  {% endfor %}
+</div>
+
+{# New ticket modal #}
+<div id="new-ticket-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:500px;margin:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:16px;font-weight:var(--weight-bold);">New Ticket</h2>
+      <button onclick="closeNewTicket()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:20px;">×</button>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Title *</label>
+      <input id="nt-title" type="text" class="form-control" placeholder="Describe the issue or request…" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div>
+        <label class="label" style="display:block;margin-bottom:5px;">Type</label>
+        <select id="nt-type" class="form-control" style="width:100%;box-sizing:border-box;">
+          <option value="bug">Bug</option>
+          <option value="feature">Feature</option>
+          <option value="request" selected>Request</option>
+          <option value="question">Question</option>
+        </select>
+      </div>
+      <div>
+        <label class="label" style="display:block;margin-bottom:5px;">Priority</label>
+        <select id="nt-priority" class="form-control" style="width:100%;box-sizing:border-box;">
+          <option value="low">Low</option>
+          <option value="normal" selected>Normal</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:18px;">
+      <label class="label" style="display:block;margin-bottom:5px;">Description</label>
+      <textarea id="nt-body" rows="4" class="form-control" placeholder="Steps to reproduce, context, screenshots…" style="width:100%;box-sizing:border-box;resize:vertical;"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeNewTicket()">Cancel</button>
+      <button id="nt-save" class="btn btn-primary" onclick="saveNewTicket()">
+        <i class="fa-solid fa-ticket"></i> Open Ticket
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+function openNewTicket() {
+  document.getElementById('new-ticket-modal').style.display = 'flex';
+  document.getElementById('nt-title').focus();
+}
+function closeNewTicket() { document.getElementById('new-ticket-modal').style.display = 'none'; }
+async function saveNewTicket() {
+  const title = document.getElementById('nt-title').value.trim();
+  if (!title) { document.getElementById('nt-title').focus(); return; }
+  const btn = document.getElementById('nt-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const r = await fetch('/tickets/new/', {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify({title, type:document.getElementById('nt-type').value, priority:document.getElementById('nt-priority').value, body:document.getElementById('nt-body').value.trim()}),
+  });
+  const d = await r.json();
+  if (d.id) window.location = '/tickets/' + d.id + '/';
+  else { btn.disabled = false; btn.textContent = 'Open Ticket'; }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNewTicket(); });
+document.getElementById('nt-title')?.addEventListener('keydown', e => { if (e.key === 'Enter') saveNewTicket(); });
+</script>
+{% endblock %}

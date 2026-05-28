@@ -2151,7 +2151,7 @@ body::before {
   pointer-events: none;
   z-index: 0;
 }
-.sidenav, .content { position: relative; z-index: 1; }
+.content { position: relative; z-index: 1; }
 
 .vb-metrics {
   display: grid;
@@ -2550,3 +2550,17 @@ body::before {
 .sys-latency { font-size: 10px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; font-family: var(--font-mono); }
 .sys-latency.fast { color: var(--green); }
 .sys-latency.slow { color: var(--yellow); }
+
+/* ── Site footer (portal + public) ─────────────────── */
+.site-footer {
+  padding: 24px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.portal-footer { margin-left: var(--nav-w); }
+@media (max-width: 680px) { .portal-footer { margin-left: 0; } }
+.footer-content { line-height: 1.7; margin-bottom: 12px; }
+.footer-ticket-form { padding: 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-lg); }
+.footer-ticket-title { font-size: 13px; font-weight: var(--weight-bold); color: var(--text); }

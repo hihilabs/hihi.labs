@@ -105,3 +105,20 @@ class TimeEntry(models.Model):
 
     def is_running(self):
         return self.ended_at is None
+
+
+class ProjectNote(models.Model):
+    VISIBILITY = [('internal', 'Internal'), ('external', 'External')]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='notes')
+    author  = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_notes')
+    body    = models.TextField()
+    visibility = models.CharField(max_length=10, choices=VISIBILITY, default='internal')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.project.name} note by {self.author}'

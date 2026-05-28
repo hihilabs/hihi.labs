@@ -1,0 +1,38 @@
+{% if portal_footer and portal_footer.html_content or portal_footer and portal_footer.show_ticket_form %}
+<footer class="site-footer portal-footer">
+  {% if portal_footer.html_content %}
+  <div class="footer-content">{{ portal_footer.html_content|safe }}</div>
+  {% endif %}
+  {% if portal_footer.show_ticket_form %}
+  <div class="footer-ticket-form">
+    <div class="footer-ticket-title">{{ portal_footer.ticket_form_title }}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+      <input type="text" id="ft-title" class="form-control" placeholder="What's the issue?" style="flex:1;min-width:200px;">
+      <button class="btn btn-primary btn-sm" onclick="submitFooterTicket()">
+        <i class="fa-solid fa-ticket"></i> Submit
+      </button>
+    </div>
+    <div id="ft-success" style="display:none;font-size:12px;color:var(--green);margin-top:6px;">
+      <i class="fa-solid fa-circle-check"></i> Ticket submitted. We'll follow up shortly.
+    </div>
+  </div>
+  {% endif %}
+</footer>
+<script>
+async function submitFooterTicket() {
+  const title = document.getElementById('ft-title').value.trim();
+  if (!title) return;
+  const r = await fetch('/portal/submit/', {
+    method:'POST',
+    headers:{'X-CSRFToken':'{{ csrf_token }}','Content-Type':'application/json'},
+    body:JSON.stringify({title}),
+  });
+  if (r.ok) {
+    document.getElementById('ft-title').value = '';
+    const s = document.getElementById('ft-success');
+    s.style.display = 'block';
+    setTimeout(() => s.style.display = 'none', 4000);
+  }
+}
+</script>
+{% endif %}

@@ -32,6 +32,8 @@ urlpatterns = [
     path('files/', include('apps.files.urls', namespace='files')),
     path('wiki/', include('apps.wiki.urls', namespace='wiki')),
     path('whiteboards/', include('apps.whiteboards.urls', namespace='whiteboards')),
+    path('tickets/',    include('apps.tickets.urls',    namespace='tickets')),
+    path('portal/',     include('apps.portal.urls',     namespace='portal')),
     # Public portfolio
     path('works/',    modules_views.works_public, name='works'),
     # PWA

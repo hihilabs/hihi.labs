@@ -1,6 +1,137 @@
 {% extends 'base.html' %}
 {% block title %}{{ project.name }} — HiHi Labs{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Project tabs ─────────────────────────────────── */
+.proj-tabs {
+  display: flex; gap: 0; padding: 0 24px;
+  border-bottom: 1px solid var(--border); margin-bottom: 0;
+}
+.proj-tab {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  padding: 9px 16px; font-size: 12px; font-weight: 500;
+  color: var(--text-muted); cursor: pointer; margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.proj-tab:hover { color: var(--text); }
+.proj-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+.proj-tab .tab-badge {
+  background: var(--bg3); border-radius: var(--r-full);
+  padding: 1px 6px; font-size: 10px; color: var(--text-muted); font-weight: 600;
+}
+.proj-tab.active .tab-badge { background: var(--brand); color: #fff; }
+
+/* ── Kanban board ─────────────────────────────────── */
+.kanban-board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.kanban-col {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 12px; min-height: 120px;
+  transition: border-color .15s, background .15s;
+}
+.kanban-col.drop-target { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 6%, var(--bg2)); }
+.kanban-col-hdr {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text-muted); margin-bottom: 10px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.kanban-col-hdr .kc-count { font-size: 11px; font-weight: 700; color: var(--text); }
+.kanban-cards { min-height: 40px; }
+.kanban-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 9px 11px; margin-bottom: 6px;
+  cursor: grab; transition: border-color .15s, box-shadow .15s;
+}
+.kanban-card:hover { border-color: var(--brand-muted, var(--border)); box-shadow: var(--shadow-sm); }
+.kanban-card.dragging { opacity: .5; cursor: grabbing; }
+.kanban-card-title { font-size: 13px; line-height: 1.4; }
+.kanban-card-meta { display: flex; gap: 6px; align-items: center; margin-top: 5px; }
+
+/* ── Whiteboard cards ─────────────────────────────── */
+.wb-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+  text-decoration: none; color: var(--text);
+}
+.wb-card:hover .wb-title { color: var(--brand); }
+.wb-icon {
+  width: 36px; height: 36px; border-radius: var(--r-md);
+  background: var(--bg3); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 14px; color: var(--text-muted);
+}
+.wb-title { font-size: 13px; font-weight: 500; }
+.wb-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+/* ── Notes / Discuss ─────────────────────────────── */
+.note-row {
+  display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.note-avatar {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--brand);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; text-transform: uppercase;
+}
+.note-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.6; }
+.note-meta { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.note-visibility {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+  padding: 1px 5px; border-radius: var(--r-full);
+  border: 1px solid currentColor;
+}
+.note-visibility.internal { color: var(--text-muted); }
+.note-visibility.external { color: var(--teal); }
+.note-compose { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.note-vis-toggle { display: flex; gap: 4px; }
+.note-vis-btn {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r-full);
+  padding: 3px 10px; font-size: 11px; cursor: pointer; color: var(--text-muted);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.note-vis-btn.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+/* ── File drop zone + rows ────────────────────────── */
+.file-drop {
+  border: 2px dashed var(--border); border-radius: var(--r-lg);
+  padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px;
+  cursor: pointer; transition: border-color .2s, background .2s;
+  margin-bottom: 16px;
+}
+.file-drop:hover, .file-drop.drag-active {
+  border-color: var(--brand); background: color-mix(in srgb, var(--brand) 5%, var(--bg));
+  color: var(--brand);
+}
+.file-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 0;
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.file-ext {
+  width: 34px; height: 34px; border-radius: var(--r-sm); background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; letter-spacing: .03em;
+  color: var(--text-muted); flex-shrink: 0; text-transform: uppercase;
+  border: 1px solid var(--border);
+}
+.file-name { font-size: 13px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-size { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+/* ── Tab panels ───────────────────────────────────── */
+.tab-panel { padding: 16px 0 0; }
+
+/* ── Responsive ───────────────────────────────────── */
+@media (max-width: 680px) {
+  .proj-tabs { padding: 0 12px; overflow-x: auto; flex-wrap: nowrap; }
+  .proj-tab { flex-shrink: 0; padding: 9px 10px; font-size: 11px; }
+  .kanban-board { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .kanban-board { grid-template-columns: 1fr 1fr; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
 {% if running %}
@@ -51,60 +182,370 @@
 </div>
 {% endwith %}
 
+{# ── Tab bar ──────────────────────────────────────────────────────── #}
+<div class="proj-tabs">
+  <button class="proj-tab active" data-tab="tasks" onclick="switchTab('tasks',this)">
+    <i class="fa-solid fa-list-check"></i> Tasks
+    <span class="tab-badge">{{ tasks|length }}</span>
+  </button>
+  <button class="proj-tab" data-tab="board" onclick="switchTab('board',this)">
+    <i class="fa-solid fa-table-columns"></i> Board
+  </button>
+  <button class="proj-tab" data-tab="whiteboard" onclick="switchTab('whiteboard',this)">
+    <i class="fa-solid fa-chalkboard"></i> Boards
+    {% if whiteboards %}<span class="tab-badge">{{ whiteboards|length }}</span>{% endif %}
+  </button>
+  <button class="proj-tab" data-tab="sound" onclick="switchTab('sound',this)">
+    <i class="fa-solid fa-headphones"></i> Sound
+    {% if tracks %}<span class="tab-badge">{{ tracks|length }}</span>{% endif %}
+  </button>
+  <button class="proj-tab" data-tab="files" onclick="switchTab('files',this)">
+    <i class="fa-solid fa-folder-open"></i> Files
+    {% if files %}<span class="tab-badge">{{ files|length }}</span>{% endif %}
+  </button>
+  <button class="proj-tab" data-tab="discuss" onclick="switchTab('discuss',this)">
+    <i class="fa-solid fa-comments"></i> Discuss
+    {% if notes %}<span class="tab-badge">{{ notes|length }}</span>{% endif %}
+  </button>
+  <button class="proj-tab" data-tab="tickets" onclick="switchTab('tickets',this)">
+    <i class="fa-solid fa-ticket"></i> Tickets
+    {% if proj_tickets %}<span class="tab-badge">{{ proj_tickets|length }}</span>{% endif %}
+  </button>
+</div>
+
+{# ── Main grid ────────────────────────────────────────────────────── #}
 <div class="detail-grid">
 
-  {# Task board #}
   <div>
-    <div class="tasks-section-header">
-      <div class="tasks-label">Tasks</div>
-      <button class="btn btn-ghost btn-sm" onclick="showAddTask()"><i class="fa-solid fa-plus"></i> Add</button>
-    </div>
 
-    <div id="add-task-row" style="display:none;margin-bottom:8px;">
-      <div style="display:flex;gap:8px;">
-        <input class="form-control" id="new-task-input" placeholder="Task title..." style="flex:1;">
-        <select class="form-control" id="new-task-priority" style="width:100px;">
-          <option value="normal">Normal</option>
-          <option value="high">High</option>
-          <option value="urgent">Urgent</option>
-          <option value="low">Low</option>
-        </select>
-        <button class="btn btn-primary btn-sm" onclick="addTask()">Add</button>
-        <button class="btn btn-ghost btn-sm" onclick="hideAddTask()">✕</button>
+    {# ── Tasks tab ──────────────────────────────────────── #}
+    <div id="tab-tasks" class="tab-panel">
+      <div class="tasks-section-header">
+        <div class="tasks-label">Tasks</div>
+        <button class="btn btn-ghost btn-sm" onclick="showAddTask()"><i class="fa-solid fa-plus"></i> Add</button>
+      </div>
+
+      <div id="add-task-row" style="display:none;margin-bottom:8px;">
+        <div style="display:flex;gap:8px;">
+          <input class="form-control" id="new-task-input" placeholder="Task title..." style="flex:1;">
+          <select class="form-control" id="new-task-priority" style="width:100px;">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+            <option value="low">Low</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="addTask()">Add</button>
+          <button class="btn btn-ghost btn-sm" onclick="hideAddTask()">✕</button>
+        </div>
+      </div>
+
+      <div id="task-list">
+        {% for task in tasks %}
+        <div class="task-row {% if task.status == 'done' %}task-done{% endif %}" data-id="{{ task.pk }}" data-status="{{ task.status }}">
+          <div class="task-check" onclick="toggleTaskDone({{ task.pk }}, this)">
+            {% if task.status == 'done' %}<i class="fa-solid fa-circle-check" style="color:var(--green)"></i>
+            {% else %}<i class="fa-regular fa-circle"></i>{% endif %}
+          </div>
+          <div class="task-body" onclick="openTask({{ task.pk }})">
+            <div class="task-title">{{ task.title }}</div>
+            {% if task.claude_suggestion %}
+            <div class="task-suggestion"><i class="fa-solid fa-sparkles"></i> {{ task.claude_suggestion }}</div>
+            {% endif %}
+          </div>
+          <div class="task-meta">
+            <span class="priority-dot priority-{{ task.priority }}">{{ task.get_priority_display }}</span>
+            {% if task.total_hours > 0 %}<span style="font-size:11px;color:var(--text-muted);">{{ task.total_hours }}h</span>{% endif %}
+            <button class="btn-icon" onclick="startTimerTask({{ project.pk }}, {{ task.pk }}, '{{ task.title|escapejs }}')"><i class="fa-solid fa-play"></i></button>
+            <button class="btn-icon" onclick="suggestNext({{ task.pk }}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <button class="btn-icon danger" onclick="deleteTask({{ task.pk }}, this)"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="padding:30px 0;">
+          <i class="fa-solid fa-list-check"></i>
+          <p>No tasks yet.</p>
+        </div>
+        {% endfor %}
       </div>
     </div>
 
-    <div id="task-list">
-      {% for task in tasks %}
-      <div class="task-row {% if task.status == 'done' %}task-done{% endif %}" data-id="{{ task.pk }}" data-status="{{ task.status }}">
-        <div class="task-check" onclick="toggleTaskDone({{ task.pk }}, this)">
-          {% if task.status == 'done' %}<i class="fa-solid fa-circle-check" style="color:var(--green)"></i>
-          {% else %}<i class="fa-regular fa-circle"></i>{% endif %}
+    {# ── Board tab (Kanban) ─────────────────────────────── #}
+    <div id="tab-board" class="tab-panel" style="display:none;">
+      <div class="kanban-board">
+
+        <div class="kanban-col" data-status="todo">
+          <div class="kanban-col-hdr">
+            <span>To Do</span>
+            <span class="kc-count" id="kc-count-todo">0</span>
+          </div>
+          <div class="kanban-cards" id="kc-todo">
+            {% for task in tasks %}{% if task.status == 'todo' or task.status == 'backlog' %}
+            <div class="kanban-card" draggable="true" data-id="{{ task.pk }}" data-status="todo">
+              <div class="kanban-card-title">{{ task.title }}</div>
+              <div class="kanban-card-meta">
+                <span class="priority-dot priority-{{ task.priority }}" style="font-size:10px;">{{ task.get_priority_display }}</span>
+                {% if task.total_hours > 0 %}<span style="font-size:10px;color:var(--text-muted);">{{ task.total_hours }}h</span>{% endif %}
+              </div>
+            </div>
+            {% endif %}{% endfor %}
+          </div>
         </div>
-        <div class="task-body" onclick="openTask({{ task.pk }})">
-          <div class="task-title">{{ task.title }}</div>
-          {% if task.claude_suggestion %}
-          <div class="task-suggestion"><i class="fa-solid fa-sparkles"></i> {{ task.claude_suggestion }}</div>
-          {% endif %}
+
+        <div class="kanban-col" data-status="doing">
+          <div class="kanban-col-hdr">
+            <span>In Progress</span>
+            <span class="kc-count" id="kc-count-doing">0</span>
+          </div>
+          <div class="kanban-cards" id="kc-doing">
+            {% for task in tasks %}{% if task.status == 'doing' %}
+            <div class="kanban-card" draggable="true" data-id="{{ task.pk }}" data-status="doing">
+              <div class="kanban-card-title">{{ task.title }}</div>
+              <div class="kanban-card-meta">
+                <span class="priority-dot priority-{{ task.priority }}" style="font-size:10px;">{{ task.get_priority_display }}</span>
+                {% if task.total_hours > 0 %}<span style="font-size:10px;color:var(--text-muted);">{{ task.total_hours }}h</span>{% endif %}
+              </div>
+            </div>
+            {% endif %}{% endfor %}
+          </div>
         </div>
-        <div class="task-meta">
-          <span class="priority-dot priority-{{ task.priority }}">{{ task.get_priority_display }}</span>
-          {% if task.total_hours > 0 %}<span style="font-size:11px;color:var(--text-muted);">{{ task.total_hours }}h</span>{% endif %}
-          <button class="btn-icon" onclick="startTimerTask({{ project.pk }}, {{ task.pk }}, '{{ task.title|escapejs }}')"><i class="fa-solid fa-play"></i></button>
-          <button class="btn-icon" onclick="suggestNext({{ task.pk }}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-          <button class="btn-icon danger" onclick="deleteTask({{ task.pk }}, this)"><i class="fa-solid fa-trash"></i></button>
+
+        <div class="kanban-col" data-status="done">
+          <div class="kanban-col-hdr">
+            <span>Done</span>
+            <span class="kc-count" id="kc-count-done">0</span>
+          </div>
+          <div class="kanban-cards" id="kc-done">
+            {% for task in tasks %}{% if task.status == 'done' %}
+            <div class="kanban-card" draggable="true" data-id="{{ task.pk }}" data-status="done">
+              <div class="kanban-card-title" style="text-decoration:line-through;opacity:.6;">{{ task.title }}</div>
+              <div class="kanban-card-meta">
+                <span class="priority-dot priority-{{ task.priority }}" style="font-size:10px;">{{ task.get_priority_display }}</span>
+              </div>
+            </div>
+            {% endif %}{% endfor %}
+          </div>
         </div>
+
       </div>
+    </div>
+
+    {# ── Whiteboard tab ─────────────────────────────────── #}
+    <div id="tab-whiteboard" class="tab-panel" style="display:none;">
+      <div class="tasks-section-header">
+        <div class="tasks-label">Whiteboards</div>
+        <button class="btn btn-ghost btn-sm" onclick="createWhiteboard()">
+          <i class="fa-solid fa-plus"></i> New Board
+        </button>
+      </div>
+      {% for wb in whiteboards %}
+      <a href="{% url 'whiteboards:detail' wb.pk %}" class="wb-card">
+        <div class="wb-icon"><i class="fa-solid fa-chalkboard"></i></div>
+        <div style="flex:1;min-width:0;">
+          <div class="wb-title">{{ wb.title }}</div>
+          <div class="wb-meta">Updated {{ wb.updated_at|date:"M j, Y" }}</div>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px;color:var(--text-muted);flex-shrink:0;"></i>
+      </a>
       {% empty %}
-      <div class="empty-state" style="padding:30px 0;">
-        <i class="fa-solid fa-list-check"></i>
-        <p>No tasks yet.</p>
+      <div class="empty-state" style="padding:40px 0;">
+        <i class="fa-solid fa-chalkboard" style="font-size:28px;color:var(--text-muted);display:block;margin-bottom:10px;"></i>
+        <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px;">No whiteboards yet.</p>
+        <button class="btn btn-primary btn-sm" onclick="createWhiteboard()">
+          <i class="fa-solid fa-plus"></i> Create first whiteboard
+        </button>
       </div>
       {% endfor %}
     </div>
+
+    {# ── Sound tab ──────────────────────────────────────── #}
+    <div id="tab-sound" class="tab-panel" style="display:none;">
+      <div class="tasks-section-header">
+        <div class="tasks-label">Sound Tracks</div>
+        <a href="{% url 'sound:index' %}" class="btn btn-ghost btn-sm">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i> Library
+        </a>
+      </div>
+      {% for track in tracks %}
+      <a href="{% url 'sound:track_detail' track.pk %}" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);">
+        <div style="width:34px;height:34px;border-radius:var(--r-sm);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="fa-solid fa-waveform-lines" style="color:var(--teal);font-size:13px;"></i>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ track.title }}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">
+            {% if track.duration_s %}{{ track.duration_display }}{% endif %}
+            {% if track.bpm %} &middot; {{ track.bpm }} BPM{% endif %}
+            {% if track.key %} &middot; {{ track.key }}{% endif %}
+          </div>
+        </div>
+        {% for tag in track.tag_list %}<span class="pill" style="background:var(--bg3);border:1px solid var(--border);">{{ tag }}</span>{% endfor %}
+        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px;color:var(--text-muted);flex-shrink:0;"></i>
+      </a>
+      {% empty %}
+      <div class="empty-state" style="padding:40px 0;">
+        <i class="fa-solid fa-headphones" style="font-size:28px;color:var(--text-muted);display:block;margin-bottom:10px;"></i>
+        <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px;">No tracks linked to this project.</p>
+        <a href="{% url 'sound:index' %}" class="btn btn-ghost btn-sm">
+          <i class="fa-solid fa-music"></i> Go to Sound Library
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# ── Files tab ──────────────────────────────────────── #}
+    <div id="tab-files" class="tab-panel" style="display:none;">
+      <div class="tasks-section-header">
+        <div class="tasks-label">Files</div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('file-input').click()">
+          <i class="fa-solid fa-upload"></i> Upload
+        </button>
+      </div>
+      <input type="file" id="file-input" multiple style="display:none;" onchange="uploadFiles(this.files)">
+
+      <div class="file-drop" id="file-drop"
+           onclick="document.getElementById('file-input').click()"
+           ondragover="fileDragOver(event)"
+           ondragleave="fileDragLeave(event)"
+           ondrop="fileDrop(event)">
+        <i class="fa-solid fa-cloud-arrow-up" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+        Drop files here or click to upload
+      </div>
+
+      <div id="file-list">
+        {% for f in files %}
+        <div class="file-row" id="file-row-{{ f.pk }}">
+          <div class="file-ext">{{ f.ext|upper|truncatechars:4 }}</div>
+          <div class="file-name">
+            {% if f.file %}<a href="{{ f.file.url }}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none;">{{ f.name }}</a>
+            {% else %}{{ f.name }}{% endif %}
+          </div>
+          <div class="file-size">{{ f.size|filesizeformat }}</div>
+          <button class="btn-icon danger" onclick="deleteFile({{ f.pk }}, this)" style="flex-shrink:0;">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+        {% empty %}
+        <div id="file-empty" style="padding:16px 0;font-size:13px;color:var(--text-muted);">No files yet — drag and drop or click upload.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ── Discuss tab ────────────────────────────────────── #}
+    <div id="tab-discuss" class="tab-panel" style="display:none;">
+      <div class="tasks-section-header">
+        <div class="tasks-label">Discussion</div>
+      </div>
+
+      <div id="note-list">
+        {% for note in notes %}
+        <div class="note-row" id="note-{{ note.pk }}">
+          <div class="note-avatar">{{ note.author.get_full_name|default:note.author.username|first }}</div>
+          <div class="note-body">
+            <div class="note-meta">
+              <strong style="color:var(--text);">{{ note.author.get_full_name|default:note.author.username }}</strong>
+              · {{ note.created_at|date:"M j, g:i a" }}
+              <span class="note-visibility {{ note.visibility }}">{{ note.visibility }}</span>
+              <button class="btn-icon danger" style="margin-left:auto;font-size:10px;" onclick="deleteNote({{ note.pk }}, this)"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <div style="white-space:pre-wrap;">{{ note.body }}</div>
+          </div>
+        </div>
+        {% empty %}
+        <div id="note-empty" style="font-size:13px;color:var(--text-muted);padding:20px 0;">No notes yet. Start the discussion below.</div>
+        {% endfor %}
+      </div>
+
+      <div class="note-compose">
+        <textarea id="note-input" rows="3" class="form-control"
+          placeholder="Write a note… (Ctrl+Enter to post)"
+          style="width:100%;box-sizing:border-box;resize:vertical;"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="note-vis-toggle">
+            <button class="note-vis-btn active" id="vis-internal" onclick="setVisibility('internal')">
+              <i class="fa-solid fa-lock" style="font-size:9px;"></i> Internal
+            </button>
+            <button class="note-vis-btn" id="vis-external" onclick="setVisibility('external')">
+              <i class="fa-solid fa-eye" style="font-size:9px;"></i> External
+            </button>
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="postNote()">
+            <i class="fa-solid fa-paper-plane"></i> Post
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {# ── Tickets tab ────────────────────────────────────── #}
+    <div id="tab-tickets" class="tab-panel" style="display:none;">
+      <div class="tasks-section-header">
+        <div class="tasks-label">Tickets</div>
+        <button class="btn btn-ghost btn-sm" onclick="openNewProjectTicket()">
+          <i class="fa-solid fa-plus"></i> New
+        </button>
+      </div>
+
+      {% for t in proj_tickets %}
+      <a href="{% url 'tickets:detail' t.pk %}" style="text-decoration:none;display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <span style="width:7px;height:7px;border-radius:50%;background:{{ t.status_color }};flex-shrink:0;"></span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ t.title }}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">{{ t.get_type_display }} · {{ t.created_at|date:"M j" }}</div>
+        </div>
+        <span class="priority-dot priority-{{ t.priority }}" style="font-size:11px;flex-shrink:0;">{{ t.get_priority_display }}</span>
+        <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">{{ t.get_status_display }}</span>
+      </a>
+      {% empty %}
+      <div class="empty-state" style="padding:40px 0;">
+        <i class="fa-solid fa-ticket" style="font-size:28px;color:var(--text-muted);display:block;margin-bottom:10px;"></i>
+        <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px;">No tickets yet.</p>
+        <button class="btn btn-primary btn-sm" onclick="openNewProjectTicket()">
+          <i class="fa-solid fa-plus"></i> Open first ticket
+        </button>
+      </div>
+      {% endfor %}
+
+      {% if proj_tickets %}
+      <div style="padding:12px 0;text-align:right;">
+        <a href="{% url 'tickets:index' %}" style="font-size:11px;color:var(--text-muted);">View all tickets →</a>
+      </div>
+      {% endif %}
+    </div>
+
+    {# New ticket modal (project-scoped) #}
+    <div id="proj-ticket-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:480px;margin:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+          <h2 style="font-size:15px;font-weight:var(--weight-bold);">New Ticket</h2>
+          <button onclick="closeProjTicketModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:20px;">×</button>
+        </div>
+        <input id="pt-title" type="text" class="form-control" placeholder="Describe the issue…" style="width:100%;box-sizing:border-box;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <select id="pt-type" class="form-control" style="width:100%;box-sizing:border-box;">
+            <option value="bug">Bug</option>
+            <option value="feature">Feature</option>
+            <option value="request" selected>Request</option>
+            <option value="question">Question</option>
+          </select>
+          <select id="pt-priority" class="form-control" style="width:100%;box-sizing:border-box;">
+            <option value="low">Low</option>
+            <option value="normal" selected>Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <textarea id="pt-body" rows="3" class="form-control" placeholder="Details…" style="width:100%;box-sizing:border-box;resize:vertical;margin-bottom:14px;"></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn btn-ghost" onclick="closeProjTicketModal()">Cancel</button>
+          <button id="pt-save" class="btn btn-primary" onclick="saveProjTicket()">
+            <i class="fa-solid fa-ticket"></i> Open Ticket
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  {# Sidebar: recent time + quick timer #}
+  {# ── Sidebar ──────────────────────────────────────────── #}
   <div>
     {% if project.url %}
     <div class="sidebar-section">
@@ -116,6 +557,7 @@
       </a>
     </div>
     {% endif %}
+
     <div class="sidebar-section">
       <div class="sidebar-section-title" style="display:flex;justify-content:space-between;align-items:center;">
         <span>About</span>
@@ -162,38 +604,9 @@
     </div>
   </div>
 
-
-{# Sound Tracks #}
-{% if tracks %}
-<div style="margin:0 24px 24px;">
-  <div class="proj-section">
-    <div class="proj-files-header">
-      <span class="proj-module-hdr-title">
-        <i class="fa-solid fa-headphones" style="color:var(--teal);"></i>
-        Sound Tracks
-        <span style="opacity:.5;font-size:10px;">({{ tracks.count }})</span>
-      </span>
-      <a href="{% url 'sound:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Library</a>
-    </div>
-    {% for track in tracks %}
-    <a href="{% url 'sound:track_detail' track.pk %}" style="text-decoration:none;display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);">
-      <i class="fa-solid fa-waveform-lines" style="color:var(--teal);opacity:.7;font-size:13px;flex-shrink:0;"></i>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ track.title }}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">
-          {% if track.duration_s %}{{ track.duration_display }}{% endif %}
-          {% if track.bpm %} &middot; {{ track.bpm }} BPM{% endif %}
-          {% if track.key %} &middot; {{ track.key }}{% endif %}
-        </div>
-      </div>
-      {% for tag in track.tag_list %}<span class="pill" style="background:var(--bg3);border:1px solid var(--border);margin-left:4px;">{{ tag }}</span>{% endfor %}
-    </a>
-    {% endfor %}
-  </div>
 </div>
-{% endif %}
 
-{# Invoice from time entries modal #}
+{# ── Invoice modal ─────────────────────────────────────────────────── #}
 <div id="invoice-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;">
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-xl);padding:24px;width:100%;max-width:460px;margin:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
@@ -261,51 +674,63 @@ const startedAt = new Date('{{ running.started_at.isoformat }}');
 const clock = document.getElementById('timer-clock');
 function updateClock() {
   const secs = Math.floor((Date.now() - startedAt) / 1000);
-  const h = String(Math.floor(secs / 3600)).padStart(2,'0');
-  const m = String(Math.floor((secs % 3600) / 60)).padStart(2,'0');
-  const s = String(secs % 60).padStart(2,'0');
-  clock.textContent = `${h}:${m}:${s}`;
+  clock.textContent = [Math.floor(secs/3600),Math.floor((secs%3600)/60),secs%60]
+    .map(n => String(n).padStart(2,'0')).join(':');
 }
-setInterval(updateClock, 1000);
-updateClock();
+setInterval(updateClock, 1000); updateClock();
 {% endif %}
 
+// ── Timer ─────────────────────────────────────────────
 async function stopTimer() {
   await fetch("{% url 'projects:timer_stop' %}", {
-    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'}, body: '{}',
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'}, body:'{}',
   });
   location.reload();
 }
-
 async function startTimer(projectId, taskId, taskTitle) {
   const desc = document.getElementById('timer-desc')?.value || taskTitle || '';
-  const body = {project_id: projectId, description: desc};
+  const body = {project_id:projectId, description:desc};
   if (taskId) body.task_id = taskId;
   const res = await fetch("{% url 'projects:timer_start' %}", {
-    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
-    body: JSON.stringify(body),
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify(body),
   });
   if (res.ok) location.reload();
 }
+function startTimerTask(projectId, taskId, taskTitle) { startTimer(projectId, taskId, taskTitle); }
 
-function startTimerTask(projectId, taskId, taskTitle) {
-  startTimer(projectId, taskId, taskTitle);
+// ── Tab switching ─────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.proj-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+  (btn || document.querySelector('[data-tab="'+name+'"]')).classList.add('active');
+  document.getElementById('tab-' + name).style.display = '';
+  localStorage.setItem('proj_tab_' + PROJECT_ID, name);
+  if (name === 'board') initKanban();
 }
 
+// Restore saved tab (hash takes precedence)
+(function() {
+  const hash = location.hash.slice(1);
+  const valid = ['tasks','board','whiteboard','sound','files','discuss','tickets'];
+  const tab = valid.includes(hash) ? hash : (localStorage.getItem('proj_tab_' + PROJECT_ID) || 'tasks');
+  if (tab !== 'tasks') switchTab(tab);
+  else updateKanbanCounts();
+})();
+
+// ── Tasks ─────────────────────────────────────────────
 function showAddTask() {
   document.getElementById('add-task-row').style.display = 'block';
   document.getElementById('new-task-input').focus();
 }
-function hideAddTask() {
-  document.getElementById('add-task-row').style.display = 'none';
-}
+function hideAddTask() { document.getElementById('add-task-row').style.display = 'none'; }
 
 async function addTask() {
   const title = document.getElementById('new-task-input').value.trim();
   if (!title) return;
   const res = await fetch(`/projects/${PROJECT_ID}/tasks/new/`, {
-    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
-    body: JSON.stringify({title, priority: document.getElementById('new-task-priority').value}),
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify({title, priority:document.getElementById('new-task-priority').value}),
   });
   if (res.ok) location.reload();
 }
@@ -317,45 +742,208 @@ document.getElementById('new-task-input')?.addEventListener('keydown', e => {
 async function toggleTaskDone(id, el) {
   const row = el.closest('.task-row');
   const isDone = row.dataset.status === 'done';
-  const newStatus = isDone ? 'todo' : 'done';
   await fetch(`/projects/tasks/${id}/update/`, {
-    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
-    body: JSON.stringify({status: newStatus}),
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify({status: isDone ? 'todo' : 'done'}),
   });
   location.reload();
 }
-
 async function deleteTask(id, btn) {
   if (!confirm('Delete task?')) return;
-  await fetch(`/projects/tasks/${id}/delete/`, {
-    method: 'POST', headers: {'X-CSRFToken': CSRF},
-  });
+  await fetch(`/projects/tasks/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
   btn.closest('.task-row').remove();
 }
-
 async function suggestNext(id, btn) {
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-  const res = await fetch(`/projects/tasks/${id}/suggest/`, {
-    method: 'POST', headers: {'X-CSRFToken': CSRF},
-  });
+  const res = await fetch(`/projects/tasks/${id}/suggest/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
   if (res.ok) {
     const data = await res.json();
     const row = btn.closest('.task-row');
     let sug = row.querySelector('.task-suggestion');
-    if (!sug) {
-      sug = document.createElement('div');
-      sug.className = 'task-suggestion';
-      row.querySelector('.task-body').appendChild(sug);
-    }
+    if (!sug) { sug = document.createElement('div'); sug.className = 'task-suggestion'; row.querySelector('.task-body').appendChild(sug); }
     sug.innerHTML = `<i class="fa-solid fa-sparkles"></i> ${data.suggestion}`;
   }
   btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
 }
+function openTask(id) {}
 
-function openTask(id) {
-  // TODO: slide-out task panel
+// ── Kanban board ──────────────────────────────────────
+let draggedCard = null;
+
+function updateKanbanCounts() {
+  ['todo','doing','done'].forEach(s => {
+    const col = document.getElementById('kc-' + s);
+    const count = document.getElementById('kc-count-' + s);
+    if (col && count) count.textContent = col.querySelectorAll('.kanban-card').length;
+  });
 }
 
+function initKanban() {
+  // Attach drag handlers to cards
+  document.querySelectorAll('.kanban-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      draggedCard = card;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drop-target'));
+    });
+  });
+
+  document.querySelectorAll('.kanban-col').forEach(col => {
+    col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drop-target'); });
+    col.addEventListener('dragleave', e => {
+      if (!col.contains(e.relatedTarget)) col.classList.remove('drop-target');
+    });
+    col.addEventListener('drop', async e => {
+      e.preventDefault();
+      col.classList.remove('drop-target');
+      if (!draggedCard) return;
+      const newStatus = col.dataset.status;
+      const taskId = draggedCard.dataset.id;
+      if (draggedCard.dataset.status === newStatus) return;
+
+      draggedCard.dataset.status = newStatus;
+      col.querySelector('.kanban-cards').appendChild(draggedCard);
+      if (newStatus === 'done') { draggedCard.querySelector('.kanban-card-title').style.textDecoration = 'line-through'; draggedCard.querySelector('.kanban-card-title').style.opacity = '.6'; }
+      else { draggedCard.querySelector('.kanban-card-title').style.textDecoration = ''; draggedCard.querySelector('.kanban-card-title').style.opacity = ''; }
+      updateKanbanCounts();
+
+      await fetch(`/projects/tasks/${taskId}/update/`, {
+        method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+        body:JSON.stringify({status:newStatus}),
+      });
+      draggedCard = null;
+    });
+  });
+  updateKanbanCounts();
+}
+
+// ── Whiteboard ────────────────────────────────────────
+async function createWhiteboard() {
+  const title = prompt('Whiteboard name:', '{{ project.name }} — Board');
+  if (!title) return;
+  const res = await fetch('/whiteboards/new/', {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify({title:title.trim(), project_id:PROJECT_ID}),
+  });
+  if (res.ok) {
+    const data = await res.json();
+    window.location = '/whiteboards/' + data.id + '/';
+  }
+}
+
+// ── File upload ───────────────────────────────────────
+function fileDragOver(e) { e.preventDefault(); document.getElementById('file-drop').classList.add('drag-active'); }
+function fileDragLeave(e) { document.getElementById('file-drop').classList.remove('drag-active'); }
+function fileDrop(e) {
+  e.preventDefault();
+  document.getElementById('file-drop').classList.remove('drag-active');
+  uploadFiles(e.dataTransfer.files);
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+async function uploadFiles(fileList) {
+  if (!fileList.length) return;
+  const fd = new FormData();
+  for (const f of fileList) fd.append('files', f);
+  const drop = document.getElementById('file-drop');
+  drop.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="font-size:20px;margin-bottom:6px;display:block;"></i> Uploading…';
+  try {
+    const res = await fetch(`/projects/${PROJECT_ID}/files/upload/`, {
+      method:'POST', headers:{'X-CSRFToken':CSRF}, body:fd,
+    });
+    const data = await res.json();
+    drop.innerHTML = '<i class="fa-solid fa-cloud-arrow-up" style="font-size:24px;margin-bottom:8px;display:block;"></i> Drop files here or click to upload';
+    if (data.files) {
+      const list = document.getElementById('file-list');
+      const empty = document.getElementById('file-empty');
+      if (empty) empty.remove();
+      data.files.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'file-row'; row.id = 'file-row-' + f.id;
+        row.innerHTML = `<div class="file-ext">${(f.ext||'?').toUpperCase().slice(0,4)}</div><div class="file-name"><a href="${f.url}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none;">${f.name}</a></div><div class="file-size">${fmtSize(f.size)}</div><button class="btn-icon danger" onclick="deleteFile(${f.id},this)" style="flex-shrink:0;"><i class="fa-solid fa-trash"></i></button>`;
+        list.appendChild(row);
+      });
+    }
+  } catch {
+    drop.innerHTML = '<i class="fa-solid fa-cloud-arrow-up" style="font-size:24px;margin-bottom:8px;display:block;"></i> Drop files here or click to upload';
+  }
+}
+
+async function deleteFile(id, btn) {
+  if (!confirm('Delete file?')) return;
+  await fetch(`/projects/${PROJECT_ID}/files/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  document.getElementById('file-row-' + id)?.remove();
+}
+
+// ── Notes / Discuss ──────────────────────────────────
+let noteVisibility = 'internal';
+function setVisibility(v) {
+  noteVisibility = v;
+  document.getElementById('vis-internal').classList.toggle('active', v === 'internal');
+  document.getElementById('vis-external').classList.toggle('active', v === 'external');
+}
+
+async function postNote() {
+  const body = document.getElementById('note-input').value.trim();
+  if (!body) return;
+  const res = await fetch(`/projects/${PROJECT_ID}/notes/new/`, {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify({body, visibility:noteVisibility}),
+  });
+  if (res.ok) {
+    const d = await res.json();
+    const empty = document.getElementById('note-empty');
+    if (empty) empty.remove();
+    const list = document.getElementById('note-list');
+    const row = document.createElement('div');
+    row.className = 'note-row'; row.id = 'note-' + d.id;
+    row.innerHTML = `<div class="note-avatar">${d.author.charAt(0).toUpperCase()}</div><div class="note-body"><div class="note-meta"><strong style="color:var(--text);">${d.author}</strong> · just now <span class="note-visibility ${d.visibility}">${d.visibility}</span><button class="btn-icon danger" style="margin-left:auto;font-size:10px;" onclick="deleteNote(${d.id},this)"><i class="fa-solid fa-trash"></i></button></div><div style="white-space:pre-wrap;">${d.body}</div></div>`;
+    list.appendChild(row);
+    document.getElementById('note-input').value = '';
+  }
+}
+
+async function deleteNote(id, btn) {
+  if (!confirm('Delete note?')) return;
+  await fetch(`/projects/${PROJECT_ID}/notes/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  document.getElementById('note-' + id)?.remove();
+}
+
+document.getElementById('note-input')?.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') postNote();
+});
+
+// ── Project tickets modal ─────────────────────────────
+function openNewProjectTicket() {
+  document.getElementById('proj-ticket-modal').style.display = 'flex';
+  document.getElementById('pt-title').focus();
+}
+function closeProjTicketModal() { document.getElementById('proj-ticket-modal').style.display = 'none'; }
+async function saveProjTicket() {
+  const title = document.getElementById('pt-title').value.trim();
+  if (!title) { document.getElementById('pt-title').focus(); return; }
+  const btn = document.getElementById('pt-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const r = await fetch('/tickets/new/', {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify({title, project_id:PROJECT_ID, type:document.getElementById('pt-type').value, priority:document.getElementById('pt-priority').value, body:document.getElementById('pt-body').value.trim()}),
+  });
+  const d = await r.json();
+  if (d.id) window.location = '/tickets/' + d.id + '/';
+  else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-ticket"></i> Open Ticket'; }
+}
+document.getElementById('pt-title')?.addEventListener('keydown', e => { if (e.key === 'Enter') saveProjTicket(); });
+
+// ── About ─────────────────────────────────────────────
 function startAboutEdit() {
   document.getElementById('about-view').style.display = 'none';
   document.getElementById('about-edit').style.display = '';
@@ -374,9 +962,8 @@ async function saveAbout() {
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
     const r = await fetch(`/projects/${PROJECT_ID}/update/`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-      body: JSON.stringify({description: val}),
+      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body:JSON.stringify({description:val}),
     });
     if (r.ok) {
       const p = document.getElementById('about-text');
@@ -387,24 +974,20 @@ async function saveAbout() {
     }
   } finally { btn.disabled = false; btn.textContent = 'Save'; }
 }
-document.addEventListener('keydown', function(e) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    if (document.getElementById('about-edit')?.style.display !== 'none') {
-      e.preventDefault(); saveAbout();
-    }
-  }
-});
 
-// ` hotkey: start/stop timer
+// ── Keyboard shortcuts ────────────────────────────────
 document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if (document.getElementById('about-edit')?.style.display !== 'none') { e.preventDefault(); saveAbout(); }
+  }
   if (e.key === '`' && !e.ctrlKey && !e.metaKey && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) {
     e.preventDefault();
     {% if running %}stopTimer();{% else %}startTimer(PROJECT_ID);{% endif %}
   }
-  if (e.key === 'Escape') closeInvoiceModal();
+  if (e.key === 'Escape') { closeInvoiceModal(); closeProjTicketModal(); }
 });
 
-// Invoice from time entries
+// ── Invoice ───────────────────────────────────────────
 const UNBILLED_HOURS = {{ project.unbilled_hours }};
 const HOURLY_RATE    = {{ project.hourly_rate }};
 function openInvoiceModal() {
@@ -413,9 +996,7 @@ function openInvoiceModal() {
   document.getElementById('invoice-modal').style.display = 'flex';
   document.getElementById('inv-client-name').focus();
 }
-function closeInvoiceModal() {
-  document.getElementById('invoice-modal').style.display = 'none';
-}
+function closeInvoiceModal() { document.getElementById('invoice-modal').style.display = 'none'; }
 async function createInvoice() {
   const clientName = document.getElementById('inv-client-name').value.trim();
   if (!clientName) { document.getElementById('inv-client-name').focus(); return; }
@@ -423,9 +1004,8 @@ async function createInvoice() {
   btn.disabled = true; btn.textContent = 'Creating…';
   try {
     const r = await fetch('/billing/new/', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
-      body: JSON.stringify({
+      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+      body:JSON.stringify({
         client_name:  clientName,
         client_email: document.getElementById('inv-client-email').value.trim(),
         project_ids:  [PROJECT_ID],

@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% block title %}#{{ ticket.pk }} {{ ticket.title }} — HiHi Labs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">
+      <span style="font-size:12px;color:var(--text-muted);font-weight:400;margin-right:6px;">#{{ ticket.pk }}</span>
+      {{ ticket.title }}
+    </div>
+    {% if ticket.project %}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+      <a href="{% url 'projects:detail' ticket.project.pk %}" style="color:var(--text-muted);text-decoration:none;">{{ ticket.project.name }}</a>
+    </div>
+    {% endif %}
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a href="{% url 'tickets:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+  </div>
+</div>
+
+<div class="detail-grid" style="padding-top:8px;">
+
+  <div>
+    {# Status + meta bar #}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px;align-items:center;">
+      <select id="status-select" class="form-control" style="width:auto;font-size:12px;padding:3px 8px;" onchange="updateTicket('status', this.value)">
+        {% for val,label in ticket.STATUS %}
+        <option value="{{ val }}" {% if ticket.status == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select id="type-select" class="form-control" style="width:auto;font-size:12px;padding:3px 8px;" onchange="updateTicket('type', this.value)">
+        {% for val,label in ticket.TYPE %}
+        <option value="{{ val }}" {% if ticket.type == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <span class="priority-dot priority-{{ ticket.priority }}">{{ ticket.get_priority_display }}</span>
+      <span style="font-size:11px;color:var(--text-muted);margin-left:auto;">Opened {{ ticket.created_at|date:"M j, Y" }} by {{ ticket.reporter.get_full_name|default:ticket.reporter.username }}</span>
+    </div>
+
+    {# Description #}
+    {% if ticket.body %}
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;margin-bottom:20px;font-size:13px;line-height:1.7;color:var(--text);">
+      {{ ticket.body|linebreaks }}
+    </div>
+    {% endif %}
+
+    {# Comments thread #}
+    <div style="margin-bottom:16px;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:12px;">Comments</div>
+      <div id="comment-list">
+        {% for c in comments %}
+        <div class="comment-row" style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;text-transform:uppercase;">
+            {{ c.author.get_full_name|default:c.author.username|first }}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">
+              <strong style="color:var(--text);">{{ c.author.get_full_name|default:c.author.username }}</strong>
+              · {{ c.created_at|date:"M j, g:i a" }}
+            </div>
+            <div style="font-size:13px;line-height:1.6;color:var(--text);">{{ c.body|linebreaks }}</div>
+          </div>
+        </div>
+        {% empty %}
+        <div id="no-comments" style="font-size:12px;color:var(--text-muted);padding:8px 0;">No comments yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Comment compose #}
+    <div>
+      <textarea id="comment-input" rows="3" class="form-control"
+        placeholder="Add a comment…"
+        style="width:100%;box-sizing:border-box;resize:vertical;margin-bottom:8px;"></textarea>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary btn-sm" onclick="addComment()">
+          <i class="fa-solid fa-comment"></i> Comment
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# Sidebar #}
+  <div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Priority</div>
+      <select class="form-control" style="width:100%;font-size:12px;" onchange="updateTicket('priority', this.value)">
+        {% for val,label in ticket.PRIORITY %}
+        <option value="{{ val }}" {% if ticket.priority == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {% if ticket.project %}
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Project</div>
+      <a href="{% url 'projects:detail' ticket.project.pk %}#tickets"
+         style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);text-decoration:none;">
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ ticket.project.color }};flex-shrink:0;"></span>
+        {{ ticket.project.name }}
+      </a>
+    </div>
+    {% endif %}
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Danger Zone</div>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red);width:100%;text-align:left;" onclick="deleteTicket()">
+        <i class="fa-solid fa-trash"></i> Delete ticket
+      </button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+const TICKET_ID = {{ ticket.pk }};
+
+async function updateTicket(field, value) {
+  await fetch(`/tickets/${TICKET_ID}/update/`, {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify({[field]:value}),
+  });
+}
+
+async function addComment() {
+  const body = document.getElementById('comment-input').value.trim();
+  if (!body) return;
+  const res = await fetch(`/tickets/${TICKET_ID}/comment/`, {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify({body}),
+  });
+  if (res.ok) {
+    const d = await res.json();
+    const noComments = document.getElementById('no-comments');
+    if (noComments) noComments.remove();
+    const list = document.getElementById('comment-list');
+    const row = document.createElement('div');
+    row.className = 'comment-row';
+    row.style.cssText = 'display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);';
+    row.innerHTML = `<div style="width:28px;height:28px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;text-transform:uppercase;">${d.author.charAt(0)}</div><div style="flex:1;min-width:0;"><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;"><strong style="color:var(--text);">${d.author}</strong> · just now</div><div style="font-size:13px;line-height:1.6;color:var(--text);">${body.replace(/\n/g,'<br>')}</div></div>`;
+    list.appendChild(row);
+    document.getElementById('comment-input').value = '';
+  }
+}
+
+async function deleteTicket() {
+  if (!confirm('Delete this ticket permanently?')) return;
+  await fetch(`/tickets/${TICKET_ID}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  window.location = '/tickets/';
+}
+
+document.getElementById('comment-input')?.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') addComment();
+});
+</script>
+{% endblock %}

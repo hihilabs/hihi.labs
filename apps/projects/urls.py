@@ -28,4 +28,12 @@ urlpatterns = [
     # Value Board
     path('value/', views.value_board, name='value_board'),
     path('<int:pk>/draft-invoice/', views.draft_invoice, name='draft_invoice'),
+
+    # Project files
+    path('<int:pk>/files/upload/', views.project_file_upload, name='file_upload'),
+    path('<int:pk>/files/<int:file_pk>/delete/', views.project_file_delete, name='file_delete'),
+
+    # Project notes
+    path('<int:pk>/notes/new/', views.note_create, name='note_create'),
+    path('<int:pk>/notes/<int:note_pk>/delete/', views.note_delete, name='note_delete'),
 ]

@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     'apps.files',
     'apps.wiki',
     'apps.whiteboards',
+    'apps.tickets',
+    'apps.portal',
 ]
 
 MIDDLEWARE = [
@@ -73,6 +75,7 @@ TEMPLATES = [
                 'hihilabs.context_processors.site_globals',
                 'hihilabs.context_processors.css_version',
                 'apps.subscriptions.context_processors.subscription_context',
+                'apps.portal.context_processors.footers',
             ],
         },
     },

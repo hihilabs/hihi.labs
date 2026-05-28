@@ -1,0 +1,346 @@
+{% extends 'base.html' %}
+{% block title %}Client Portal — HiHi Labs{% endblock %}
+
+{% block extra_css %}
+<style>
+.portal-tabs { display:flex;gap:0;padding:0 24px;border-bottom:1px solid var(--border);margin-bottom:0; }
+.portal-tab {
+  background:none;border:none;border-bottom:2px solid transparent;
+  padding:10px 18px;font-size:13px;font-weight:500;
+  color:var(--text-muted);cursor:pointer;margin-bottom:-1px;
+  transition:color .15s,border-color .15s;
+}
+.portal-tab:hover { color:var(--text); }
+.portal-tab.active { color:var(--brand);border-bottom-color:var(--brand); }
+.portal-tab-panel { padding:24px;display:none; }
+.portal-tab-panel.active { display:block; }
+/* Client config card */
+.cfg-toggles { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:14px 0; }
+.cfg-toggle {
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:10px 14px;font-size:13px;
+}
+/* Toggle switch */
+.toggle-sw { position:relative;width:36px;height:20px;flex-shrink:0; }
+.toggle-sw input { opacity:0;width:0;height:0; }
+.toggle-sw .slider {
+  position:absolute;cursor:pointer;inset:0;background:var(--bg3);
+  border:1px solid var(--border);border-radius:var(--r-full);transition:.2s;
+}
+.toggle-sw .slider:before {
+  content:'';position:absolute;height:14px;width:14px;left:2px;bottom:2px;
+  background:var(--text-muted);border-radius:50%;transition:.2s;
+}
+.toggle-sw input:checked + .slider { background:var(--brand);border-color:var(--brand); }
+.toggle-sw input:checked + .slider:before { transform:translateX(16px);background:#fff; }
+/* Footer editor */
+.footer-zone {
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:18px 20px;margin-bottom:16px;
+}
+.footer-zone-title { font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:12px;font-weight:700; }
+.footer-preview {
+  border:1px solid var(--border);border-radius:var(--r-md);padding:14px;
+  background:var(--bg3);font-size:12px;min-height:60px;margin-top:10px;
+}
+@media(max-width:680px){
+  .portal-tabs{padding:0 12px;overflow-x:auto;flex-wrap:nowrap;}
+  .portal-tab{flex-shrink:0;}
+  .cfg-toggles{grid-template-columns:1fr 1fr;}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title"><i class="fa-solid fa-user-shield" style="color:var(--brand);margin-right:8px;"></i>Client Portal</div>
+  <div style="font-size:11px;color:var(--text-muted);">Admin · Staff only</div>
+</div>
+
+<div class="portal-tabs">
+  <button class="portal-tab active" onclick="switchPortalTab('views',this)">
+    <i class="fa-solid fa-eye"></i> Client Views
+  </button>
+  <button class="portal-tab" onclick="switchPortalTab('footer',this)">
+    <i class="fa-solid fa-rectangle-ad"></i> Footer Editor
+  </button>
+</div>
+
+{# ══ Tab 1: Client Views ══════════════════════════════════════════════════════ #}
+<div id="portal-tab-views" class="portal-tab-panel active">
+  <div style="max-width:640px;">
+
+    <div style="margin-bottom:20px;">
+      <label class="label" style="display:block;margin-bottom:6px;">Select Client</label>
+      <select id="client-switcher" class="form-control" style="max-width:320px;" onchange="loadClientConfig(this.value)">
+        <option value="">— choose a client —</option>
+        {% for c in clients %}
+        <option value="{{ c.pk }}" data-color="{{ c.color }}">{{ c.display_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div id="client-config-panel" style="display:none;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <span id="cfg-color-dot" style="width:10px;height:10px;border-radius:50%;background:#7c6af7;flex-shrink:0;"></span>
+        <span id="cfg-client-name" style="font-size:15px;font-weight:var(--weight-bold);"></span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:auto;">Portal configuration</span>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="label" style="display:block;margin-bottom:4px;">Welcome Message</label>
+        <textarea id="cfg-welcome" rows="2" class="form-control" placeholder="Hi there! Here's your project overview…" style="width:100%;box-sizing:border-box;resize:vertical;"></textarea>
+      </div>
+
+      <div class="cfg-toggles">
+        <div class="cfg-toggle">
+          <span>Projects</span>
+          <label class="toggle-sw"><input type="checkbox" id="cfg-projects" checked><span class="slider"></span></label>
+        </div>
+        <div class="cfg-toggle">
+          <span>Invoices</span>
+          <label class="toggle-sw"><input type="checkbox" id="cfg-invoices" checked><span class="slider"></span></label>
+        </div>
+        <div class="cfg-toggle">
+          <span>Files</span>
+          <label class="toggle-sw"><input type="checkbox" id="cfg-files" checked><span class="slider"></span></label>
+        </div>
+        <div class="cfg-toggle">
+          <span>Tickets</span>
+          <label class="toggle-sw"><input type="checkbox" id="cfg-tickets" checked><span class="slider"></span></label>
+        </div>
+        <div class="cfg-toggle">
+          <span>Messages</span>
+          <label class="toggle-sw"><input type="checkbox" id="cfg-messages"><span class="slider"></span></label>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label class="label" style="display:block;margin-bottom:4px;">Accent Color</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="color" id="cfg-accent" value="#7c6af7"
+                 style="width:44px;height:36px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg2);cursor:pointer;padding:2px;">
+          <input type="text" id="cfg-accent-hex" class="form-control" value="#7c6af7"
+                 style="width:100px;" oninput="syncAccentHex(this.value)">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" onclick="saveClientConfig()">
+          <i class="fa-solid fa-floppy-disk"></i> Save Config
+        </button>
+        <span id="cfg-saved-msg" style="display:none;font-size:12px;color:var(--green);align-self:center;">Saved</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{# ══ Tab 2: Footer Editor ═════════════════════════════════════════════════════ #}
+<div id="portal-tab-footer" class="portal-tab-panel">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:960px;">
+
+    {# Public footer #}
+    <div class="footer-zone">
+      <div class="footer-zone-title"><i class="fa-solid fa-globe" style="margin-right:5px;color:var(--teal);"></i>Public Footer</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">Shown on hihilabs.xyz public pages (Works, etc.)</div>
+      <textarea id="public-footer-html" rows="8" class="form-control"
+        placeholder="<p>© HiHi Labs</p>"
+        style="width:100%;box-sizing:border-box;resize:vertical;font-family:var(--font-mono);font-size:12px;">{{ public_footer.html_content }}</textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+        <label class="toggle-sw" style="flex-shrink:0;">
+          <input type="checkbox" id="public-ticket-toggle" {% if public_footer.show_ticket_form %}checked{% endif %}>
+          <span class="slider"></span>
+        </label>
+        <span style="font-size:12px;">Show submit-ticket form</span>
+      </div>
+      <div id="public-ticket-title-wrap" style="margin-top:8px;{% if not public_footer.show_ticket_form %}display:none;{% endif %}">
+        <input type="text" id="public-ticket-title" class="form-control" value="{{ public_footer.ticket_form_title }}" placeholder="Submit a Ticket">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-primary btn-sm" onclick="saveFooter('public')">
+          <i class="fa-solid fa-floppy-disk"></i> Save
+        </button>
+        <span id="public-saved" style="display:none;font-size:11px;color:var(--green);align-self:center;">Saved</span>
+      </div>
+      {% if public_footer.html_content or public_footer.show_ticket_form %}
+      <div class="footer-preview" id="public-preview">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px;">Preview</div>
+        {{ public_footer.html_content|safe }}
+        {% if public_footer.show_ticket_form %}
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+          <strong style="font-size:12px;">{{ public_footer.ticket_form_title }}</strong>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {# Portal footer #}
+    <div class="footer-zone">
+      <div class="footer-zone-title"><i class="fa-solid fa-lock" style="margin-right:5px;color:var(--brand);"></i>Portal Footer</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">Shown at bottom of all authenticated portal pages</div>
+      <textarea id="portal-footer-html" rows="8" class="form-control"
+        placeholder="<p>Need help? Contact support.</p>"
+        style="width:100%;box-sizing:border-box;resize:vertical;font-family:var(--font-mono);font-size:12px;">{{ portal_footer.html_content }}</textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+        <label class="toggle-sw" style="flex-shrink:0;">
+          <input type="checkbox" id="portal-ticket-toggle" {% if portal_footer.show_ticket_form %}checked{% endif %}>
+          <span class="slider"></span>
+        </label>
+        <span style="font-size:12px;">Show submit-ticket form</span>
+      </div>
+      <div id="portal-ticket-title-wrap" style="margin-top:8px;{% if not portal_footer.show_ticket_form %}display:none;{% endif %}">
+        <input type="text" id="portal-ticket-title" class="form-control" value="{{ portal_footer.ticket_form_title }}" placeholder="Submit a Ticket">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-primary btn-sm" onclick="saveFooter('portal')">
+          <i class="fa-solid fa-floppy-disk"></i> Save
+        </button>
+        <span id="portal-saved" style="display:none;font-size:11px;color:var(--green);align-self:center;">Saved</span>
+      </div>
+      {% if portal_footer.html_content or portal_footer.show_ticket_form %}
+      <div class="footer-preview" id="portal-preview">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px;">Preview</div>
+        {{ portal_footer.html_content|safe }}
+        {% if portal_footer.show_ticket_form %}
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+          <strong style="font-size:12px;">{{ portal_footer.ticket_form_title }}</strong>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+// ── Tab switching ─────────────────────────────────────
+function switchPortalTab(name, btn) {
+  document.querySelectorAll('.portal-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.portal-tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('portal-tab-' + name).classList.add('active');
+  localStorage.setItem('portal_tab', name);
+}
+const savedTab = localStorage.getItem('portal_tab');
+if (savedTab) {
+  const btn = document.querySelector(`[onclick*="'${savedTab}'"]`);
+  if (btn) switchPortalTab(savedTab, btn);
+}
+
+// ── Client config lookup ─────────────────────────────
+const ALL_CONFIGS = {
+{% for c in clients %}
+  {{ c.pk }}: {
+    show_projects: {{ configs|default:'{}' }}{% if c.pk in configs %}{{ configs|dictsort:"pk" }}{% endif %},
+    {% with cfg=configs|default:None %}{% endwith %}
+  },
+{% endfor %}
+};
+
+// Preload configs from server-side data
+const CLIENT_CONFIGS = {};
+{% for cid, cfg in configs.items %}
+CLIENT_CONFIGS[{{ cid }}] = {
+  show_projects:  {{ cfg.show_projects|yesno:"true,false" }},
+  show_invoices:  {{ cfg.show_invoices|yesno:"true,false" }},
+  show_files:     {{ cfg.show_files|yesno:"true,false" }},
+  show_tickets:   {{ cfg.show_tickets|yesno:"true,false" }},
+  show_messages:  {{ cfg.show_messages|yesno:"true,false" }},
+  welcome_message: {{ cfg.welcome_message|default:''|escapejs|safe }},
+  accent_color:   '{{ cfg.accent_color }}',
+};
+{% endfor %}
+
+// Client name + color lookup
+const CLIENT_META = {
+{% for c in clients %}
+  {{ c.pk }}: {name: '{{ c.display_name|escapejs }}', color: '{{ c.color }}'},
+{% endfor %}
+};
+
+let activeCid = null;
+
+function loadClientConfig(cid) {
+  if (!cid) { document.getElementById('client-config-panel').style.display = 'none'; return; }
+  activeCid = parseInt(cid);
+  const meta = CLIENT_META[activeCid] || {};
+  const cfg  = CLIENT_CONFIGS[activeCid] || {};
+  document.getElementById('cfg-client-name').textContent = meta.name || '';
+  document.getElementById('cfg-color-dot').style.background = meta.color || '#7c6af7';
+  document.getElementById('cfg-welcome').value = cfg.welcome_message || '';
+  document.getElementById('cfg-projects').checked  = cfg.show_projects  !== false;
+  document.getElementById('cfg-invoices').checked  = cfg.show_invoices  !== false;
+  document.getElementById('cfg-files').checked     = cfg.show_files     !== false;
+  document.getElementById('cfg-tickets').checked   = cfg.show_tickets   !== false;
+  document.getElementById('cfg-messages').checked  = cfg.show_messages  || false;
+  const color = cfg.accent_color || meta.color || '#7c6af7';
+  document.getElementById('cfg-accent').value = color;
+  document.getElementById('cfg-accent-hex').value = color;
+  document.getElementById('client-config-panel').style.display = '';
+}
+
+function syncAccentHex(val) {
+  if (/^#[0-9a-f]{6}$/i.test(val)) {
+    document.getElementById('cfg-accent').value = val;
+  }
+}
+document.getElementById('cfg-accent')?.addEventListener('input', e => {
+  document.getElementById('cfg-accent-hex').value = e.target.value;
+});
+
+async function saveClientConfig() {
+  if (!activeCid) return;
+  const payload = {
+    show_projects:  document.getElementById('cfg-projects').checked,
+    show_invoices:  document.getElementById('cfg-invoices').checked,
+    show_files:     document.getElementById('cfg-files').checked,
+    show_tickets:   document.getElementById('cfg-tickets').checked,
+    show_messages:  document.getElementById('cfg-messages').checked,
+    welcome_message:document.getElementById('cfg-welcome').value.trim(),
+    accent_color:   document.getElementById('cfg-accent').value,
+  };
+  CLIENT_CONFIGS[activeCid] = payload;
+  const res = await fetch(`/portal/client/${activeCid}/save/`, {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify(payload),
+  });
+  if (res.ok) {
+    const msg = document.getElementById('cfg-saved-msg');
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2500);
+  }
+}
+
+// ── Footer editor ─────────────────────────────────────
+document.getElementById('public-ticket-toggle')?.addEventListener('change', function() {
+  document.getElementById('public-ticket-title-wrap').style.display = this.checked ? '' : 'none';
+});
+document.getElementById('portal-ticket-toggle')?.addEventListener('change', function() {
+  document.getElementById('portal-ticket-title-wrap').style.display = this.checked ? '' : 'none';
+});
+
+async function saveFooter(type) {
+  const html    = document.getElementById(type + '-footer-html').value;
+  const showTix = document.getElementById(type + '-ticket-toggle').checked;
+  const tixTitle = document.getElementById(type + '-ticket-title').value.trim();
+  const res = await fetch(`/portal/footer/${type}/save/`, {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body:JSON.stringify({html_content:html, show_ticket_form:showTix, ticket_form_title:tixTitle}),
+  });
+  if (res.ok) {
+    const msg = document.getElementById(type + '-saved');
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2500);
+  }
+}
+</script>
+{% endblock %}

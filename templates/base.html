@@ -119,6 +119,14 @@
     <li><a href="{% url 'whiteboards:index' %}" class="{% if 'whiteboards' in request.path %}active{% endif %}">
       <i class="fa-solid fa-chalkboard"></i> Whiteboards
     </a></li>
+    <li><a href="{% url 'tickets:index' %}" class="{% if 'tickets' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-ticket"></i> Tickets
+    </a></li>
+    {% if user.is_staff %}
+    <li><a href="{% url 'portal:admin' %}" class="{% if 'portal' in request.path %}active{% endif %}">
+      <i class="fa-solid fa-user-shield"></i> Client Portal
+    </a></li>
+    {% endif %}
     <li><a href="{% url 'sound:index' %}" class="{% if 'sound' in request.path %}active{% endif %}">
       <i class="fa-solid fa-music"></i> Sound
     </a></li>
@@ -221,6 +229,7 @@
       <a href="{% url 'tax:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-receipt"></i> Expenses</a>
       <a href="{% url 'modules:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-cubes"></i> Modules</a>
       <a href="{% url 'whiteboards:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-chalkboard"></i> Whiteboards</a>
+      <a href="{% url 'tickets:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-ticket"></i> Tickets</a>
     </div>
     <div class="mob-nav-divider"></div>
     <div class="mob-nav-group">
@@ -484,5 +493,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 </script>
+{% include 'portal/_footer_portal.html' %}
 </body>
 </html>
