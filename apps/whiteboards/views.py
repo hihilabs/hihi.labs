@@ -5,19 +5,20 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
 from .models import Whiteboard
+from apps.core.superuser import su_qs, su_get
 
 
 @login_required
 def index(request):
-    boards = Whiteboard.objects.filter(owner=request.user)
+    boards = su_qs(request.user, Whiteboard.objects)
     from apps.projects.models import Project
-    projects = Project.objects.filter(owner=request.user).exclude(status='archived')
+    projects = su_qs(request.user, Project.objects).exclude(status='archived')
     return render(request, 'whiteboards/index.html', {'boards': boards, 'projects': projects})
 
 
 @login_required
 def detail(request, pk):
-    board = get_object_or_404(Whiteboard, pk=pk, owner=request.user)
+    board = su_get(Whiteboard, pk, request.user)
     return render(request, 'whiteboards/canvas.html', {'board': board})
 
 
@@ -34,7 +35,7 @@ def create(request):
 @login_required
 @require_POST
 def save(request, pk):
-    board = get_object_or_404(Whiteboard, pk=pk, owner=request.user)
+    board = su_get(Whiteboard, pk, request.user)
     data = json.loads(request.body)
     board.data = json.dumps(data.get('canvas', {}))
     if 'title' in data:
@@ -46,5 +47,5 @@ def save(request, pk):
 @login_required
 @require_POST
 def delete(request, pk):
-    get_object_or_404(Whiteboard, pk=pk, owner=request.user).delete()
+    su_get(Whiteboard, pk, request.user).delete()
     return JsonResponse({'ok': True})

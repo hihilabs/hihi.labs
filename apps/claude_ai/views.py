@@ -86,7 +86,7 @@ def _claude_client():
 
 @login_required
 def chat_index(request):
-    conversations = Conversation.objects.filter(user=request.user)
+    conversations = su_qs(request.user, Conversation.objects, owner_field='user')
     return render(request, 'claude_ai/chat_index.html', {'conversations': conversations})
 
 
@@ -99,10 +99,10 @@ def chat_new(request):
 @login_required
 def chat_detail(request, pk):
     try:
-        conv = get_object_or_404(Conversation, pk=pk, user=request.user)
+        conv = su_get(Conversation, pk, request.user, owner_field='user')
         messages = conv.messages.all()
-        conversations = Conversation.objects.filter(user=request.user)
-        memory_notes = MemoryNote.objects.filter(user=request.user)
+        conversations = su_qs(request.user, Conversation.objects, owner_field='user')
+        memory_notes = su_qs(request.user, MemoryNote.objects, owner_field='user')
         return render(request, 'claude_ai/chat.html', {
             'conv': conv,
             'messages': messages,
@@ -122,7 +122,7 @@ def chat_detail(request, pk):
 @require_POST
 def chat_send(request, pk):
     import base64
-    conv = get_object_or_404(Conversation, pk=pk, user=request.user)
+    conv = su_get(Conversation, pk, request.user, owner_field='user')
 
     ct = request.content_type or ''
     if ct.startswith('multipart/'):
@@ -153,7 +153,7 @@ def chat_send(request, pk):
 
 @login_required
 def chat_stream(request, pk):
-    conv = get_object_or_404(Conversation, pk=pk, user=request.user)
+    conv = su_get(Conversation, pk, request.user, owner_field='user')
     history = [
         {'role': m['role'], 'content': _decode_content(m['content'])}
         for m in conv.messages.values('role', 'content')
@@ -227,7 +227,7 @@ def chat_stream(request, pk):
 @login_required
 @require_POST
 def chat_delete(request, pk):
-    conv = get_object_or_404(Conversation, pk=pk, user=request.user)
+    conv = su_get(Conversation, pk, request.user, owner_field='user')
     conv.delete()
     return JsonResponse({'ok': True})
 
@@ -294,20 +294,20 @@ def template_stream(request, pk):
 
 @login_required
 def documents_index(request):
-    docs = GeneratedDocument.objects.filter(user=request.user)
+    docs = su_qs(request.user, GeneratedDocument.objects, owner_field='user')
     return render(request, 'claude_ai/documents_index.html', {'docs': docs})
 
 
 @login_required
 def document_detail(request, pk):
-    doc = get_object_or_404(GeneratedDocument, pk=pk, user=request.user)
+    doc = su_get(GeneratedDocument, pk, request.user, owner_field='user')
     return render(request, 'claude_ai/document_detail.html', {'doc': doc})
 
 
 @login_required
 @require_POST
 def document_delete(request, pk):
-    doc = get_object_or_404(GeneratedDocument, pk=pk, user=request.user)
+    doc = su_get(GeneratedDocument, pk, request.user, owner_field='user')
     doc.delete()
     return JsonResponse({'ok': True})
 
@@ -316,7 +316,7 @@ def document_delete(request, pk):
 
 @login_required
 def voice_index(request):
-    notes = VoiceNote.objects.filter(user=request.user)
+    notes = su_qs(request.user, VoiceNote.objects, owner_field='user')
     return render(request, 'claude_ai/voice_index.html', {'notes': notes})
 
 
@@ -360,6 +360,6 @@ def voice_transcribe(request):
 @login_required
 @require_POST
 def voice_delete(request, pk):
-    note = get_object_or_404(VoiceNote, pk=pk, user=request.user)
+    note = su_get(VoiceNote, pk, request.user, owner_field='user')
     note.delete()
     return JsonResponse({'ok': True})

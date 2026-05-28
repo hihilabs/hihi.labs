@@ -5,14 +5,15 @@ from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
 from django.utils.text import slugify
 from .models import Service, ProjectService
+from apps.core.superuser import su_qs, su_get
 
 
 @login_required
 def index(request):
-    services = list(Service.objects.filter(owner=request.user).prefetch_related('project_services__project'))
+    services = list(su_qs(request.user, Service.objects).prefetch_related('project_services__project'))
     try:
         from apps.projects.models import Project
-        projects = list(Project.objects.filter(owner=request.user).exclude(status='archived').order_by('name'))
+        projects = list(su_qs(request.user, Project.objects).exclude(status='archived').order_by('name'))
     except Exception:
         projects = []
     return render(request, 'services/index.html', {'services': services, 'projects': projects})
@@ -41,16 +42,16 @@ def create(request):
 @login_required
 @require_POST
 def delete(request, pk):
-    get_object_or_404(Service, pk=pk, owner=request.user).delete()
+    su_get(Service, pk, request.user).delete()
     return JsonResponse({'ok': True})
 
 
 @login_required
 @require_POST
 def toggle(request, service_pk, project_pk):
-    service = get_object_or_404(Service, pk=service_pk, owner=request.user)
+    service = su_get(Service, service_pk, request.user)
     from apps.projects.models import Project
-    project = get_object_or_404(Project, pk=project_pk, owner=request.user)
+    project = su_get(Project, project_pk, request.user)
     ps, _ = ProjectService.objects.get_or_create(project=project, service=service)
     ps.enabled = not ps.enabled
     ps.save()

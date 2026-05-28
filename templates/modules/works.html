@@ -168,6 +168,11 @@ body::after {
   border-color: var(--brand); color: var(--brand);
   background: rgba(124,106,247,.1);
 }
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(6px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+.wk-card.js-visible { animation: card-in .22s ease forwards; }
 
 /* ── Works grid ────────────────────────────────────────────────────────── */
 .wk-section {
@@ -415,29 +420,29 @@ textarea.wk-input { resize: vertical; min-height: 90px; margin-bottom: 14px; }
 
 <!-- Filter bar -->
 <div class="wk-filters" id="works">
-  <a href="/works/" class="wk-filter {% if not type_filter %}active{% endif %}">All</a>
-  <a href="/works/?type=ai"      class="wk-filter {% if type_filter == 'ai' %}active{% endif %}">
+  <button class="wk-filter active" data-filter="all" onclick="filterWorks('all')">All</button>
+  <button class="wk-filter" data-filter="ai"      onclick="filterWorks('ai')">
     <i class="fa-solid fa-microchip"></i> AI &amp; Automation
-  </a>
-  <a href="/works/?type=web"     class="wk-filter {% if type_filter == 'web' %}active{% endif %}">
+  </button>
+  <button class="wk-filter" data-filter="web"     onclick="filterWorks('web')">
     <i class="fa-solid fa-globe"></i> Web Platforms
-  </a>
-  <a href="/works/?type=cp"      class="wk-filter {% if type_filter == 'cp' %}active{% endif %}">
+  </button>
+  <button class="wk-filter" data-filter="cp"      onclick="filterWorks('cp')">
     <i class="fa-solid fa-record-vinyl"></i> Community Tech
-  </a>
-  <a href="/works/?type=infra"   class="wk-filter {% if type_filter == 'infra' %}active{% endif %}">
+  </button>
+  <button class="wk-filter" data-filter="infra"   onclick="filterWorks('infra')">
     <i class="fa-solid fa-server"></i> Infrastructure
-  </a>
-  <a href="/works/?type=utility" class="wk-filter {% if type_filter == 'utility' %}active{% endif %}">
+  </button>
+  <button class="wk-filter" data-filter="utility" onclick="filterWorks('utility')">
     <i class="fa-solid fa-robot"></i> Tools
-  </a>
+  </button>
 </div>
 
 <!-- Works grid -->
 <section class="wk-section">
   <div class="wk-grid" id="wk-grid">
     {% for m in modules %}
-    <article class="wk-card" style="--mc:{{ m.color }};" aria-label="{{ m.name }}">
+    <article class="wk-card" data-type="{{ m.type }}" style="--mc:{{ m.color }};" aria-label="{{ m.name }}">
       <div class="card-head">
         <div class="card-icon">
           <i class="{{ m.icon_class|default:'fa-solid' }} {{ m.icon }}"></i>
@@ -518,6 +523,38 @@ textarea.wk-input { resize: vertical; min-height: 90px; margin-bottom: 14px; }
 </footer>
 
 <script>
+// ── Filter ───────────────────────────────────────────────────────────────────
+function filterWorks(type) {
+  var isAll = !type || type === 'all';
+  // Update pill active states
+  document.querySelectorAll('.wk-filter').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.filter === (isAll ? 'all' : type));
+  });
+  // Show/hide cards
+  document.querySelectorAll('.wk-card').forEach(function(card) {
+    var show = isAll || card.dataset.type === type;
+    if (show) {
+      card.style.display = '';
+      card.classList.remove('js-visible');
+      void card.offsetWidth; // trigger reflow for animation
+      card.classList.add('js-visible');
+    } else {
+      card.style.display = 'none';
+      card.classList.remove('js-visible');
+    }
+  });
+  // Update URL without reload
+  var url = isAll ? '/works/' : '/works/?type=' + type;
+  history.replaceState(null, '', url);
+}
+
+// Init from URL on load
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var t = params.get('type');
+  if (t) filterWorks(t);
+})();
+
 // ── Parallax (mousemove + gyro) ──────────────────────────────────────────────
 var _px = 0, _py = 0, _raf = null;
 var orb1 = document.getElementById('orb1');

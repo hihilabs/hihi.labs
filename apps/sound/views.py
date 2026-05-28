@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.projects.models import Project
+from apps.core.superuser import su_qs, su_get
 from .models import Track, TrackComment
 
 
@@ -31,8 +32,8 @@ def _extract_duration(path):
 
 @login_required
 def index(request):
-    tracks = Track.objects.filter(owner=request.user).select_related('project')
-    projects = Project.objects.filter(owner=request.user, status='active')
+    tracks = su_qs(request.user, Track.objects).select_related('project')
+    projects = su_qs(request.user, Project.objects).filter(status='active')
     return render(request, 'sound/index.html', {
         'tracks': tracks,
         'projects': projects,
@@ -62,7 +63,7 @@ def track_upload(request):
     )
     if project_id:
         try:
-            track.project = Project.objects.get(pk=project_id, owner=request.user)
+            track.project = su_get(Project, project_id, request.user)
         except Project.DoesNotExist:
             pass
 
@@ -81,7 +82,7 @@ def track_upload(request):
 @login_required
 def track_detail(request, pk):
     import json as _json
-    track = get_object_or_404(Track, pk=pk, owner=request.user)
+    track = su_get(Track, pk, request.user)
     comments = list(track.comments.all())
     comments_json = _json.dumps([
         {'id': c.pk, 'ts': c.timestamp_s, 'display': c.timestamp_display(), 'body': c.body}
@@ -98,7 +99,7 @@ def track_detail(request, pk):
 @require_POST
 def track_update(request, pk):
     """PATCH-style: update duration_s from client after WaveSurfer loads."""
-    track = get_object_or_404(Track, pk=pk, owner=request.user)
+    track = su_get(Track, pk, request.user)
     data = json.loads(request.body)
     if 'duration_s' in data and track.duration_s == 0:
         track.duration_s = float(data['duration_s'])
@@ -109,7 +110,7 @@ def track_update(request, pk):
 @login_required
 @require_POST
 def track_delete(request, pk):
-    track = get_object_or_404(Track, pk=pk, owner=request.user)
+    track = su_get(Track, pk, request.user)
     if track.audio_file:
         try:
             os.remove(track.audio_file.path)
@@ -122,7 +123,7 @@ def track_delete(request, pk):
 @login_required
 @require_POST
 def comment_add(request, pk):
-    track = get_object_or_404(Track, pk=pk, owner=request.user)
+    track = su_get(Track, pk, request.user)
     data = json.loads(request.body)
     body = data.get('body', '').strip()
     timestamp_s = float(data.get('timestamp_s', 0))
@@ -141,6 +142,6 @@ def comment_add(request, pk):
 @login_required
 @require_POST
 def comment_delete(request, pk, comment_pk):
-    track = get_object_or_404(Track, pk=pk, owner=request.user)
+    track = su_get(Track, pk, request.user)
     TrackComment.objects.filter(pk=comment_pk, track=track).delete()
     return JsonResponse({'ok': True})

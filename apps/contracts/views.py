@@ -5,14 +5,15 @@ from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
 from django.urls import reverse
 from .models import Contract
+from apps.core.superuser import su_qs, su_get
 
 
 @login_required
 def index(request):
-    contracts = Contract.objects.filter(owner=request.user).select_related('client', 'project').order_by('-created_at')
+    contracts = su_qs(request.user, Contract.objects).select_related('client', 'project').order_by('-created_at')
     try:
         from apps.clients.models import Client
-        all_clients = Client.objects.filter(owner=request.user).order_by('name')
+        all_clients = su_qs(request.user, Client.objects).order_by('name')
     except Exception:
         all_clients = []
     return render(request, 'contracts/index.html', {'contracts': contracts, 'all_clients': all_clients})
@@ -20,15 +21,15 @@ def index(request):
 
 @login_required
 def detail(request, pk):
-    contract = get_object_or_404(Contract, pk=pk, owner=request.user)
+    contract = su_get(Contract, pk, request.user)
     try:
         from apps.clients.models import Client
-        clients = Client.objects.filter(owner=request.user).order_by('name')
+        clients = su_qs(request.user, Client.objects).order_by('name')
     except Exception:
         clients = []
     try:
         from apps.projects.models import Project
-        projects = Project.objects.filter(owner=request.user).exclude(status='archived').order_by('name')
+        projects = su_qs(request.user, Project.objects).exclude(status='archived').order_by('name')
     except Exception:
         projects = []
     return render(request, 'contracts/detail.html', {
@@ -53,7 +54,7 @@ def create(request):
 @login_required
 @require_POST
 def update(request, pk):
-    contract = get_object_or_404(Contract, pk=pk, owner=request.user)
+    contract = su_get(Contract, pk, request.user)
     data = json.loads(request.body)
     for field in ['title', 'status', 'body', 'signed_by']:
         if field in data:
@@ -74,5 +75,5 @@ def update(request, pk):
 @login_required
 @require_POST
 def delete(request, pk):
-    get_object_or_404(Contract, pk=pk, owner=request.user).delete()
+    su_get(Contract, pk, request.user).delete()
     return JsonResponse({'ok': True})

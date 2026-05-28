@@ -16,7 +16,7 @@ STATUS_COLS = [
 
 @login_required
 def index(request):
-    qs = Client.objects.filter(owner=request.user).prefetch_related('contacts', 'projects')
+    qs = su_qs(request.user, Client.objects).prefetch_related('contacts', 'projects')
     grouped = {
         'lead':     list(qs.filter(status='lead')),
         'active':   list(qs.filter(status='active')),
@@ -30,11 +30,11 @@ def index(request):
 
 @login_required
 def detail(request, pk):
-    client = get_object_or_404(Client, pk=pk, owner=request.user)
+    client = su_get(Client, pk, request.user)
     contacts  = client.contacts.all()
     hosting   = client.hosting_subscriptions.all()
-    followups = client.followups.filter(owner=request.user)
-    projects  = client.projects.filter(owner=request.user).order_by('-updated_at')
+    followups = su_qs(request.user, client.followups)
+    projects  = su_qs(request.user, client.projects).order_by('-updated_at')
 
     proposals, contracts, invoices, threads = [], [], [], []
     try:
@@ -49,7 +49,7 @@ def detail(request, pk):
         pass
     try:
         from apps.billing.models import Invoice
-        invoices = list(Invoice.objects.filter(client_fk=client, owner=request.user).order_by('-created_at'))
+        invoices = list(su_qs(request.user, Invoice.objects).filter(client_fk=client).order_by('-created_at'))
     except Exception:
         pass
     try:
@@ -116,7 +116,7 @@ def create(request):
 @login_required
 @require_POST
 def update(request, pk):
-    client = get_object_or_404(Client, pk=pk, owner=request.user)
+    client = su_get(Client, pk, request.user)
     data = json.loads(request.body)
     for field in ['name', 'company', 'email', 'phone', 'website', 'address',
                    'city', 'state', 'country', 'notes', 'color', 'status', 'hosted_domain']:
@@ -129,14 +129,14 @@ def update(request, pk):
 @login_required
 @require_POST
 def delete(request, pk):
-    get_object_or_404(Client, pk=pk, owner=request.user).delete()
+    su_get(Client, pk, request.user).delete()
     return JsonResponse({'ok': True})
 
 
 @login_required
 @require_POST
 def contact_create(request, pk):
-    client = get_object_or_404(Client, pk=pk, owner=request.user)
+    client = su_get(Client, pk, request.user)
     data = json.loads(request.body)
     c = Contact.objects.create(
         client=client, owner=request.user,
@@ -153,7 +153,7 @@ def contact_create(request, pk):
 @login_required
 @require_POST
 def contact_delete(request, pk, contact_pk):
-    contact = get_object_or_404(Contact, pk=contact_pk, client__owner=request.user)
+    contact = su_get(Contact, contact_pk, request.user, owner_field='client__owner')
     contact.delete()
     return JsonResponse({'ok': True})
 
@@ -161,7 +161,7 @@ def contact_delete(request, pk, contact_pk):
 @login_required
 @require_POST
 def followup_create(request, pk):
-    client = get_object_or_404(Client, pk=pk, owner=request.user)
+    client = su_get(Client, pk, request.user)
     data = json.loads(request.body)
     note = data.get('note', '').strip()
     if not note:
@@ -180,7 +180,7 @@ def followup_create(request, pk):
 @login_required
 @require_POST
 def followup_update(request, pk, fu_pk):
-    fu = get_object_or_404(FollowUp, pk=fu_pk, client__owner=request.user)
+    fu = su_get(FollowUp, fu_pk, request.user, owner_field='client__owner')
     data = json.loads(request.body)
     if 'done' in data:
         fu.done = data['done']
@@ -196,5 +196,5 @@ def followup_update(request, pk, fu_pk):
 @login_required
 @require_POST
 def followup_delete(request, pk, fu_pk):
-    get_object_or_404(FollowUp, pk=fu_pk, client__owner=request.user).delete()
+    su_get(FollowUp, fu_pk, request.user, owner_field='client__owner').delete()
     return JsonResponse({'ok': True})

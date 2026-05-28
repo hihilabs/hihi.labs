@@ -120,15 +120,16 @@ def dashboard(request):
     from apps.projects.models import Task
     from django.db.models import Count, Q
 
-    active_project_count = Project.objects.filter(owner=request.user, status='active').count()
+    # Superusers see all projects; regular users see only their own
+    _proj_base = Project.objects.all() if request.user.is_superuser else Project.objects.filter(owner=request.user)
 
-    open_tasks_all = Task.objects.filter(
-        project__owner=request.user,
-        project__status='active',
-    ).exclude(status='done').count()
+    active_project_count = _proj_base.filter(status='active').count()
+
+    _task_filter = {'project__status': 'active'} if request.user.is_superuser else {'project__owner': request.user, 'project__status': 'active'}
+    open_tasks_all = Task.objects.filter(**_task_filter).exclude(status='done').count()
 
     active_projects = list(
-        Project.objects.filter(owner=request.user, status='active')
+        _proj_base.filter(status='active')
         .prefetch_related('tasks', 'time_entries')
         .order_by('-updated_at')[:12]
     )

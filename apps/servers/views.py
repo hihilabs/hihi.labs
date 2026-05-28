@@ -4,11 +4,12 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 from .models import Server
+from apps.core.superuser import su_qs, su_get
 
 
 @login_required
 def index(request):
-    servers = Server.objects.filter(owner=request.user)
+    servers = su_qs(request.user, Server.objects)
     return render(request, 'servers/index.html', {
         'servers': servers,
         'icons': Server.ICONS,
@@ -39,14 +40,14 @@ def server_add(request):
 @login_required
 @require_POST
 def server_delete(request, pk):
-    get_object_or_404(Server, pk=pk, owner=request.user).delete()
+    su_get(Server, pk, request.user).delete()
     return JsonResponse({'ok': True})
 
 
 @login_required
 def server_ping(request, pk):
     import socket as _socket
-    server = get_object_or_404(Server, pk=pk, owner=request.user)
+    server = su_get(Server, pk, request.user)
     try:
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
         s.settimeout(3)

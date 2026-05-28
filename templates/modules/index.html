@@ -119,6 +119,15 @@
   margin-left: auto; font-size: 10px; color: var(--text-faint);
   display: flex; align-items: center; gap: 4px;
 }
+.pub-toggle {
+  background: none; border: none; cursor: pointer; padding: 3px 5px;
+  border-radius: var(--r-xs); line-height: 1;
+  transition: background var(--dur-base), color var(--dur-base);
+  font-size: 12px; color: var(--text-faint);
+}
+.pub-toggle:hover { background: var(--bg3); }
+.pub-toggle.is-public { color: var(--green); }
+.pub-toggle .pub-label { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; vertical-align: middle; }
 
 /* ── Contact section ───────────────────────────────────────── */
 .contact-section {
@@ -247,6 +256,14 @@
         <i class="fa-brands fa-github"></i> Source
       </a>
       {% endif %}
+      <button class="pub-toggle {% if m.public %}is-public{% endif %}"
+              data-slug="{{ m.slug }}"
+              data-public="{% if m.public %}1{% else %}0{% endif %}"
+              onclick="togglePublic(this)"
+              title="{% if m.public %}Showing on /works/ — click to hide{% else %}Hidden from /works/ — click to show{% endif %}">
+        <i class="fa-solid {% if m.public %}fa-earth-americas{% else %}fa-eye-slash{% endif %}"></i>
+        <span class="pub-label">{% if m.public %}pub{% else %}priv{% endif %}</span>
+      </button>
     </div>
   </div>
   {% empty %}
@@ -287,8 +304,7 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
+{% block extra_js %}<script><script>
 async function submitContact(e) {
   e.preventDefault();
   const btn = document.getElementById('c-btn');
@@ -311,6 +327,28 @@ async function submitContact(e) {
       btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send';
     }
   } catch { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send'; }
+}
+</script></script>
+<script>
+async function togglePublic(btn) {
+  var slug    = btn.dataset.slug;
+  var isPublic = btn.dataset.public === '1';
+  var newVal   = !isPublic;
+  btn.disabled = true;
+  try {
+    var csrf = document.cookie.match(/csrftoken=([^;]+)/);
+    var r = await fetch('/modules/toggle-public/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf ? csrf[1] : ''},
+      body: JSON.stringify({slug: slug, public: newVal}),
+    });
+    if (!r.ok) { btn.disabled = false; return; }
+    btn.dataset.public = newVal ? '1' : '0';
+    btn.classList.toggle('is-public', newVal);
+    btn.querySelector('i').className = 'fa-solid ' + (newVal ? 'fa-earth-americas' : 'fa-eye-slash');
+    btn.querySelector('.pub-label').textContent = newVal ? 'pub' : 'priv';
+    btn.title = newVal ? 'Showing on /works/ — click to hide' : 'Hidden from /works/ — click to show';
+  } finally { btn.disabled = false; }
 }
 </script>
 {% endblock %}

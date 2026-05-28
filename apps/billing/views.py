@@ -8,14 +8,15 @@ from django.views.decorators.http import require_POST
 
 from apps.projects.models import Project, TimeEntry
 from .models import Invoice, InvoiceLine
+from apps.core.superuser import su_qs, su_get
 
 
 @login_required
 def index(request):
-    invoices = Invoice.objects.filter(owner=request.user).prefetch_related('lines')
+    invoices = su_qs(request.user, Invoice.objects).prefetch_related('lines')
     outstanding = sum(inv.total for inv in invoices if inv.status in ('draft', 'sent'))
     paid_total = sum(inv.total for inv in invoices if inv.status == 'paid')
-    projects = Project.objects.filter(owner=request.user, status='active')
+    projects = su_qs(request.user, Project.objects).filter(status='active')
     unbilled_projects = [p for p in projects if p.unbilled_hours() > 0]
     return render(request, 'billing/index.html', {
         'invoices': invoices,
@@ -46,7 +47,7 @@ def invoice_new(request):
 
         for pid in project_ids:
             try:
-                project = Project.objects.get(pk=pid, owner=request.user)
+                project = su_get(Project, pid, request.user)
             except Project.DoesNotExist:
                 continue
             entries = project.time_entries.filter(ended_at__isnull=False, billed=False)
@@ -73,7 +74,7 @@ def invoice_new(request):
 
         return JsonResponse({'id': inv.pk})
 
-    projects = Project.objects.filter(owner=request.user, status='active')
+    projects = su_qs(request.user, Project.objects).filter(status='active')
     return render(request, 'billing/invoice_new.html', {
         'projects': projects,
         'next_number': Invoice.next_number(request.user),
@@ -82,14 +83,14 @@ def invoice_new(request):
 
 @login_required
 def invoice_detail(request, pk):
-    inv = get_object_or_404(Invoice, pk=pk, owner=request.user)
+    inv = su_get(Invoice, pk, request.user)
     return render(request, 'billing/invoice_detail.html', {'invoice': inv})
 
 
 @login_required
 @require_POST
 def invoice_add_line(request, pk):
-    inv = get_object_or_404(Invoice, pk=pk, owner=request.user)
+    inv = su_get(Invoice, pk, request.user)
     data = json.loads(request.body)
     line = InvoiceLine.objects.create(
         invoice=inv,
@@ -104,7 +105,7 @@ def invoice_add_line(request, pk):
 @login_required
 @require_POST
 def invoice_delete_line(request, pk, line_pk):
-    inv = get_object_or_404(Invoice, pk=pk, owner=request.user)
+    inv = su_get(Invoice, pk, request.user)
     InvoiceLine.objects.filter(pk=line_pk, invoice=inv).delete()
     return JsonResponse({'ok': True})
 
@@ -112,7 +113,7 @@ def invoice_delete_line(request, pk, line_pk):
 @login_required
 @require_POST
 def invoice_mark_sent(request, pk):
-    inv = get_object_or_404(Invoice, pk=pk, owner=request.user)
+    inv = su_get(Invoice, pk, request.user)
     inv.status = 'sent'
     inv.save(update_fields=['status', 'updated_at'])
     return JsonResponse({'status': inv.status})
@@ -121,7 +122,7 @@ def invoice_mark_sent(request, pk):
 @login_required
 @require_POST
 def invoice_mark_paid(request, pk):
-    inv = get_object_or_404(Invoice, pk=pk, owner=request.user)
+    inv = su_get(Invoice, pk, request.user)
     inv.status = 'paid'
     inv.save(update_fields=['status', 'updated_at'])
     # mark all linked time entries as billed
@@ -135,7 +136,7 @@ def invoice_mark_paid(request, pk):
 @login_required
 @require_POST
 def invoice_void(request, pk):
-    inv = get_object_or_404(Invoice, pk=pk, owner=request.user)
+    inv = su_get(Invoice, pk, request.user)
     inv.status = 'void'
     inv.save(update_fields=['status', 'updated_at'])
     return JsonResponse({'status': inv.status})
@@ -144,7 +145,7 @@ def invoice_void(request, pk):
 @login_required
 @require_POST
 def invoice_delete(request, pk):
-    inv = get_object_or_404(Invoice, pk=pk, owner=request.user)
+    inv = su_get(Invoice, pk, request.user)
     if inv.status == 'paid':
         return JsonResponse({'error': 'Cannot delete a paid invoice'}, status=400)
     inv.delete()

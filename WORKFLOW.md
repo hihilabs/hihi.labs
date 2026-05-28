@@ -59,6 +59,16 @@ kill -HUP $(pgrep -f 'gunicorn.*tokyo7' | head -1)
 ### Edit CSS
 ```bash
 nano static/css/main.css
+# IMPORTANT: Always run deploy.sh after CSS changes!
+./deploy.sh
+```
+WhiteNoise serves from staticfiles/ (STATIC_ROOT), not static/.
+ copies files across, and the CSS URL auto-versions from git hash.
+
+### OLD — do not use
+
+```bash
+nano static/css/main.css
 # No restart needed — WhiteNoise serves it directly.
 # Users on service worker may need Ctrl+Shift+R (hard refresh).
 ```

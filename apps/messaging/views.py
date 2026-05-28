@@ -298,7 +298,7 @@ def thread_link_project(request, pk):
     project_id = data.get('project_id')
     if project_id:
         from apps.projects.models import Project
-        project = get_object_or_404(Project, pk=project_id, owner=request.user)
+        project = su_get(Project, project_id, request.user)
         thread.project = project
         thread.save(update_fields=['project'])
         return JsonResponse({
@@ -319,7 +319,7 @@ def projects_search(request):
     """Search user's active projects — used by thread project-link picker."""
     from apps.projects.models import Project
     q = request.GET.get('q', '').strip()
-    qs = Project.objects.filter(owner=request.user, status='active')
+    qs = su_qs(request.user, Project.objects).filter(status='active')
     if q:
         qs = qs.filter(name__icontains=q)
     return JsonResponse({'projects': [

@@ -8,11 +8,32 @@ from django.views.decorators.http import require_POST
 from .models import Project, Task, TimeEntry
 
 
+def _proj_qs(user):
+    """All projects for superusers; own projects for everyone else."""
+    if user.is_superuser:
+        return Project.objects.all()
+    return Project.objects.filter(owner=user)
+
+
+def _get_project(pk, user):
+    """Fetch project by pk; superusers can access any."""
+    if user.is_superuser:
+        return get_object_or_404(Project, pk=pk)
+    return get_object_or_404(Project, pk=pk, owner=user)
+
+
+def _get_task(pk, user):
+    """Fetch task by pk; superusers can access any."""
+    if user.is_superuser:
+        return get_object_or_404(Task, pk=pk)
+    return get_object_or_404(Task, pk=pk, project__owner=user)
+
+
 # ── Projects ──────────────────────────────────────────────────────────────────
 
 @login_required
 def project_index(request):
-    projects = Project.objects.filter(owner=request.user).exclude(status='archived')
+    projects = _proj_qs(request.user).exclude(status='archived')
     running = TimeEntry.objects.filter(owner=request.user, ended_at__isnull=True).first()
     return render(request, 'projects/index.html', {
         'projects': projects,
@@ -22,7 +43,7 @@ def project_index(request):
 
 @login_required
 def project_detail(request, pk):
-    project = get_object_or_404(Project, pk=pk, owner=request.user)
+    project = _get_project(pk, request.user)
     tasks = project.tasks.all()
     entries = project.time_entries.filter(ended_at__isnull=False)[:20]
     running = TimeEntry.objects.filter(owner=request.user, ended_at__isnull=True).first()
@@ -54,7 +75,7 @@ def project_create(request):
 @login_required
 @require_POST
 def project_update(request, pk):
-    project = get_object_or_404(Project, pk=pk, owner=request.user)
+    project = _get_project(pk, request.user)
     data = json.loads(request.body)
     for field in ['name', 'client', 'description', 'status', 'color', 'hourly_rate']:
         if field in data:
@@ -68,7 +89,7 @@ def project_update(request, pk):
 @login_required
 @require_POST
 def task_create(request, project_pk):
-    project = get_object_or_404(Project, pk=project_pk, owner=request.user)
+    project = _get_project(project_pk, request.user)
     data = json.loads(request.body)
     task = Task.objects.create(
         project=project,
@@ -81,7 +102,7 @@ def task_create(request, project_pk):
 @login_required
 @require_POST
 def task_update(request, pk):
-    task = get_object_or_404(Task, pk=pk, project__owner=request.user)
+    task = _get_task(pk, request.user)
     data = json.loads(request.body)
     for field in ['title', 'notes', 'status', 'priority', 'order']:
         if field in data:
@@ -97,7 +118,7 @@ def task_update(request, pk):
 @login_required
 @require_POST
 def task_delete(request, pk):
-    task = get_object_or_404(Task, pk=pk, project__owner=request.user)
+    task = _get_task(pk, request.user)
     task.delete()
     return JsonResponse({'ok': True})
 
@@ -106,7 +127,7 @@ def task_delete(request, pk):
 @require_POST
 def task_suggest(request, pk):
     """Ask Claude for a next-step suggestion on this task."""
-    task = get_object_or_404(Task, pk=pk, project__owner=request.user)
+    task = _get_task(pk, request.user)
     import anthropic
     from django.conf import settings
 
@@ -143,7 +164,7 @@ def timer_start(request):
     # Stop any running timer first
     TimeEntry.objects.filter(owner=request.user, ended_at__isnull=True).update(ended_at=timezone.now())
 
-    project = get_object_or_404(Project, pk=project_id, owner=request.user)
+    project = _get_project(project_id, request.user)
     task = None
     if task_id:
         task = get_object_or_404(Task, pk=task_id, project=project)
@@ -225,7 +246,7 @@ def time_entry_delete(request, pk):
 @login_required
 def global_tasks(request):
     status_filter = request.GET.get('status', '')
-    projects = Project.objects.filter(owner=request.user).exclude(status='archived').prefetch_related('tasks')
+    projects = _proj_qs(request.user).exclude(status='archived').prefetch_related('tasks')
     task_groups = []
     total = 0
     for p in projects:
@@ -242,7 +263,7 @@ def global_tasks(request):
         'total': total,
         'status_filter': status_filter,
         'today': date.today(),
-        'all_projects': Project.objects.filter(owner=request.user).exclude(status='archived'),
+        'all_projects': _proj_qs(request.user).exclude(status='archived'),
     })
 
 
@@ -250,7 +271,7 @@ def global_tasks(request):
 
 @login_required
 def value_board(request):
-    projects = Project.objects.filter(owner=request.user).exclude(status='archived')
+    projects = _proj_qs(request.user).exclude(status='archived')
     rows = []
     for p in projects:
         entries = list(p.time_entries.filter(ended_at__isnull=False))
@@ -340,7 +361,7 @@ def draft_invoice(request, pk):
     from apps.billing.models import Invoice, InvoiceLine
     from datetime import date, timedelta
 
-    project = get_object_or_404(Project, pk=pk, owner=request.user)
+    project = _get_project(pk, request.user)
     unbilled = list(project.time_entries.filter(ended_at__isnull=False, billed=False))
     if not unbilled:
         return JsonResponse({'ok': False, 'error': 'No unbilled entries'}, status=400)

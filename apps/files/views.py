@@ -68,7 +68,7 @@ def index(request):
         credential = None
         connected = False
 
-    folders = DriveFolder.objects.filter(owner=request.user).select_related('project', 'client')
+    folders = su_qs(request.user, DriveFolder.objects).select_related('project', 'client')
     project_id = request.GET.get('project')
     client_id = request.GET.get('client')
     folder_id = request.GET.get('folder')
@@ -232,7 +232,7 @@ def link_folder(request):
 @login_required
 @require_POST
 def unlink_folder(request, pk):
-    get_object_or_404(DriveFolder, pk=pk, owner=request.user).delete()
+    su_get(DriveFolder, pk, request.user).delete()
     return JsonResponse({'ok': True})
 
 

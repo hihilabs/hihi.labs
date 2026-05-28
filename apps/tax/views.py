@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 
 from .models import Expense
+from apps.core.superuser import su_qs, su_get
 
 
 @login_required
@@ -16,14 +17,14 @@ def index(request):
     year = int(request.GET.get('year', date.today().year))
     cat_filter = request.GET.get('cat', '')
 
-    qs = Expense.objects.filter(owner=request.user, date__year=year)
+    qs = su_qs(request.user, Expense.objects).filter(date__year=year)
     if cat_filter:
         qs = qs.filter(category=cat_filter)
 
     expenses = list(qs)
 
     # Summary by category (all expenses for the year, regardless of filter)
-    all_year = Expense.objects.filter(owner=request.user, date__year=year)
+    all_year = su_qs(request.user, Expense.objects).filter(date__year=year)
     by_cat = defaultdict(lambda: {'total': 0, 'deductible': 0})
     for e in all_year:
         by_cat[e.category]['total'] += float(e.amount)
@@ -34,7 +35,7 @@ def index(request):
     total_deductible = sum(float(e.amount) for e in all_year if e.is_deductible)
 
     years = (
-        Expense.objects.filter(owner=request.user)
+        su_qs(request.user, Expense.objects)
         .dates('date', 'year')
     )
     year_list = sorted({d.year for d in years} | {date.today().year}, reverse=True)
@@ -77,14 +78,14 @@ def expense_add(request):
 @login_required
 @require_POST
 def expense_delete(request, pk):
-    get_object_or_404(Expense, pk=pk, owner=request.user).delete()
+    su_get(Expense, pk, request.user).delete()
     return JsonResponse({'ok': True})
 
 
 @login_required
 @require_POST
 def expense_toggle(request, pk):
-    e = get_object_or_404(Expense, pk=pk, owner=request.user)
+    e = su_get(Expense, pk, request.user)
     e.is_deductible = not e.is_deductible
     e.save(update_fields=['is_deductible'])
     return JsonResponse({'is_deductible': e.is_deductible})
@@ -93,7 +94,7 @@ def expense_toggle(request, pk):
 @login_required
 def expense_csv(request):
     year = int(request.GET.get('year', date.today().year))
-    expenses = Expense.objects.filter(owner=request.user, date__year=year).order_by('date')
+    expenses = su_qs(request.user, Expense.objects).filter(date__year=year).order_by('date')
 
     def rows():
         yield 'Date,Vendor,Description,Category,Amount,Deductible\r\n'

@@ -9,10 +9,10 @@ from .models import Proposal, ProposalLine
 
 @login_required
 def index(request):
-    proposals = Proposal.objects.filter(owner=request.user).select_related('client', 'project').order_by('-created_at')
+    proposals = su_qs(request.user, Proposal.objects).select_related('client', 'project').order_by('-created_at')
     try:
         from apps.clients.models import Client
-        all_clients = Client.objects.filter(owner=request.user).order_by('name')
+        all_clients = su_qs(request.user, Client.objects).order_by('name')
     except Exception:
         all_clients = []
     return render(request, 'proposals/index.html', {'proposals': proposals, 'all_clients': all_clients})
@@ -20,15 +20,15 @@ def index(request):
 
 @login_required
 def detail(request, pk):
-    proposal = get_object_or_404(Proposal, pk=pk, owner=request.user)
+    proposal = su_get(Proposal, pk, request.user)
     try:
         from apps.clients.models import Client
-        clients = Client.objects.filter(owner=request.user).order_by('name')
+        clients = su_qs(request.user, Client.objects).order_by('name')
     except Exception:
         clients = []
     try:
         from apps.projects.models import Project
-        projects = Project.objects.filter(owner=request.user).exclude(status='archived').order_by('name')
+        projects = su_qs(request.user, Project.objects).exclude(status='archived').order_by('name')
     except Exception:
         projects = []
     return render(request, 'proposals/detail.html', {
@@ -53,7 +53,7 @@ def create(request):
 @login_required
 @require_POST
 def update(request, pk):
-    proposal = get_object_or_404(Proposal, pk=pk, owner=request.user)
+    proposal = su_get(Proposal, pk, request.user)
     data = json.loads(request.body)
     for field in ['title', 'status', 'intro', 'notes', 'valid_until']:
         if field in data:
@@ -72,14 +72,14 @@ def update(request, pk):
 @login_required
 @require_POST
 def delete(request, pk):
-    get_object_or_404(Proposal, pk=pk, owner=request.user).delete()
+    su_get(Proposal, pk, request.user).delete()
     return JsonResponse({'ok': True})
 
 
 @login_required
 @require_POST
 def line_save(request, pk):
-    proposal = get_object_or_404(Proposal, pk=pk, owner=request.user)
+    proposal = su_get(Proposal, pk, request.user)
     data = json.loads(request.body)
     proposal.lines.all().delete()
     for i, line in enumerate(data.get('lines', [])):
