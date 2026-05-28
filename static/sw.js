@@ -1,5 +1,5 @@
 /* HiHi Labs — Service Worker */
-const CACHE_VER    = 'hl-v1';
+const CACHE_VER    = 'hl-v2';
 const STATIC_CACHE = `${CACHE_VER}-static`;
 const API_CACHE    = `${CACHE_VER}-api`;
 

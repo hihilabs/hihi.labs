@@ -120,9 +120,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
+  height: 100%;
   background: var(--bg);
 }
 body {
+  height: 100%;
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
