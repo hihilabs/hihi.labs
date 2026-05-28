@@ -163,9 +163,7 @@ PHANTOM_WALLET_ADDRESS = os.getenv("PHANTOM_WALLET_ADDRESS", "")
 HELIUM_WALLET_ADDRESS  = os.getenv("HELIUM_WALLET_ADDRESS", "")
 
 # CSS cache-busting: auto-updates from git hash on each deploy
-import subprocess as _sp
 try:
-    CSS_VER = _sp.check_output(['git', 'rev-parse', '--short', 'HEAD'],
-                               cwd=BASE_DIR, stderr=_sp.DEVNULL).decode().strip()
+    CSS_VER = (BASE_DIR / 'VERSION').read_text().strip()
 except Exception:
     CSS_VER = '1'

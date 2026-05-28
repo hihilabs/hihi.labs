@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 from . import tools
 from .models import Conversation, Message, PromptTemplate, TemplateCategory, GeneratedDocument, VoiceNote, MemoryNote
+from apps.core.superuser import su_qs, su_get
 
 
 _SYSTEM_DEFAULT = (
