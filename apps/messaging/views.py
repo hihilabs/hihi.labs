@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from .models import Thread, Message, Notification, EmailAccount
 from .utils import notify
+from apps.core.superuser import su_qs, su_get
 
 
 @login_required
