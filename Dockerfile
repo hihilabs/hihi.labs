@@ -9,6 +9,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     curl \
+    openssh-client \
     && curl -fsSL https://github.com/docker/compose/releases/download/v2.27.1/docker-compose-linux-x86_64 \
        -o /usr/local/bin/docker-compose \
     && chmod +x /usr/local/bin/docker-compose \

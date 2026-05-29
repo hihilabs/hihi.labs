@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% block title %}HiHi Node — Git{% endblock %}
+
+{% block extra_css %}
+<style>
+.gn-toolbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 24px 20px; flex-wrap: wrap;
+}
+.gn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px; padding: 0 24px 40px;
+}
+.gn-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  transition: border-color .15s;
+}
+.gn-card:hover { border-color: var(--card-color); }
+.gn-card-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.gn-icon {
+  width: 36px; height: 36px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+  background: color-mix(in srgb, var(--card-color) 14%, transparent);
+  color: var(--card-color);
+}
+.gn-name { font-weight: 600; font-size: 14px; color: var(--text); }
+.gn-server { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.gn-branch {
+  margin-left: auto; font-family: var(--font-mono); font-size: 10px;
+  padding: 2px 8px; border-radius: 3px;
+  background: color-mix(in srgb, var(--card-color) 12%, transparent);
+  color: var(--card-color);
+  border: 1px solid color-mix(in srgb, var(--card-color) 30%, transparent);
+}
+.gn-status-area {
+  padding: 12px 16px; flex: 1; min-height: 64px;
+  font-family: var(--font-mono); font-size: 11px; line-height: 1.6;
+  color: var(--text-muted); white-space: pre-wrap; word-break: break-all;
+}
+.gn-status-area.clean { color: var(--green); }
+.gn-status-area.error { color: var(--red, #f87171); }
+.gn-log {
+  padding: 0 16px 12px;
+  font-family: var(--font-mono); font-size: 10px; line-height: 1.7;
+  color: var(--text-muted); border-top: 1px solid var(--border);
+  white-space: pre-wrap; overflow: hidden;
+  max-height: 120px;
+}
+.gn-actions {
+  display: flex; gap: 7px; padding: 12px 16px;
+  border-top: 1px solid var(--border); flex-wrap: wrap;
+}
+.gn-spinner { display: none; }
+.gn-card.loading .gn-spinner { display: inline-block; }
+.gn-card.loading .gn-status-area { opacity: .5; }
+
+/* scoop-all bar */
+.scoop-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+  flex: 1; max-width: 600px;
+}
+.scoop-bar input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text); font-family: var(--font-mono); font-size: 12px;
+}
+.scoop-bar input::placeholder { color: var(--text-muted); }
+.scoop-result {
+  font-size: 11px; font-family: var(--font-mono);
+  padding: 10px 24px; display: none; white-space: pre-wrap;
+  background: var(--bg2); border-radius: 6px; margin: 0 24px 16px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <i class="fa-solid fa-code-branch" style="color:var(--accent);margin-right:8px;"></i>HiHi Node
+  </div>
+  <span style="font-size:11px;color:var(--text-muted);">{{ repos|length }} repo{{ repos|length|pluralize }}</span>
+</div>
+
+<div class="gn-toolbar">
+  <div class="scoop-bar">
+    <i class="fa-solid fa-floppy-disk" style="color:var(--text-muted);font-size:13px;"></i>
+    <input type="text" id="scoop-msg" placeholder="scoop: commit message (optional)" maxlength="200">
+  </div>
+  <button class="btn btn-primary" id="btn-scoop-all" onclick="scoopAll()">
+    <i class="fa-solid fa-cloud-arrow-up"></i> Scoop All
+  </button>
+  <button class="btn btn-ghost" onclick="refreshAll()">
+    <i class="fa-solid fa-arrows-rotate"></i> Refresh
+  </button>
+</div>
+
+<div id="scoop-result" class="scoop-result"></div>
+
+<div class="gn-grid">
+  {% for repo in repos %}
+  <div class="gn-card" id="card-{{ repo.pk }}" style="--card-color: {{ repo.color }};">
+    <div class="gn-card-head">
+      <div class="gn-icon"><i class="fa-solid {{ repo.icon }}"></i></div>
+      <div>
+        <div class="gn-name">{{ repo.name }}</div>
+        <div class="gn-server">
+          <i class="fa-solid fa-server" style="margin-right:4px;"></i>{{ repo.server.name }} · {{ repo.path|truncatechars:40 }}
+        </div>
+      </div>
+      <span class="gn-branch" id="branch-{{ repo.pk }}">{{ repo.branch }}</span>
+    </div>
+    <div class="gn-status-area" id="status-{{ repo.pk }}">
+      <i class="fa-solid fa-circle-notch fa-spin gn-spinner"></i> loading…
+    </div>
+    <div class="gn-log" id="log-{{ repo.pk }}" style="display:none;"></div>
+    <div class="gn-actions">
+      <button class="btn btn-ghost btn-sm" onclick="refreshRepo({{ repo.pk }})">
+        <i class="fa-solid fa-arrows-rotate"></i> Status
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="scoopRepo({{ repo.pk }})">
+        <i class="fa-solid fa-cloud-arrow-up"></i> Scoop
+      </button>
+      {% if repo.service_name %}
+      <button class="btn btn-ghost btn-sm" onclick="deployRepo({{ repo.pk }})">
+        <i class="fa-solid fa-rocket"></i> Deploy
+      </button>
+      {% endif %}
+      {% if repo.github_url %}
+      <a href="{{ repo.github_url }}" target="_blank" class="btn btn-ghost btn-sm">
+        <i class="fa-brands fa-github"></i>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% empty %}
+  <div style="grid-column:1/-1;padding:80px 0;text-align:center;color:var(--text-muted);">
+    <i class="fa-solid fa-code-branch" style="font-size:2rem;margin-bottom:12px;display:block;"></i>
+    No repos yet. Add servers in <a href="{% url 'servers:index' %}">Servers</a>, then add repos via <a href="/admin/gitnode/managedrepo/add/">Admin</a>.
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+const CSRF = '{{ csrf_token }}';
+
+async function post(url, data) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+  });
+  return r.json();
+}
+
+function setStatus(pk, text, cls) {
+  const el = document.getElementById('status-' + pk);
+  el.textContent = text;
+  el.className = 'gn-status-area' + (cls ? ' ' + cls : '');
+}
+
+function setLoading(pk, on) {
+  document.getElementById('card-' + pk).classList.toggle('loading', on);
+}
+
+async function refreshRepo(pk) {
+  setLoading(pk, true);
+  setStatus(pk, 'fetching…', '');
+  const d = await fetch(`{% url 'gitnode:index' %}${pk}/status/`).then(r => r.json());
+  setLoading(pk, false);
+  if (d.ok) {
+    setStatus(pk, d.status, d.clean ? 'clean' : '');
+    document.getElementById('branch-' + pk).textContent = d.branch;
+    const log = document.getElementById('log-' + pk);
+    log.textContent = d.log;
+    log.style.display = d.log ? '' : 'none';
+  } else {
+    setStatus(pk, 'error: ' + (d.error || '?'), 'error');
+  }
+}
+
+function refreshAll() {
+  document.querySelectorAll('.gn-card').forEach(card => {
+    const pk = card.id.replace('card-', '');
+    if (pk) refreshRepo(parseInt(pk));
+  });
+}
+
+async function scoopRepo(pk) {
+  const msg = document.getElementById('scoop-msg').value.trim();
+  setLoading(pk, true);
+  setStatus(pk, 'scooping…', '');
+  const d = await post(`{% url 'gitnode:index' %}${pk}/scoop/`, {message: msg});
+  setLoading(pk, false);
+  const text = d.output || (d.ok ? 'done' : 'error');
+  const isScooped = text.includes('SCOOPED');
+  const isClean   = text.includes('CLEAN');
+  setStatus(pk, isClean ? '✓ clean — nothing to scoop' : text, isScooped ? 'clean' : (isClean ? 'clean' : (d.ok ? '' : 'error')));
+}
+
+async function deployRepo(pk) {
+  setLoading(pk, true);
+  setStatus(pk, 'deploying…', '');
+  const d = await post(`{% url 'gitnode:index' %}${pk}/deploy/`, {});
+  setLoading(pk, false);
+  setStatus(pk, d.output || (d.ok ? '✓ deployed' : 'error'), d.ok ? 'clean' : 'error');
+}
+
+async function scoopAll() {
+  const msg = document.getElementById('scoop-msg').value.trim();
+  const btn = document.getElementById('btn-scoop-all');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Scooping…';
+
+  const d = await post('{% url "gitnode:scoop_all" %}', {message: msg});
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Scoop All';
+
+  const result = document.getElementById('scoop-result');
+  if (d.ok && d.results) {
+    result.style.display = 'block';
+    result.textContent = d.results.map(r => {
+      const icon = r.output.includes('SCOOPED') ? '↑' : r.output.includes('CLEAN') ? '✓' : '✗';
+      return `${icon} ${r.name}: ${r.output.split('\n')[0]}`;
+    }).join('\n');
+    // Refresh all cards to show updated state
+    setTimeout(refreshAll, 1000);
+  }
+}
+
+// Auto-refresh on load
+document.addEventListener('DOMContentLoaded', refreshAll);
+</script>
+{% endblock %}
