@@ -2,7 +2,6 @@ import subprocess
 import os
 from django.conf import settings
 
-SSH_KEY = getattr(settings, 'GITNODE_SSH_KEY', '/app/ssh/id_ed25519_unraid')
 SSH_OPTS = [
     '-o', 'StrictHostKeyChecking=no',
     '-o', 'ConnectTimeout=8',
@@ -10,8 +9,12 @@ SSH_OPTS = [
 ]
 
 
+def _ssh_key():
+    return getattr(settings, 'GITNODE_SSH_KEY', '/app/ssh/id_ed25519_unraid')
+
+
 def _ssh_base(server):
-    cmd = ['ssh', '-i', SSH_KEY] + SSH_OPTS
+    cmd = ['ssh', '-i', _ssh_key()] + SSH_OPTS
     if server.port != 22:
         cmd += ['-p', str(server.port)]
     cmd.append(f'{server.ssh_user}@{server.host}')
