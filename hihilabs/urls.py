@@ -25,6 +25,7 @@ urlpatterns = [
     path('modules/', include('apps.modules.urls', namespace='modules')),
     path('workers/', include('apps.workers.urls', namespace='workers')),
     path('ops/', include('apps.ops.urls')),
+    path('gitnode/', include('apps.gitnode.urls', namespace='gitnode')),
     path('clients/', include('apps.clients.urls', namespace='clients')),
     path('proposals/', include('apps.proposals.urls', namespace='proposals')),
     path('contracts/', include('apps.contracts.urls', namespace='contracts')),
