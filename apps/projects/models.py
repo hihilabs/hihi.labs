@@ -69,6 +69,7 @@ class Task(models.Model):
     claude_suggestion = models.TextField(blank=True)
     order = models.IntegerField(default=0)
     due_date = models.DateField(null=True, blank=True)
+    client_visible = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
