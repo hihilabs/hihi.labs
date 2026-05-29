@@ -36,4 +36,7 @@ urlpatterns = [
     # Project notes
     path('<int:pk>/notes/new/', views.note_create, name='note_create'),
     path('<int:pk>/notes/<int:note_pk>/delete/', views.note_delete, name='note_delete'),
+
+    # Stage
+    path('<int:pk>/set-stage/', views.project_set_stage, name='set_stage'),
 ]

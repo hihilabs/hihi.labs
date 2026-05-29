@@ -484,3 +484,17 @@ def note_delete(request, pk, note_pk):
         note = get_object_or_404(ProjectNote, pk=note_pk, project=project, author=request.user)
     note.delete()
     return JsonResponse({'ok': True})
+
+
+@login_required
+@require_POST
+def project_set_stage(request, pk):
+    project = _get_project(pk, request.user)
+    data = json.loads(request.body)
+    stage = data.get('stage', '')
+    valid_stages = [s[0] for s in Project.STAGE] + ['']
+    if stage not in valid_stages:
+        return JsonResponse({'error': 'invalid stage'}, status=400)
+    project.stage = stage
+    project.save(update_fields=['stage', 'updated_at'])
+    return JsonResponse({'ok': True, 'stage': stage, 'label': dict(Project.STAGE).get(stage, '')})

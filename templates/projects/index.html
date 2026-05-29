@@ -38,6 +38,10 @@
       <div class="project-name">{{ p.name }}</div>
       {% if p.client_fk %}<div class="project-client">{{ p.client_fk.display_name }}</div>
       {% elif p.client %}<div class="project-client">{{ p.client }}</div>{% endif %}
+      <span class="stage-chip stage-{{ p.stage }}"
+            data-pk="{{ p.pk }}" data-stage="{{ p.stage }}"
+            onclick="event.preventDefault();event.stopPropagation();openStagePicker(event,{{ p.pk }},'{{ p.stage }}')"
+            title="Set project stage">{% if p.stage %}{{ p.get_stage_display }}{% else %}<i class="fa-solid fa-tag"></i> Stage{% endif %}</span>
       <div class="project-stats">
         <span><i class="fa-solid fa-clock"></i> {{ p.total_hours }}h</span>
         {% if p.unbilled_hours > 0 %}
@@ -65,6 +69,22 @@
     <p>No projects yet. <button class="btn btn-ghost btn-sm" onclick="showNewProject()">Create one.</button></p>
   </div>
   {% endfor %}
+</div>
+
+{# Stage picker popover #}
+<div id="stage-picker">
+  <div class="sp-opt" data-stage="" onclick="pickStage('')">
+    <span class="sp-dot" style="background:var(--border);"></span> Clear
+  </div>
+  <div class="sp-opt" data-stage="poc" onclick="pickStage('poc')">
+    <span class="sp-dot" style="background:var(--yellow);"></span> Proof of Concept
+  </div>
+  <div class="sp-opt" data-stage="development" onclick="pickStage('development')">
+    <span class="sp-dot" style="background:var(--accent);"></span> Development
+  </div>
+  <div class="sp-opt" data-stage="maintaining" onclick="pickStage('maintaining')">
+    <span class="sp-dot" style="background:var(--green);"></span> Maintaining
+  </div>
 </div>
 
 {# New project modal #}
@@ -96,6 +116,41 @@
   </div>
 </div>
 
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.stage-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--r-full);
+  border: 1px dashed var(--border);
+  background: transparent; color: var(--text-faint);
+  cursor: pointer; transition: all var(--dur-base);
+  margin: 4px 0 2px; user-select: none;
+}
+.stage-chip:hover { border-style: solid; border-color: var(--text-muted); color: var(--text-muted); }
+.stage-chip.stage-poc         { border-style:solid; background:color-mix(in srgb,var(--yellow) 12%,transparent); color:var(--yellow); border-color:color-mix(in srgb,var(--yellow) 35%,transparent); }
+.stage-chip.stage-development { border-style:solid; background:color-mix(in srgb,var(--accent) 12%,transparent); color:var(--accent); border-color:color-mix(in srgb,var(--accent) 35%,transparent); }
+.stage-chip.stage-maintaining { border-style:solid; background:color-mix(in srgb,var(--green)  12%,transparent); color:var(--green);  border-color:color-mix(in srgb,var(--green)  35%,transparent); }
+
+#stage-picker {
+  position: fixed; z-index: 9999; display: none;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  min-width: 170px;
+}
+.sp-opt {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 10px; border-radius: var(--r-sm);
+  cursor: pointer; font-size: 12px; color: var(--text-muted);
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.sp-opt:hover { background: var(--bg2); color: var(--text); }
+.sp-opt.active { color: var(--text); font-weight: 600; }
+.sp-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -184,5 +239,41 @@ async function createProject() {
   const data = await res.json();
   if (data.ok) window.location = data.url;
 }
+
+// ── Stage picker ──────────────────────────────────────────────
+let _stagePk = null;
+const STAGE_LABELS = {poc:'Proof of Concept', development:'Development', maintaining:'Maintaining'};
+
+function openStagePicker(e, pk, currentStage) {
+  _stagePk = pk;
+  const picker = document.getElementById('stage-picker');
+  const rect = e.currentTarget.getBoundingClientRect();
+  picker.style.top  = (rect.bottom + 4) + 'px';
+  picker.style.left = rect.left + 'px';
+  picker.style.display = 'block';
+  picker.querySelectorAll('.sp-opt').forEach(o => o.classList.toggle('active', o.dataset.stage === currentStage));
+}
+
+async function pickStage(stage) {
+  document.getElementById('stage-picker').style.display = 'none';
+  const r = await fetch(`/projects/${_stagePk}/set-stage/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({stage}),
+  });
+  if (!r.ok) return;
+  const chip = document.querySelector(`.stage-chip[data-pk="${_stagePk}"]`);
+  if (!chip) return;
+  chip.dataset.stage = stage;
+  chip.className = `stage-chip${stage ? ' stage-' + stage : ''}`;
+  chip.innerHTML = stage
+    ? STAGE_LABELS[stage]
+    : '<i class="fa-solid fa-tag"></i> Stage';
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#stage-picker') && !e.target.closest('.stage-chip'))
+    document.getElementById('stage-picker').style.display = 'none';
+});
 </script>
 {% endblock %}

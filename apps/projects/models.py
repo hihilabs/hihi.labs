@@ -10,6 +10,11 @@ class Project(models.Model):
         ('done', 'Done'),
         ('archived', 'Archived'),
     ]
+    STAGE = [
+        ('poc',         'Proof of Concept'),
+        ('development', 'Development'),
+        ('maintaining', 'Maintaining'),
+    ]
     name = models.CharField(max_length=200)
     client = models.CharField(max_length=150, blank=True)
     client_fk = models.ForeignKey(
@@ -18,6 +23,7 @@ class Project(models.Model):
     )
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS, default='active')
+    stage = models.CharField(max_length=20, choices=STAGE, blank=True, default='')
     color = models.CharField(max_length=7, default='#7c6af7')
     url = models.URLField(max_length=500, blank=True, help_text='Internal or external link for this project')
     hourly_rate = models.DecimalField(max_digits=8, decimal_places=2, default=150)
