@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% block title %}Pepperjuice — Finance{% endblock %}
+
+{% block extra_css %}
+<style>
+.pj-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; padding:0 24px 20px; }
+.pj-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 20px; }
+.pj-card-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+.pj-card-value { font-size:26px; font-weight:700; font-family:'Syne',sans-serif; }
+.pj-card-sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
+.pj-section { padding:0 24px 20px; }
+.pj-section-title { font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:12px; }
+.bill-row { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:var(--r-md); background:var(--surface); border:1px solid var(--border); margin-bottom:6px; }
+.bill-row .bill-name { flex:1; font-size:14px; }
+.bill-row .bill-amount { font-size:13px; font-weight:600; color:var(--text-muted); min-width:70px; text-align:right; }
+.bill-row .bill-day { font-size:11px; color:var(--text-muted); min-width:50px; text-align:center; }
+.status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.status-paid { background:var(--green,#22c55e); }
+.status-overdue { background:var(--red,#ef4444); }
+.status-pending { background:var(--yellow,#f59e0b); }
+.goal-row { padding:12px 14px; border-radius:var(--r-md); background:var(--surface); border:1px solid var(--border); margin-bottom:8px; }
+.goal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.goal-name { font-size:14px; font-weight:600; }
+.goal-pct { font-size:12px; color:var(--text-muted); }
+.goal-bar-bg { height:6px; border-radius:3px; background:var(--border); overflow:hidden; }
+.goal-bar-fill { height:100%; border-radius:3px; background:var(--brand); transition:width .4s ease; }
+.goal-meta { display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--text-muted); }
+.no-connection { padding:32px 24px; text-align:center; color:var(--text-muted); }
+.alert-banner { margin:0 24px 16px; padding:10px 16px; border-radius:var(--r-md); font-size:13px; font-weight:500; }
+.alert-red { background:#ef444420; border:1px solid #ef444440; color:#ef4444; }
+@media(max-width:680px) { .pj-grid { grid-template-columns:repeat(2,1fr); padding:0 16px 16px; } .pj-section { padding:0 16px 16px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Pepperjuice</div>
+  <div style="font-size:11px;color:var(--text-muted);">Binsky & Mags · Finance HQ</div>
+</div>
+
+{% if overdue_count %}
+<div class="alert-banner alert-red">
+  <i class="fa-solid fa-triangle-exclamation"></i>
+  {{ overdue_count }} bill{{ overdue_count|pluralize }} overdue this month
+  <a href="{% url 'pepperjuice:bills' %}" style="color:inherit;margin-left:8px;text-decoration:underline;">View →</a>
+</div>
+{% endif %}
+
+{% if not connection %}
+<div class="no-connection">
+  <i class="fa-solid fa-plug-circle-xmark" style="font-size:28px;margin-bottom:10px;opacity:.4;display:block;"></i>
+  <div style="font-weight:600;margin-bottom:4px;">Sequence not connected</div>
+  <div style="font-size:12px;margin-bottom:14px;">Link your Sequence account to pull live balances.</div>
+  <a href="{% url 'pepperjuice:connect' %}" class="btn btn-primary btn-sm">Connect Sequence</a>
+</div>
+{% else %}
+
+{# ── KPI row ── #}
+<div class="pj-grid">
+  <div class="pj-card">
+    <div class="pj-card-label">Personal Cash</div>
+    <div class="pj-card-value" style="color:var(--brand);">${{ personal_total|floatformat:2 }}</div>
+    <div class="pj-card-sub">across all personal accounts</div>
+  </div>
+  <div class="pj-card">
+    <div class="pj-card-label">Fckry.LLC Cash</div>
+    <div class="pj-card-value" style="color:var(--teal,#14b8a6);">${{ business_total|floatformat:2 }}</div>
+    <div class="pj-card-sub">business accounts</div>
+  </div>
+  <div class="pj-card">
+    <div class="pj-card-label">Monthly Bills</div>
+    <div class="pj-card-value" style="color:var(--yellow,#f59e0b);">${{ total_monthly_cents|floatformat:0 }}</div>
+    <div class="pj-card-sub">{{ paid_count }}/{{ total_bills }} paid · {% if overdue_count %}<span style="color:var(--red,#ef4444);">{{ overdue_count }} overdue</span>{% else %}all clear{% endif %}</div>
+  </div>
+  <div class="pj-card">
+    <div class="pj-card-label">Goals Active</div>
+    <div class="pj-card-value" style="color:var(--green,#22c55e);">{{ goals.count }}</div>
+    <div class="pj-card-sub">savings & payoff targets</div>
+  </div>
+</div>
+
+{% endif %}
+
+{# ── Bills this month ── #}
+{% if bills %}
+<div class="pj-section">
+  <div class="pj-section-title">
+    Bills — {{ "now"|date:"F Y" }}
+    <a href="{% url 'pepperjuice:bills' %}" style="font-size:11px;color:var(--brand);margin-left:8px;text-transform:none;font-weight:400;">manage →</a>
+  </div>
+  {% for item in bills %}
+  <div class="bill-row">
+    <div class="status-dot {% if item.paid %}status-paid{% elif item.overdue %}status-overdue{% else %}status-pending{% endif %}"></div>
+    <div class="bill-name">
+      {{ item.bill.name }}
+      {% if item.bill.is_auto_pay %}<span style="font-size:10px;color:var(--text-muted);margin-left:4px;">auto</span>{% endif %}
+      {% if item.bill.is_business %}<span style="font-size:10px;color:var(--teal,#14b8a6);margin-left:4px;">biz</span>{% endif %}
+    </div>
+    <div class="bill-day">{{ item.bill.due_day }}{% if item.bill.due_day == 1 %}st{% elif item.bill.due_day == 2 %}nd{% elif item.bill.due_day == 3 %}rd{% else %}th{% endif %}</div>
+    <div class="bill-amount">{{ item.bill.amount_display }}</div>
+    {% if not item.paid %}
+    <button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="markPaid({{ item.bill.pk }}, this)">
+      <i class="fa-solid fa-check"></i>
+    </button>
+    {% else %}
+    <span style="font-size:11px;color:var(--green,#22c55e);padding:0 10px;"><i class="fa-solid fa-check"></i> paid</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ── Goals ── #}
+{% if goals %}
+<div class="pj-section">
+  <div class="pj-section-title">
+    Savings Goals
+    <a href="{% url 'pepperjuice:goals' %}" style="font-size:11px;color:var(--brand);margin-left:8px;text-transform:none;font-weight:400;">manage →</a>
+  </div>
+  {% for goal in goals %}
+  <div class="goal-row">
+    <div class="goal-header">
+      <div class="goal-name">{{ goal.name }}</div>
+      <div class="goal-pct">{{ goal.progress_pct }}%{% if goal.months_to_goal %} · ~{{ goal.months_to_goal }}mo left{% endif %}</div>
+    </div>
+    <div class="goal-bar-bg">
+      <div class="goal-bar-fill" style="width:{{ goal.progress_pct }}%;"></div>
+    </div>
+    <div class="goal-meta">
+      <span>${{ goal.current_cents|floatformat:0 }} saved</span>
+      <span>${{ goal.target_cents|floatformat:0 }} goal</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not bills and not goals and connection %}
+<div class="pj-section" style="text-align:center;padding-top:40px;color:var(--text-muted);">
+  <i class="fa-solid fa-seedling" style="font-size:28px;opacity:.3;display:block;margin-bottom:10px;"></i>
+  <div style="font-weight:600;margin-bottom:4px;">Nothing tracked yet</div>
+  <div style="font-size:12px;margin-bottom:16px;">Add your bills and set up savings goals to get started.</div>
+  <a href="{% url 'pepperjuice:bills' %}" class="btn btn-primary btn-sm" style="margin-right:8px;">+ Add Bill</a>
+  <a href="{% url 'pepperjuice:goals' %}" class="btn btn-sm">+ Add Goal</a>
+</div>
+{% endif %}
+
+<script>
+function markPaid(pk, btn) {
+  fetch(`/finance/bills/${pk}/paid/`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+    body: JSON.stringify({}),
+  }).then(r => r.json()).then(d => {
+    if (d.ok) location.reload();
+  });
+}
+function getCookie(name) {
+  const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+  return v ? v[2] : null;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Connect Sequence — Pepperjuice{% endblock %}
+
+{% block extra_css %}
+<style>
+.connect-wrap { max-width:460px; margin:40px auto; padding:0 24px; }
+.connect-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-xl,12px); padding:32px; }
+.connect-logo { font-size:28px; margin-bottom:6px; }
+.connect-title { font-size:20px; font-weight:700; margin-bottom:4px; }
+.connect-sub { font-size:13px; color:var(--text-muted); margin-bottom:24px; }
+.form-row { margin-bottom:16px; }
+.form-row label { display:block; font-size:12px; color:var(--text-muted); margin-bottom:5px; }
+.form-row input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-md); padding:10px 12px; font-size:14px; color:var(--text); font-family:monospace; }
+.form-row input:focus { outline:none; border-color:var(--brand); }
+.form-note { font-size:11px; color:var(--text-muted); margin-top:5px; }
+.steps { margin-bottom:24px; padding:16px; background:var(--bg); border-radius:var(--r-md); border:1px solid var(--border); }
+.steps-title { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:10px; }
+.step { display:flex; gap:10px; align-items:flex-start; font-size:13px; margin-bottom:8px; }
+.step:last-child { margin-bottom:0; }
+.step-num { width:20px; height:20px; border-radius:50%; background:var(--brand); color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Connect Sequence</div>
+  <a href="{% url 'pepperjuice:dashboard' %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+</div>
+
+<div class="connect-wrap">
+  <div class="connect-card">
+    <div class="connect-logo"><i class="fa-solid fa-link" style="color:var(--brand);"></i></div>
+    <div class="connect-title">{% if connection %}Update Connection{% else %}Connect Sequence{% endif %}</div>
+    <div class="connect-sub">Link your Sequence account to pull live balances into Pepperjuice.</div>
+
+    <div class="steps">
+      <div class="steps-title">How to get your API key</div>
+      <div class="step"><div class="step-num">1</div><div>Go to <strong>app.getsequence.io</strong> → your account → <strong>API Keys</strong></div></div>
+      <div class="step"><div class="step-num">2</div><div>Click <strong>+ Create key</strong>, give it a name like "HiHi Labs"</div></div>
+      <div class="step"><div class="step-num">3</div><div>Copy the key and paste it below — it won't be shown again</div></div>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="padding:10px 14px;border-radius:var(--r-md);background:#22c55e20;color:#22c55e;font-size:13px;margin-bottom:16px;">{{ msg }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-row">
+        <label>API Key</label>
+        <input type="password" name="api_key" placeholder="seq_…" autocomplete="off"
+               {% if connection %}value="{{ connection.api_key }}"{% endif %} required>
+        <div class="form-note">Stored in your account only. Never shared.</div>
+      </div>
+      <div class="form-row">
+        <label>Display Name (optional)</label>
+        <input type="text" name="display_name" placeholder="e.g. Andrew's Sequence"
+               value="{{ connection.display_name|default:'' }}">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">
+        {% if connection %}Update Connection{% else %}Connect Sequence{% endif %}
+      </button>
+    </form>
+
+    {% if connection %}
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);text-align:center;">
+      <form method="post" action="{% url 'pepperjuice:disconnect' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Disconnect Sequence? Cached account data will be removed.')">
+          <i class="fa-solid fa-unlink"></i> Disconnect
+        </button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

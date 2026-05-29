@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% block title %}Goals — Pepperjuice{% endblock %}
+
+{% block extra_css %}
+<style>
+.goals-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; padding:0 24px 24px; }
+.goal-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:20px; }
+.goal-card-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; }
+.goal-card-name { font-size:15px; font-weight:700; }
+.goal-type-tag { font-size:10px; padding:2px 8px; border-radius:10px; background:var(--brand-dim,rgba(124,106,247,.15)); color:var(--brand); margin-top:2px; display:inline-block; }
+.goal-bar-bg { height:8px; border-radius:4px; background:var(--border); overflow:hidden; margin-bottom:10px; }
+.goal-bar-fill { height:100%; border-radius:4px; transition:width .4s ease; }
+.goal-amounts { display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:10px; }
+.goal-amounts .saved { font-size:18px; font-weight:700; color:var(--text); }
+.goal-footer { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted); }
+.goal-actions { display:flex; gap:6px; }
+.kpi-row { display:flex; gap:20px; padding:0 24px 20px; flex-wrap:wrap; }
+.kpi-chip { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:12px 18px; min-width:140px; }
+.kpi-chip-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; }
+.kpi-chip-value { font-size:22px; font-weight:700; margin-top:2px; }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-xl,12px); padding:28px; width:440px; max-width:95vw; }
+.modal-title { font-size:16px; font-weight:700; margin-bottom:18px; }
+.form-row { margin-bottom:14px; }
+.form-row label { display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px; }
+.form-row input, .form-row select, .form-row textarea { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-md); padding:8px 10px; font-size:14px; color:var(--text); }
+.form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+@media(max-width:680px) { .goals-grid { grid-template-columns:1fr; padding:0 16px 16px; } .kpi-row { padding:0 16px 16px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Savings Goals</div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'pepperjuice:dashboard' %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+    <button class="btn btn-primary btn-sm" onclick="openGoalModal()"><i class="fa-solid fa-plus"></i> Add Goal</button>
+  </div>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi-chip">
+    <div class="kpi-chip-label">Total Saved</div>
+    <div class="kpi-chip-value" style="color:var(--green,#22c55e);">${{ total_saved|floatformat:0 }}</div>
+  </div>
+  <div class="kpi-chip">
+    <div class="kpi-chip-label">Total Target</div>
+    <div class="kpi-chip-value" style="color:var(--brand);">${{ total_needed|floatformat:0 }}</div>
+  </div>
+  <div class="kpi-chip">
+    <div class="kpi-chip-label">Monthly In</div>
+    <div class="kpi-chip-value" style="color:var(--teal,#14b8a6);">${{ total_monthly|floatformat:0 }}</div>
+  </div>
+</div>
+
+{% if goals %}
+<div class="goals-grid">
+  {% for goal in goals %}
+  {% with pct=goal.progress_pct %}
+  <div class="goal-card">
+    <div class="goal-card-header">
+      <div>
+        <div class="goal-card-name">{{ goal.name }}</div>
+        <span class="goal-type-tag">{{ goal.get_goal_type_display }}</span>
+      </div>
+      <div class="goal-actions">
+        <button class="btn btn-sm" style="font-size:11px;" onclick="editGoal(
+          {{ goal.pk }},
+          '{{ goal.name|escapejs }}',
+          '{{ goal.goal_type }}',
+          {{ goal.target_cents }},
+          {{ goal.current_cents }},
+          {{ goal.monthly_contribution_cents }},
+          '{{ goal.target_date|default:'' }}',
+          '{{ goal.notes|escapejs }}'
+        )"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-sm btn-danger" style="font-size:11px;" onclick="deleteGoal({{ goal.pk }})"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>
+
+    <div class="goal-amounts">
+      <div>
+        <div class="saved">${{ goal.current_cents|floatformat:0 }}</div>
+        <div>of ${{ goal.target_cents|floatformat:0 }}</div>
+      </div>
+      <div style="text-align:right;">
+        {% if goal.monthly_contribution_cents %}
+        <div style="font-size:13px;color:var(--text);">+${{ goal.monthly_contribution_cents|floatformat:0 }}/mo</div>
+        {% endif %}
+        {% if goal.months_to_goal %}
+        <div>~{{ goal.months_to_goal }} months</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="goal-bar-bg">
+      <div class="goal-bar-fill"
+           style="width:{{ pct }}%;background:{% if pct >= 100 %}var(--green,#22c55e){% elif pct >= 60 %}var(--teal,#14b8a6){% elif pct >= 30 %}var(--brand){% else %}var(--yellow,#f59e0b){% endif %};"></div>
+    </div>
+
+    <div class="goal-footer">
+      <span>{{ pct }}% complete</span>
+      {% if goal.target_date %}<span>target {{ goal.target_date }}</span>{% endif %}
+    </div>
+
+    {% if goal.notes %}
+    <div style="margin-top:10px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:8px;">{{ goal.notes }}</div>
+    {% endif %}
+  </div>
+  {% endwith %}
+  {% endfor %}
+</div>
+{% else %}
+<div style="text-align:center;padding:60px 24px;color:var(--text-muted);">
+  <i class="fa-solid fa-piggy-bank" style="font-size:32px;opacity:.3;display:block;margin-bottom:12px;"></i>
+  <div style="font-weight:600;margin-bottom:4px;">No goals yet</div>
+  <div style="font-size:12px;margin-bottom:16px;">Set up college fund, parent payoff, emergency fund, and more.</div>
+  <button class="btn btn-primary btn-sm" onclick="openGoalModal()">+ Add First Goal</button>
+</div>
+{% endif %}
+
+{# ── Modal ── #}
+<div class="modal-overlay" id="goal-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">Add Goal</div>
+    <input type="hidden" id="goal-pk">
+    <div class="form-row">
+      <label>Name</label>
+      <input type="text" id="goal-name" placeholder="e.g. Kids College Fund">
+    </div>
+    <div class="form-row">
+      <label>Type</label>
+      <select id="goal-type">
+        {% for val, label in goal_types %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-row">
+        <label>Target Amount ($)</label>
+        <input type="number" id="goal-target" placeholder="0" step="100">
+      </div>
+      <div class="form-row">
+        <label>Current Amount ($)</label>
+        <input type="number" id="goal-current" placeholder="0" step="1">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-row">
+        <label>Monthly Contribution ($)</label>
+        <input type="number" id="goal-monthly" placeholder="0" step="1">
+      </div>
+      <div class="form-row">
+        <label>Target Date (optional)</label>
+        <input type="date" id="goal-date">
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Notes</label>
+      <textarea id="goal-notes" rows="2" placeholder="529 account, Fidelity, etc."></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-sm" onclick="closeGoalModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveGoal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CSRF = document.cookie.match('(^|;) ?csrftoken=([^;]*)(;|$)')?.[2] ?? '';
+function post(url, body) {
+  return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF }, body: JSON.stringify(body) }).then(r => r.json());
+}
+function openGoalModal() {
+  document.getElementById('modal-title').textContent = 'Add Goal';
+  ['goal-pk','goal-name','goal-target','goal-current','goal-monthly','goal-date','goal-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('goal-type').value = 'other';
+  document.getElementById('goal-modal').classList.add('open');
+}
+function editGoal(pk, name, type, targetCents, currentCents, monthlyCents, targetDate, notes) {
+  document.getElementById('modal-title').textContent = 'Edit Goal';
+  document.getElementById('goal-pk').value = pk;
+  document.getElementById('goal-name').value = name;
+  document.getElementById('goal-type').value = type;
+  document.getElementById('goal-target').value = (targetCents / 100).toFixed(0);
+  document.getElementById('goal-current').value = (currentCents / 100).toFixed(0);
+  document.getElementById('goal-monthly').value = (monthlyCents / 100).toFixed(0);
+  document.getElementById('goal-date').value = targetDate;
+  document.getElementById('goal-notes').value = notes;
+  document.getElementById('goal-modal').classList.add('open');
+}
+function closeGoalModal() { document.getElementById('goal-modal').classList.remove('open'); }
+function saveGoal() {
+  const pk = document.getElementById('goal-pk').value;
+  post('{% url "pepperjuice:goal_save" %}', {
+    pk: pk || null,
+    name: document.getElementById('goal-name').value,
+    goal_type: document.getElementById('goal-type').value,
+    target: document.getElementById('goal-target').value,
+    current: document.getElementById('goal-current').value,
+    monthly: document.getElementById('goal-monthly').value,
+    target_date: document.getElementById('goal-date').value || null,
+    notes: document.getElementById('goal-notes').value,
+  }).then(d => { if (d.ok) location.reload(); });
+}
+function deleteGoal(pk) {
+  if (!confirm('Remove this goal?')) return;
+  post(`/finance/goals/${pk}/delete/`, {}).then(d => { if (d.ok) location.reload(); });
+}
+document.getElementById('goal-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeGoalModal(); });
+</script>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% block title %}Bills — Pepperjuice{% endblock %}
+
+{% block extra_css %}
+<style>
+.pj-section { padding:0 24px 24px; }
+.pj-section-title { font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:12px; display:flex; align-items:center; gap:10px; }
+.bill-table { width:100%; border-collapse:collapse; }
+.bill-table th { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:500; padding:6px 12px; border-bottom:1px solid var(--border); text-align:left; }
+.bill-table td { padding:10px 12px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:middle; }
+.bill-table tr:last-child td { border-bottom:none; }
+.bill-table tr:hover td { background:var(--surface-hover,rgba(255,255,255,.03)); }
+.status-badge { display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:500; }
+.badge-paid { background:#22c55e20; color:#22c55e; }
+.badge-overdue { background:#ef444420; color:#ef4444; }
+.badge-pending { background:#f59e0b20; color:#f59e0b; }
+.badge-auto { background:var(--brand-dim,rgba(124,106,247,.15)); color:var(--brand); font-size:10px; padding:1px 6px; border-radius:10px; margin-left:4px; }
+.badge-biz { background:rgba(20,184,166,.15); color:#14b8a6; font-size:10px; padding:1px 6px; border-radius:10px; margin-left:4px; }
+.totals-bar { display:flex; gap:24px; padding:12px 24px; background:var(--surface); border-top:1px solid var(--border); font-size:13px; }
+.totals-bar .t-label { color:var(--text-muted); margin-right:4px; }
+.totals-bar .t-val { font-weight:600; }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-xl,12px); padding:28px; width:420px; max-width:95vw; }
+.modal-title { font-size:16px; font-weight:700; margin-bottom:18px; }
+.form-row { margin-bottom:14px; }
+.form-row label { display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px; }
+.form-row input, .form-row select, .form-row textarea { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-md); padding:8px 10px; font-size:14px; color:var(--text); }
+.form-check { display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:8px; }
+.form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+@media(max-width:680px) { .bill-table th:nth-child(3), .bill-table td:nth-child(3) { display:none; } .pj-section { padding:0 16px 16px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Bills</div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a href="{% url 'pepperjuice:dashboard' %}" class="btn btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+    <button class="btn btn-primary btn-sm" onclick="openBillModal()"><i class="fa-solid fa-plus"></i> Add Bill</button>
+  </div>
+</div>
+
+<div class="totals-bar">
+  <span><span class="t-label">Personal/month:</span><span class="t-val">${{ personal_monthly|floatformat:2 }}</span></span>
+  <span><span class="t-label">Business/month:</span><span class="t-val">${{ business_monthly|floatformat:2 }}</span></span>
+</div>
+
+<div class="pj-section" style="padding-top:20px;">
+  {% if bills %}
+  <table class="bill-table">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Due</th>
+        <th style="text-align:right;">Amount</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in bills %}
+      <tr>
+        <td>
+          {% if item.paid %}
+          <span class="status-badge badge-paid"><i class="fa-solid fa-check"></i> Paid</span>
+          {% elif item.overdue %}
+          <span class="status-badge badge-overdue"><i class="fa-solid fa-exclamation"></i> Overdue</span>
+          {% else %}
+          <span class="status-badge badge-pending"><i class="fa-regular fa-clock"></i> Pending</span>
+          {% endif %}
+        </td>
+        <td>
+          {{ item.bill.name }}
+          {% if item.bill.is_auto_pay %}<span class="badge-auto">auto</span>{% endif %}
+          {% if item.bill.is_business %}<span class="badge-biz">biz</span>{% endif %}
+        </td>
+        <td style="color:var(--text-muted);">{{ item.bill.get_category_display }}</td>
+        <td style="color:var(--text-muted);">{{ item.bill.due_day }}{% if item.bill.due_day == 1 %}st{% elif item.bill.due_day == 2 %}nd{% elif item.bill.due_day == 3 %}rd{% else %}th{% endif %}</td>
+        <td style="text-align:right;font-weight:600;">{{ item.bill.amount_display }}</td>
+        <td style="text-align:right;white-space:nowrap;">
+          {% if not item.paid %}
+          <button class="btn btn-sm" style="font-size:11px;margin-right:4px;" onclick="markPaid({{ item.bill.pk }})">
+            <i class="fa-solid fa-check"></i> Paid
+          </button>
+          {% endif %}
+          <button class="btn btn-sm" style="font-size:11px;margin-right:4px;" onclick="editBill({{ item.bill.pk }}, '{{ item.bill.name|escapejs }}', {{ item.bill.amount_cents }}, {{ item.bill.due_day }}, '{{ item.bill.category }}', {{ item.bill.is_auto_pay|yesno:'true,false' }}, {{ item.bill.is_business|yesno:'true,false' }})">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button class="btn btn-sm btn-danger" style="font-size:11px;" onclick="deleteBill({{ item.bill.pk }})">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:48px;color:var(--text-muted);">
+    <i class="fa-solid fa-file-invoice-dollar" style="font-size:28px;opacity:.3;display:block;margin-bottom:10px;"></i>
+    No bills yet. Add your first one.
+  </div>
+  {% endif %}
+</div>
+
+{# ── Add/Edit Modal ── #}
+<div class="modal-overlay" id="bill-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">Add Bill</div>
+    <input type="hidden" id="bill-pk" value="">
+    <div class="form-row">
+      <label>Name</label>
+      <input type="text" id="bill-name" placeholder="e.g. Rent, Netflix, Car Insurance">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-row">
+        <label>Amount ($)</label>
+        <input type="number" id="bill-amount" placeholder="0.00" step="0.01">
+      </div>
+      <div class="form-row">
+        <label>Due Day of Month</label>
+        <input type="number" id="bill-due-day" min="1" max="31" placeholder="1–31">
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Category</label>
+      <select id="bill-category">
+        {% for val, label in categories %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-check"><input type="checkbox" id="bill-autopay"> <label for="bill-autopay">Auto-pay (handled by Sequence)</label></div>
+    <div class="form-check"><input type="checkbox" id="bill-business"> <label for="bill-business">Business expense (Fckry.LLC)</label></div>
+    <div class="form-actions">
+      <button class="btn btn-sm" onclick="closeBillModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveBill()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CSRF = document.cookie.match('(^|;) ?csrftoken=([^;]*)(;|$)')?.[2] ?? '';
+function post(url, body) {
+  return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF }, body: JSON.stringify(body) }).then(r => r.json());
+}
+function openBillModal() {
+  document.getElementById('modal-title').textContent = 'Add Bill';
+  document.getElementById('bill-pk').value = '';
+  document.getElementById('bill-name').value = '';
+  document.getElementById('bill-amount').value = '';
+  document.getElementById('bill-due-day').value = '';
+  document.getElementById('bill-category').value = 'other';
+  document.getElementById('bill-autopay').checked = false;
+  document.getElementById('bill-business').checked = false;
+  document.getElementById('bill-modal').classList.add('open');
+}
+function editBill(pk, name, amountCents, dueDay, category, autopay, biz) {
+  document.getElementById('modal-title').textContent = 'Edit Bill';
+  document.getElementById('bill-pk').value = pk;
+  document.getElementById('bill-name').value = name;
+  document.getElementById('bill-amount').value = (amountCents / 100).toFixed(2);
+  document.getElementById('bill-due-day').value = dueDay;
+  document.getElementById('bill-category').value = category;
+  document.getElementById('bill-autopay').checked = autopay;
+  document.getElementById('bill-business').checked = biz;
+  document.getElementById('bill-modal').classList.add('open');
+}
+function closeBillModal() { document.getElementById('bill-modal').classList.remove('open'); }
+function saveBill() {
+  const pk = document.getElementById('bill-pk').value;
+  post('{% url "pepperjuice:bill_save" %}', {
+    pk: pk || null,
+    name: document.getElementById('bill-name').value,
+    amount: document.getElementById('bill-amount').value,
+    due_day: document.getElementById('bill-due-day').value,
+    category: document.getElementById('bill-category').value,
+    is_auto_pay: document.getElementById('bill-autopay').checked,
+    is_business: document.getElementById('bill-business').checked,
+  }).then(d => { if (d.ok) location.reload(); });
+}
+function markPaid(pk) {
+  post(`/finance/bills/${pk}/paid/`, {}).then(d => { if (d.ok) location.reload(); });
+}
+function deleteBill(pk) {
+  if (!confirm('Remove this bill?')) return;
+  post(`/finance/bills/${pk}/delete/`, {}).then(d => { if (d.ok) location.reload(); });
+}
+document.getElementById('bill-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeBillModal(); });
+</script>
+{% endblock %}
