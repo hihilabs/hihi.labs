@@ -13,8 +13,11 @@ def _ssh_key():
     return getattr(settings, 'GITNODE_SSH_KEY', '/app/ssh/id_ed25519_unraid')
 
 
+SSH_BIN = '/usr/bin/ssh'
+
+
 def _ssh_base(server):
-    cmd = ['ssh', '-i', _ssh_key()] + SSH_OPTS
+    cmd = [SSH_BIN, '-i', _ssh_key()] + SSH_OPTS
     if server.port != 22:
         cmd += ['-p', str(server.port)]
     cmd.append(f'{server.ssh_user}@{server.host}')
