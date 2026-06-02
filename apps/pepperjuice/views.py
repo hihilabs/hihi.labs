@@ -18,11 +18,14 @@ def dashboard(request):
 
     personal_total = 0
     business_total = 0
+    total_debt = 0
     if connection:
-        for a in connection.accounts.all():
-            if a.is_business:
+        for a in connection.accounts.filter(account_type='external'):
+            if a.account_subtype in ('loan', 'credit'):
+                total_debt += a.balance_cents
+            elif a.is_business:
                 business_total += a.balance_cents
-            else:
+            elif a.account_subtype in ('cash', 'crypto'):
                 personal_total += a.balance_cents
 
     bills = Bill.objects.filter(user=request.user, is_active=True)
@@ -46,11 +49,12 @@ def dashboard(request):
         'connection': connection,
         'personal_total': personal_total / 100,
         'business_total': business_total / 100,
+        'total_debt': total_debt / 100,
         'bills': bills_data,
         'overdue_count': overdue_count,
         'paid_count': paid_count,
         'total_bills': bills.count(),
-        'total_monthly_cents': total_monthly_cents,
+        'total_monthly': total_monthly_cents / 100,
         'goals': goals,
     })
 
@@ -170,6 +174,7 @@ def accounts_view(request):
     return render(request, 'pepperjuice/accounts.html', {
         'connection': connection,
         'accounts': accounts,
+        'subtype_choices': CachedAccount.SUBTYPE_CHOICES,
     })
 
 
@@ -184,30 +189,102 @@ def sync_accounts(request):
         client = SequenceClient(connection.api_key)
         data = client.get_accounts()
 
-        raw_list = data if isinstance(data, list) else data.get('accounts', data.get('data', []))
+        # Response shape: {"message":"OK","data":{"accounts":[...]}}
+        # Balance shape: {"amountInDollars": 123.45, "error": null}
+        raw_list = data.get('data', {}).get('accounts', [])
+        if not raw_list and isinstance(data, list):
+            raw_list = data  # fallback for any API version change
+
         seen_ids = []
+        balance_map = {}  # seq_id → balance_cents
+
+        TYPE_MAP = {
+            'account': 'external',
+            'income source': 'income',
+            'income_source': 'income',
+            'pod': 'pod',
+        }
+
+        def safe_cents(val):
+            if val is None:
+                return 0
+            try:
+                return int(float(str(val).replace(',', '')) * 100)
+            except (ValueError, TypeError):
+                return 0
+
+        def detect_subtype(name, acct_type, institution=''):
+            if acct_type == 'pod':
+                return 'bucket'
+            if acct_type == 'income':
+                return 'other'
+            n = name.lower()
+            inst = institution.lower()
+            if 'credit card' in n:
+                return 'credit'
+            if 'loan' in n or 'loan' in inst:
+                return 'loan'
+            if '401' in n or 'ira' in n or 'tod' in n or 'individual' in n or 'fidelity' in inst or 'vanguard' in inst:
+                return 'investment'
+            if 'kraken' in inst or 'coinbase' in inst or 'crypto' in n or 'bitcoin' in n:
+                return 'crypto'
+            if 'checking' in n or 'savings' in n or 'bank' in inst or 'credit union' in inst or 'paypal' in n:
+                return 'cash'
+            return 'other'
+
         for acct in raw_list:
-            seq_id = acct.get('id') or acct.get('accountId', '')
-            balance_raw = acct.get('balance') or acct.get('availableBalance') or acct.get('amount', 0)
-            balance_cents = int(float(balance_raw) * 100)
-            CachedAccount.objects.update_or_create(
+            seq_id = str(acct.get('id') or acct.get('accountId') or acct.get('uuid') or '')
+            if not seq_id:
+                continue
+
+            # Balance is nested: {"amountInDollars": 123.45, "error": null}
+            bal_obj = acct.get('balance') or {}
+            if isinstance(bal_obj, dict):
+                dollars = bal_obj.get('amountInDollars')
+            else:
+                dollars = bal_obj  # flat value fallback
+            balance_cents = safe_cents(dollars)
+
+            raw_type = (acct.get('type') or 'pod').lower().strip()
+            acct_type = TYPE_MAP.get(raw_type, 'pod')
+            name = acct.get('name', 'Unknown')
+            institution = acct.get('institution', '')
+            subtype = detect_subtype(name, acct_type, institution)
+
+            obj, created = CachedAccount.objects.update_or_create(
                 connection=connection,
                 sequence_id=seq_id,
                 defaults={
-                    'name': acct.get('name', 'Unknown'),
-                    'account_type': (acct.get('type') or 'pod').lower(),
+                    'name': name,
+                    'institution': institution,
+                    'account_type': acct_type,
                     'balance_cents': balance_cents,
                     'currency': acct.get('currency', 'USD'),
                 },
             )
+            # Set subtype on creation or if still unclassified; preserve manual overrides
+            if created or obj.account_subtype == 'other':
+                obj.account_subtype = subtype
+                obj.save(update_fields=['account_subtype'])
             seen_ids.append(seq_id)
+            balance_map[seq_id] = balance_cents
+
+        # Auto-update any savings goals linked to a Sequence account
+        goals_updated = 0
+        for goal in SavingsGoal.objects.filter(user=request.user, is_active=True).exclude(sequence_account_id=''):
+            if goal.sequence_account_id in balance_map:
+                goal.current_cents = balance_map[goal.sequence_account_id]
+                goal.save(update_fields=['current_cents'])
+                goals_updated += 1
 
         connection.last_sync = timezone.now()
         connection.save()
-        return JsonResponse({'ok': True, 'count': len(seen_ids)})
+        return JsonResponse({'ok': True, 'count': len(seen_ids), 'goals_updated': goals_updated})
 
     except SequenceAPIError as e:
-        return JsonResponse({'error': str(e)}, status=502)
+        return JsonResponse({'ok': False, 'error': str(e)})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': f'{type(e).__name__}: {e}'})
 
 
 @login_required
@@ -217,6 +294,20 @@ def account_toggle_business(request, pk):
     account.is_business = not account.is_business
     account.save()
     return JsonResponse({'ok': True, 'is_business': account.is_business})
+
+
+@login_required
+@require_POST
+def account_set_subtype(request, pk):
+    account = get_object_or_404(CachedAccount, pk=pk, connection__user=request.user)
+    data = json.loads(request.body)
+    valid = [c[0] for c in CachedAccount.SUBTYPE_CHOICES]
+    subtype = data.get('subtype', '')
+    if subtype not in valid:
+        return JsonResponse({'ok': False, 'error': 'Invalid subtype'})
+    account.account_subtype = subtype
+    account.save(update_fields=['account_subtype'])
+    return JsonResponse({'ok': True, 'subtype': account.account_subtype})
 
 
 @login_required
