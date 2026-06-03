@@ -2564,3 +2564,19 @@ body::before {
 .footer-content { line-height: 1.7; margin-bottom: 12px; }
 .footer-ticket-form { padding: 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-lg); }
 .footer-ticket-title { font-size: 13px; font-weight: var(--weight-bold); color: var(--text); }
+
+/* ── Grab pill (dashboard project subscription) ─────── */
+.grab-pill {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all .15s;
+  line-height: 1.5;
+}
+.grab-pill:hover { border-color: var(--accent); color: var(--accent); }
+.grab-pill.grabbed { border-color: #2dd4bf; color: #2dd4bf; }

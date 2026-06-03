@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — HiHi Labs{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── KPI strip ── */
+.kpi-strip{display:flex;gap:8px;padding:0 24px 16px;flex-wrap:wrap;}
+.kpi-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 14px;min-width:130px;flex:1;}
+.kpi-icon{font-size:13px;margin-bottom:3px;}
+.kpi-value{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;line-height:1.1;}
+.kpi-label{font-size:10px;color:var(--text-muted);letter-spacing:.05em;margin-top:2px;}
+
+/* ── command grid ── */
+.cmd-grid{display:grid;grid-template-columns:280px 1fr;gap:12px;padding:0 24px 24px;height:calc(100vh - 178px);align-items:start;}
+.cmd-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;display:flex;flex-direction:column;height:100%;}
+.cmd-panel:hover{border-color:var(--border-hover);}
+.cmd-ph{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:40px;}
+.cmd-ph-title{font-family:'Syne',sans-serif;font-weight:700;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--text-muted);}
+.cmd-ph-title em{color:var(--accent);font-style:normal;}
+.cmd-ph-actions{display:flex;align-items:center;gap:5px;}
+
+/* ── entity tabs ── */
+.etabs{display:flex;gap:3px;flex-wrap:wrap;}
+.etab{padding:3px 8px;border-radius:3px;font-size:10px;cursor:pointer;border:1px solid var(--border);color:var(--text-muted);background:transparent;font-family:inherit;letter-spacing:.04em;transition:all .13s;white-space:nowrap;}
+.etab:hover{border-color:var(--border-hover);color:var(--text);}
+.etab.on{font-weight:500;}
+.etab[data-e="all"].on{border-color:var(--accent);color:var(--accent);background:rgba(124,106,247,.1);}
+.etab[data-e="binsky"].on{border-color:#a78bfa;color:#a78bfa;background:rgba(167,139,250,.08);}
+.etab[data-e="fckry"].on{border-color:#f472b6;color:#f472b6;background:rgba(244,114,182,.08);}
+.etab[data-e="community"].on{border-color:#2dd4bf;color:#2dd4bf;background:rgba(45,212,191,.08);}
+.etab[data-e="clients"].on{border-color:#60a5fa;color:#60a5fa;background:rgba(96,165,250,.08);}
+.etab[data-e="general"].on{border-color:#3a3a5a;color:var(--text-muted);background:rgba(58,58,90,.18);}
+
+/* ── alert strip ── */
+.alert-strip{padding:5px 24px 0;display:flex;gap:6px;flex-wrap:wrap;}
+.alert-chip{display:flex;align-items:center;gap:5px;font-size:10px;padding:4px 8px;border-radius:4px;border:1px solid rgba(248,113,113,.25);background:rgba(248,113,113,.06);color:#f87171;}
+.alert-chip a{color:inherit;text-decoration:none;}
+.alert-chip.followup{border-color:rgba(251,191,36,.25);background:rgba(251,191,36,.06);color:#fbbf24;}
+
+/* ── digest / lloyd strip ── */
+.lloyd-strip{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--border);flex-wrap:wrap;font-size:11px;cursor:pointer;flex-shrink:0;}
+.lloyd-strip:hover{background:var(--bg-hover);}
+.lloyd-strip .ls-label{color:var(--text-muted);}
+.lloyd-strip .ls-stats{color:var(--text);}
+.lloyd-strip .ls-expand{color:var(--accent);font-size:10px;margin-left:auto;white-space:nowrap;}
+.lloyd-body{display:none;padding:10px 14px;font-size:11px;line-height:1.8;color:var(--text-muted);border-top:1px solid var(--border);max-height:160px;overflow-y:auto;flex-shrink:0;}
+.lloyd-body.show{display:block;}
+
+/* ── feeds connect btn ── */
+.feed-connect-btn{background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:3px 7px;border-radius:4px;font-family:inherit;font-size:10px;cursor:pointer;transition:all .15s;}
+.feed-connect-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── feed modal ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;align-items:center;justify-content:center;padding:20px;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--bg-card);border:1px solid var(--border-hover);border-radius:var(--r-xl);padding:20px;width:100%;max-width:400px;}
+.modal h3{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:14px;}
+.modal h3 span{color:var(--accent);}
+.mrow{display:flex;flex-direction:column;gap:3px;margin-bottom:9px;}
+.mrow label{font-size:10px;color:var(--text-muted);}
+.mrow input{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:7px 10px;font-family:inherit;font-size:12px;outline:none;width:100%;}
+.mrow input:focus{border-color:var(--accent);}
+.feed-list{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;max-height:160px;overflow-y:auto;}
+.feed-row{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg);border-radius:var(--r-sm);}
+.feed-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.feed-name{flex:1;font-size:11px;}
+.feed-del{background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:2px 5px;}
+.feed-del:hover{color:#f87171;}
+.mbtns{display:flex;gap:7px;margin-top:6px;}
+.mbtn{flex:1;padding:7px;border-radius:var(--r-sm);font-family:inherit;font-size:11px;cursor:pointer;transition:opacity .18s;}
+.mbtn.save{background:var(--accent);border:none;color:#fff;}.mbtn.save:hover{opacity:.85;}
+.mbtn.cancel{background:transparent;border:1px solid var(--border-hover);color:var(--text-muted);}
+
+@media(max-width:900px){
+  .cmd-grid{grid-template-columns:1fr;height:auto;}
+  .cmd-panel{height:auto;max-height:none;}
+  .kpi-strip{padding:0 16px 12px;}
+  .cmd-grid{padding:0 16px 20px;}
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% if running %}
+<div class="timer-bar" id="timer-bar" style="margin:0 24px 12px;border-radius:var(--r-lg);">
+  <div class="timer-bar-dot"></div>
+  <span id="timer-project">{{ running.project.name }}{% if running.task %} · {{ running.task.title }}{% endif %}</span>
+  <span id="timer-clock" class="timer-clock">--:--:--</span>
+  <button class="btn btn-danger btn-sm" onclick="stopTimer()"><i class="fa-solid fa-stop"></i> Stop</button>
+</div>
+{% endif %}
+
+{% if alerts or due_followups %}
+<div class="alert-strip">
+  {% for a in alerts %}
+  <div class="alert-chip"><i class="fa-solid fa-bell"></i> {{ a.message|truncatechars:50 }}</div>
+  {% endfor %}
+  {% for f in due_followups %}
+  <div class="alert-chip followup"><i class="fa-solid fa-calendar-check"></i>
+    <a href="{% url 'clients:detail' f.client.pk %}">{{ f.client.display_name }}</a> — {{ f.note|truncatechars:40 }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# KPI strip #}
+<div class="kpi-strip" style="padding-top:{% if alerts or due_followups %}10px{% else %}0{% endif %}">
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--accent);"><i class="fa-solid fa-folder-open"></i></div>
+    <div class="kpi-value">{{ active_project_count }}</div>
+    <div class="kpi-label">Active Projects</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--teal);"><i class="fa-solid fa-clock"></i></div>
+    <div class="kpi-value">{{ month_hours }}h</div>
+    <div class="kpi-label">Hours This Month</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--yellow);"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+    <div class="kpi-value">${{ unbilled_value|floatformat:0 }}</div>
+    <div class="kpi-label">Unbilled · {{ unbilled_hours }}h</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--green);"><i class="fa-solid fa-list-check"></i></div>
+    <div class="kpi-value">{{ open_tasks }}</div>
+    <div class="kpi-label">Open Tasks</div>
+  </div>
+  {% if draft_count or sent_count %}
+  <div class="kpi-card">
+    <div class="kpi-icon" style="color:var(--orange);"><i class="fa-solid fa-file-pen"></i></div>
+    <div class="kpi-value">{{ draft_count }}</div>
+    <div class="kpi-label">Drafts{% if sent_count %} · {{ sent_count }} sent{% endif %}</div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── command grid ── #}
+<div class="cmd-grid">
+
+  {# LEFT — Schedule #}
+  <div class="cmd-panel" id="cal-panel">
+    <div class="cmd-ph">
+      <div class="cmd-ph-title"><em>Schedule</em></div>
+      <div class="cmd-ph-actions">
+        <span id="ev-ct" style="font-size:10px;color:var(--text-muted);"></span>
+        <button class="feed-connect-btn" onclick="openFeedsModal()"><i class="fa-solid fa-link"></i> feeds</button>
+      </div>
+    </div>
+    <div id="cal-module" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+      <div style="padding:12px 14px;color:var(--text-dim);font-size:11px;font-style:italic;">
+        {% if calendar_feeds %}loading calendar…{% else %}no feeds connected — click <strong>feeds</strong> to add{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# RIGHT — Tasks #}
+  <div class="cmd-panel" id="tasks-panel">
+    <div class="cmd-ph">
+      <div class="cmd-ph-title"><em>Tasks</em> <span id="task-ct" style="color:var(--text-dim);font-weight:400;font-family:'DM Mono',monospace;font-size:10px;"></span></div>
+      <div class="cmd-ph-actions">
+        <div class="etabs">
+          <button class="etab on" data-e="all"       onclick="setEntity('all',this)">all</button>
+          <button class="etab" data-e="binsky"       onclick="setEntity('binsky',this)"    style="color:#a78bfa;">binsky</button>
+          <button class="etab" data-e="fckry"        onclick="setEntity('fckry',this)"     style="color:#f472b6;">fckry</button>
+          <button class="etab" data-e="community"    onclick="setEntity('community',this)" style="color:#2dd4bf;">community</button>
+          <button class="etab" data-e="clients"      onclick="setEntity('clients',this)"   style="color:#60a5fa;">clients</button>
+          <button class="etab" data-e="general"      onclick="setEntity('general',this)">general</button>
+        </div>
+      </div>
+    </div>
+    <div id="tasks-module" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+      <div style="padding:12px 14px;color:var(--text-dim);font-size:11px;font-style:italic;">loading tasks…</div>
+    </div>
+
+    {# Lloyd digest strip #}
+    <div class="lloyd-strip" onclick="toggleLloyd()" id="lloyd-strip">
+      <span class="ls-label">&#129302; lloyd</span>
+      <span class="ls-stats" id="lloyd-stats">—</span>
+      <span class="ls-expand" id="lloyd-toggle">show &#9660;</span>
+    </div>
+    <div class="lloyd-body" id="lloyd-body"></div>
+  </div>
+
+</div>{# /cmd-grid #}
+
+{# ── feeds modal ── #}
+<div class="modal-bg" id="feeds-modal" onclick="if(event.target===this)closeFeedsModal()">
+  <div class="modal">
+    <h3>calendar <span>feeds</span></h3>
+    <div class="feed-list" id="feed-list">
+      {% for feed in calendar_feeds %}
+      <div class="feed-row" id="feed-row-{{ feed.id }}">
+        <div class="feed-dot" style="background:{{ feed.color }};"></div>
+        <span class="feed-name">{{ feed.name }}</span>
+        <button class="feed-del" onclick="deleteFeed({{ feed.id }})"><i class="fa-solid fa-trash"></i></button>
+      </div>
+      {% empty %}
+      <div style="font-size:11px;color:var(--text-muted);padding:4px 0;">no feeds yet</div>
+      {% endfor %}
+    </div>
+    <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em;">add feed</div>
+    <div class="mrow"><label>name</label><input id="feed-name" placeholder="e.g. health, hihi, work"/></div>
+    <div class="mrow"><label>ICS URL</label><input id="feed-url" placeholder="webcal:// or https://…"/></div>
+    <div class="mrow"><label>color</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;">
+        {% for col in feed_palette %}
+        <div class="color-swatch" data-color="{{ col }}"
+             style="width:20px;height:20px;border-radius:50%;background:{{ col }};cursor:pointer;border:2px solid transparent;"
+             onclick="selectColor('{{ col }}',this)"></div>
+        {% endfor %}
+        <input type="color" id="feed-color-custom" value="#7c6af7" style="width:22px;height:22px;border:none;padding:0;background:none;cursor:pointer;" title="custom color"/>
+      </div>
+      <input type="hidden" id="feed-color" value="#7c6af7"/>
+    </div>
+    <div class="mbtns">
+      <button class="mbtn cancel" onclick="closeFeedsModal()">cancel</button>
+      <button class="mbtn save" onclick="addFeed()">add feed</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const DASH = {
+  calUrl:     "{% url 'dashboard:module_calendar' %}",
+  tasksUrl:   "{% url 'dashboard:module_tasks' %}",
+  digestUrl:  "{% url 'dashboard:module_digest' %}",
+  feedAddUrl: "{% url 'dashboard:feed_add' %}",
+  taskDoneUrl:"{% url 'dashboard:mark_task_done' %}",
+  taskAddUrl: "{% url 'dashboard:add_task' %}",
+  noteAddUrl: "{% url 'dashboard:add_note' %}",
+  grabBase:   "/dashboard/grab/",
+  feedDelBase:"/dashboard/feeds/",
+  noteDelBase:"/dashboard/notes/",
+  csrf:       "{{ csrf_token }}",
+  hasCal:     {{ calendar_feeds|length }} > 0,
+};
+
+// ── init ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function(){
+  loadTasks();
+  if (DASH.hasCal) loadCalendar('all');
+  loadLloydStats();
+});
+
+// ── calendar ──────────────────────────────────────────────────────
+var calFilter = 'all';
+
+function loadCalendar(cal) {
+  calFilter = cal || 'all';
+  fetch(DASH.calUrl + (cal && cal !== 'all' ? '?cal=' + encodeURIComponent(cal) : ''))
+    .then(r => r.text())
+    .then(html => { document.getElementById('cal-module').innerHTML = html; bindCal(); })
+    .catch(() => { document.getElementById('cal-module').innerHTML = '<div style="padding:12px 14px;color:var(--red);font-size:11px">calendar unavailable</div>'; });
+}
+
+function bindCal() {
+  // Update event count badge
+  var items = document.querySelectorAll('.cblk');
+  document.getElementById('ev-ct').textContent = items.length + ' / 7d';
+}
+
+// ── tasks ─────────────────────────────────────────────────────────
+var entityFilter = 'all';
+
+function setEntity(e, btn) {
+  entityFilter = e;
+  document.querySelectorAll('.etab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  loadTasks();
+}
+
+function loadTasks() {
+  fetch(DASH.tasksUrl + (entityFilter !== 'all' ? '?entity=' + entityFilter : ''))
+    .then(r => r.text())
+    .then(html => { document.getElementById('tasks-module').innerHTML = html; bindTasks(); })
+    .catch(() => {});
+}
+
+function bindTasks() {
+  var rows = document.querySelectorAll('.task-row');
+  document.getElementById('task-ct').textContent = '· ' + rows.length;
+}
+
+function markDone(id, btn) {
+  var row = btn.closest('.task-row');
+  btn.classList.add('checked');
+  btn.innerHTML = '✓';
+  row.style.opacity = '0';
+  row.style.transition = 'opacity .3s';
+  setTimeout(() => row.remove(), 300);
+  fetch(DASH.taskDoneUrl, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':DASH.csrf},
+    body: JSON.stringify({id: id})
+  });
+}
+
+function addTask(form) {
+  var inp = form.querySelector('.task-input');
+  var sel = form.querySelector('.task-proj-sel');
+  var title = inp.value.trim();
+  var projId = sel ? parseInt(sel.value) : 0;
+  if (!title || !projId) return;
+  fetch(DASH.taskAddUrl, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':DASH.csrf},
+    body: JSON.stringify({title: title, project_id: projId})
+  }).then(() => { inp.value=''; loadTasks(); });
+}
+
+function toggleTaskGroup(hdr) {
+  var body = hdr.nextElementSibling;
+  var chev = hdr.querySelector('.proj-chevron');
+  var collapsed = body.classList.toggle('collapsed');
+  chev.style.transform = collapsed ? 'rotate(-90deg)' : '';
+}
+
+// ── lloyd digest ──────────────────────────────────────────────────
+var lloydOpen = false, lloydLoaded = false;
+
+function loadLloydStats() {
+  fetch(DASH.digestUrl + '?skip_ai=1')
+    .then(r => r.text())
+    .then(html => {
+      // Extract stats from digest partial
+      var tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      var stats = tmp.querySelector('[data-stats]');
+      if (stats) document.getElementById('lloyd-stats').textContent = stats.dataset.stats;
+    });
+}
+
+function toggleLloyd() {
+  lloydOpen = !lloydOpen;
+  var body = document.getElementById('lloyd-body');
+  var tog  = document.getElementById('lloyd-toggle');
+  body.classList.toggle('show', lloydOpen);
+  tog.innerHTML = lloydOpen ? 'hide &#9650;' : 'show &#9660;';
+  if (lloydOpen && !lloydLoaded) {
+    body.innerHTML = '<div style="font-style:italic;color:var(--text-dim)">lloyd is thinking…</div>';
+    fetch(DASH.digestUrl)
+      .then(r => r.text())
+      .then(html => { body.innerHTML = html; lloydLoaded = true; });
+  }
+}
+
+// ── feeds modal ───────────────────────────────────────────────────
+var _feedColor = '#7c6af7';
+
+function openFeedsModal()  { document.getElementById('feeds-modal').classList.add('show'); }
+function closeFeedsModal() { document.getElementById('feeds-modal').classList.remove('show'); }
+
+function selectColor(col, el) {
+  _feedColor = col;
+  document.getElementById('feed-color').value = col;
+  document.querySelectorAll('.color-swatch').forEach(s => s.style.borderColor = 'transparent');
+  el.style.borderColor = '#fff';
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var cp = document.getElementById('feed-color-custom');
+  if (cp) cp.addEventListener('input', function(){ _feedColor = this.value; document.getElementById('feed-color').value = this.value; });
+});
+
+function addFeed() {
+  var name  = document.getElementById('feed-name').value.trim();
+  var url   = document.getElementById('feed-url').value.trim();
+  var color = document.getElementById('feed-color').value || _feedColor;
+  if (!name || !url) return;
+
+  fetch(DASH.feedAddUrl, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':DASH.csrf},
+    body: JSON.stringify({name, url, color})
+  }).then(r => r.json()).then(d => {
+    if (d.id) {
+      var list = document.getElementById('feed-list');
+      var existing = list.querySelector('[style*="font-size:11px"]'); // "no feeds yet" msg
+      if (existing) existing.remove();
+      var row = document.createElement('div');
+      row.className = 'feed-row'; row.id = 'feed-row-' + d.id;
+      row.innerHTML = '<div class="feed-dot" style="background:'+d.color+'"></div><span class="feed-name">'+d.name+'</span><button class="feed-del" onclick="deleteFeed('+d.id+')"><i class="fa-solid fa-trash"></i></button>';
+      list.appendChild(row);
+      document.getElementById('feed-name').value = '';
+      document.getElementById('feed-url').value  = '';
+      DASH.hasCal = true;
+      loadCalendar(calFilter);
+    }
+  });
+}
+
+function deleteFeed(id) {
+  fetch(DASH.feedDelBase + id + '/delete/', {
+    method:'POST', headers:{'X-CSRFToken':DASH.csrf}
+  }).then(() => {
+    var row = document.getElementById('feed-row-' + id);
+    if (row) row.remove();
+    loadCalendar(calFilter);
+  });
+}
+
+// ── grab project (called from project pages) ──────────────────────
+function grabProject(pk, btn) {
+  fetch(DASH.grabBase + pk + '/', {
+    method:'POST', headers:{'X-CSRFToken':DASH.csrf}
+  }).then(r => r.json()).then(d => {
+    btn.classList.toggle('grabbed', d.grabbed);
+    btn.title = d.grabbed ? 'ungrab project' : 'grab project';
+    if (!d.grabbed) loadTasks();
+  });
+}
+</script>
+{% endblock %}

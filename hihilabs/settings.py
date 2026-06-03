@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'apps.tickets',
     'apps.portal',
     'apps.pepperjuice',
+    'apps.dashboard',
 ]
 
 MIDDLEWARE = [

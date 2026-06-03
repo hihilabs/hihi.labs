@@ -33,11 +33,14 @@ def _get_task(pk, user):
 
 @login_required
 def project_index(request):
+    from apps.dashboard.models import ProjectSubscription
     projects = _proj_qs(request.user).exclude(status='archived')
     running = TimeEntry.objects.filter(owner=request.user, ended_at__isnull=True).first()
+    grabbed_ids = set(ProjectSubscription.objects.filter(user=request.user).values_list('project_id', flat=True))
     return render(request, 'projects/index.html', {
-        'projects': projects,
-        'running': running,
+        'projects':    projects,
+        'running':     running,
+        'grabbed_ids': grabbed_ids,
     })
 
 
@@ -55,17 +58,20 @@ def project_detail(request, pk):
     files = ClientFile.objects.filter(project=project).order_by('-created_at')
     notes = project.notes.select_related('author')
     from apps.tickets.models import Ticket
+    from apps.dashboard.models import ProjectSubscription
     proj_tickets = Ticket.objects.filter(project=project).order_by('-created_at')
+    is_grabbed = ProjectSubscription.objects.filter(user=request.user, project=project).exists()
     return render(request, 'projects/detail.html', {
-        'project': project,
-        'tasks': tasks,
-        'entries': entries,
-        'running': running,
-        'tracks': tracks,
+        'project':    project,
+        'tasks':      tasks,
+        'entries':    entries,
+        'running':    running,
+        'tracks':     tracks,
         'whiteboards': whiteboards,
-        'files': files,
-        'notes': notes,
+        'files':      files,
+        'notes':      notes,
         'proj_tickets': proj_tickets,
+        'is_grabbed': is_grabbed,
     })
 
 
@@ -77,6 +83,7 @@ def project_create(request):
         owner=request.user,
         name=data['name'],
         client=data.get('client', ''),
+        entity=data.get('entity', 'general'),
         color=data.get('color', '#7c6af7'),
         hourly_rate=data.get('hourly_rate', 150),
     )
@@ -88,7 +95,7 @@ def project_create(request):
 def project_update(request, pk):
     project = _get_project(pk, request.user)
     data = json.loads(request.body)
-    for field in ['name', 'client', 'description', 'status', 'color', 'hourly_rate']:
+    for field in ['name', 'client', 'description', 'status', 'entity', 'color', 'hourly_rate']:
         if field in data:
             setattr(project, field, data[field])
     project.save()

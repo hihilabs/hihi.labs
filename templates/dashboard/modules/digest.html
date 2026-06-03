@@ -1,0 +1,64 @@
+{# Lloyd digest partial — rendered by module_digest #}
+{# data-stats attr read by loadLloydStats() for the collapsed strip #}
+<span data-stats="{{ total_open }} open{% if overdue_tasks %} · {{ overdue_tasks|length }} overdue{% endif %}" style="display:none;"></span>
+
+{% if lloyd_summary %}
+<div style="font-size:11px;line-height:1.7;color:var(--text-muted);margin-bottom:8px;">
+  {{ lloyd_summary }}
+</div>
+{% endif %}
+
+{% if overdue_tasks %}
+<div style="margin-bottom:6px;">
+  <div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px;">overdue tasks</div>
+  {% for t in overdue_tasks %}
+  <div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0;">
+    <span style="color:#f87171;">&#9888;</span>
+    <span style="flex:1;color:var(--text);">{{ t.title|truncatechars:50 }}</span>
+    <span style="color:var(--text-dim);font-size:10px;">{{ t.project.name|truncatechars:20 }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if open_invoices %}
+<div style="margin-bottom:6px;">
+  <div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px;">open invoices</div>
+  {% for inv in open_invoices %}
+  <div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0;">
+    <span style="color:#fbbf24;">$</span>
+    <span style="flex:1;color:var(--text);">{{ inv.client_name|default:inv.client_fk.display_name|truncatechars:30 }}</span>
+    <span style="color:var(--accent);">${{ inv.amount|floatformat:0 }}</span>
+    {% if inv.status == 'overdue' %}<span style="color:#f87171;font-size:9px;">overdue</span>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if followups %}
+<div style="margin-bottom:6px;">
+  <div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px;">follow-ups</div>
+  {% for f in followups %}
+  <div style="display:flex;align-items:center;gap:6px;font-size:11px;padding:2px 0;">
+    <span style="color:#60a5fa;">&#128197;</span>
+    <span style="flex:1;color:var(--text);">{{ f.client.display_name }}</span>
+    <span style="color:var(--text-muted);font-size:10px;">{{ f.note|truncatechars:30 }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not overdue_tasks and not open_invoices and not followups and not lloyd_summary %}
+<div style="font-size:11px;color:var(--green);">&#10003; all clear — no urgent items</div>
+{% endif %}
+
+<script>
+// update the collapsed strip stats
+(function(){
+  var el = document.querySelector('[data-stats]');
+  if (el) {
+    var stats = document.getElementById('lloyd-stats');
+    if (stats) stats.textContent = el.dataset.stats;
+  }
+})();
+</script>

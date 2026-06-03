@@ -26,7 +26,7 @@
     <span class="logo-tag">labs</span>
   </div>
   <ul class="sidenav-links">
-    <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+    <li><a href="{% url 'dashboard:index' %}" class="{% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}">
       <i class="fa-solid fa-gauge-high"></i> Dashboard
     </a></li>
     <li><a href="{% url 'ai:index' %}" class="{% if request.resolver_match.app_name == 'ai' and 'chat' in request.resolver_match.url_name %}active{% endif %}">
@@ -130,15 +130,6 @@
     <li><a href="{% url 'sound:index' %}" class="{% if 'sound' in request.path %}active{% endif %}">
       <i class="fa-solid fa-music"></i> Sound
     </a></li>
-    <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-server"></i> Servers
-    </a></li>
-    <li><a href="{% url 'workers:index' %}" class="{% if 'workers' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-microchip"></i> Workers
-    </a></li>
-    <li><a href="{% url 'gitnode:index' %}" class="{% if 'gitnode' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-code-branch"></i> HiHi Node
-    </a></li>
     <li><a href="{% url 'modules:index' %}" class="{% if 'modules' in request.path %}active{% endif %}">
       <i class="fa-solid fa-cubes"></i> Modules
     </a></li>
@@ -154,6 +145,33 @@
     <li><a href="{% url 'subscriptions:upgrade' %}" class="{% if 'subscriptions' in request.path %}active{% endif %}">
       <i class="fa-solid fa-rocket"></i> Plans
     </a></li>
+    {% if user.is_staff %}
+    <li class="sidenav-divider"></li>
+    <li class="has-subnav">
+      <button class="subnav-toggle {% if 'ops' in request.path or 'workers' in request.path or 'servers' in request.path or 'gitnode' in request.path or 'admin' in request.path %}open{% endif %}"
+              id="toggle-system" onclick="toggleSubnav('system')">
+        <i class="fa-solid fa-terminal"></i> System
+        <i class="fa-solid fa-chevron-right subnav-chevron"></i>
+      </button>
+      <ul class="subnav {% if 'ops' in request.path or 'workers' in request.path or 'servers' in request.path or 'gitnode' in request.path or 'admin' in request.path %}open{% endif %}" id="subnav-system">
+        <li><a href="/admin/" class="{% if 'admin' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-shield-halved"></i> Django Admin
+        </a></li>
+        <li><a href="{% url 'ops:panel' %}" class="{% if 'ops' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-sliders"></i> Ops
+        </a></li>
+        <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-server"></i> Servers
+        </a></li>
+        <li><a href="{% url 'workers:index' %}" class="{% if 'workers' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-microchip"></i> Workers
+        </a></li>
+        <li><a href="{% url 'gitnode:index' %}" class="{% if 'gitnode' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-code-branch"></i> HiHi Node
+        </a></li>
+      </ul>
+    </li>
+    {% endif %}
   </ul>
   <div class="sidenav-footer">
     {% if user.is_authenticated %}
@@ -176,7 +194,7 @@
 
 {% if user.is_authenticated %}
 <nav class="mobile-tabs">
-  <a href="{% url 'dashboard' %}" class="mobile-tab {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+  <a href="{% url 'dashboard:index' %}" class="mobile-tab {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}">
     <i class="fa-solid fa-gauge-high"></i><span>Home</span>
   </a>
   <a href="{% url 'projects:index' %}" class="mobile-tab {% if request.resolver_match.app_name == 'projects' %}active{% endif %}">
@@ -497,6 +515,28 @@ document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(step);
   });
 });
+
+// ── grab project (shared across project index + detail + dashboard) ──────────
+function toggleGrab(pk, btn) {
+  fetch('/dashboard/grab/' + pk + '/', {
+    method: 'POST',
+    headers: {'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''}
+  }).then(r => r.json()).then(d => {
+    if (d.grabbed) {
+      btn.classList.add('grabbed');
+      btn.style.color = '#2dd4bf';
+      btn.style.borderColor = '#2dd4bf';
+      btn.innerHTML = '<i class="fa-solid fa-star"></i> grabbed';
+      btn.title = 'Remove from dashboard task list';
+    } else {
+      btn.classList.remove('grabbed');
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.innerHTML = '<i class="fa-regular fa-star"></i> grab';
+      btn.title = 'Add tasks to dashboard';
+    }
+  });
+}
 
 </script>
 {% include 'portal/_footer_portal.html' %}

@@ -9,7 +9,7 @@ from apps.modules import views as modules_views
 
 urlpatterns = [
     path('', lambda r: redirect('/dashboard/', permanent=False) if r.user.is_authenticated else redirect('/works/', permanent=False)),
-    path('dashboard/', core_views.dashboard, name='dashboard'),
+    path('dashboard/', include('apps.dashboard.urls', namespace='dashboard')),
     path('search/', core_views.power_search, name='power_search'),
     path('admin/', admin.site.urls),
     path('login/', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
