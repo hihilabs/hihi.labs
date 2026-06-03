@@ -41,6 +41,12 @@
   --accent-dark:  var(--brand-dim);
   --accent-glow:  var(--brand-glow);
 
+  /* ── Computed aliases used across components ────────────── */
+  --bg-card:      var(--bg2);
+  --bg-hover:     var(--bg4);
+  --text-dim:     var(--text-faint);
+  --border-hover: #3c3c50;
+
   /* ── Typography ─────────────────────────────────────────── */
   --font-mono: 'DM Mono', monospace;
   --font-ui:   'Syne', sans-serif;
@@ -123,6 +129,13 @@ html {
   height: 100%;
   background: var(--bg);
 }
+
+/* ── Dark scrollbars ─────────────────────────────────────── */
+::-webkit-scrollbar          { width: 4px; height: 4px; }
+::-webkit-scrollbar-track    { background: transparent; }
+::-webkit-scrollbar-thumb    { background: var(--border-hover); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+*                            { scrollbar-width: thin; scrollbar-color: var(--border-hover) transparent; }
 body {
   height: 100%;
   min-height: 100vh;
@@ -2580,3 +2593,61 @@ body::before {
 }
 .grab-pill:hover { border-color: var(--accent); color: var(--accent); }
 .grab-pill.grabbed { border-color: #2dd4bf; color: #2dd4bf; }
+
+/* ── Collapsible sidenav ─────────────────────────────── */
+
+/* collapsed state — 52px icon rail */
+body.nav-collapsed { --nav-w: 52px; }
+
+body.nav-collapsed .sidenav-logo {
+  padding: 18px 0;
+  justify-content: center;
+  text-align: center;
+}
+body.nav-collapsed .sidenav-logo .logo-hi2,
+body.nav-collapsed .sidenav-logo .logo-tag { display: none; }
+
+/* hide text in links — font-size:0 on the anchor, icons restore size */
+body.nav-collapsed .sidenav-links li a,
+body.nav-collapsed .sidenav-links .subnav-toggle {
+  font-size: 0;
+  padding: 10px 0;
+  justify-content: center;
+  gap: 0;
+}
+body.nav-collapsed .sidenav-links li a i,
+body.nav-collapsed .sidenav-links .subnav-toggle i:not(.subnav-chevron) {
+  font-size: 15px;
+  width: auto;
+}
+body.nav-collapsed .sidenav-links .subnav-chevron,
+body.nav-collapsed .sidenav-links .subnav   { display: none !important; }
+
+/* divider spans full width */
+body.nav-collapsed .sidenav-divider { margin: 6px 8px; }
+
+/* footer — center the buttons, hide the username */
+body.nav-collapsed .sidenav-footer { justify-content: center; gap: 4px; }
+body.nav-collapsed .sidenav-footer .user-tag { display: none; }
+
+/* nav toggle button */
+.nav-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--r-xs);
+  padding: 5px 7px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all var(--dur-base);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.nav-toggle-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+/* smooth sidenav transition */
+.sidenav  { transition: width var(--dur-slow) var(--ease); overflow-x: hidden; }
+.content  { transition: margin-left var(--dur-slow) var(--ease); }
+
+/* footer must sit above the scrollable links layer so buttons are clickable */
+.sidenav-footer { position: relative; z-index: 2; }
