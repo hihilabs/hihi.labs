@@ -30,7 +30,7 @@
       <i class="fa-solid fa-gauge-high"></i> Dashboard
     </a></li>
     <li><a href="{% url 'ai:index' %}" class="{% if request.resolver_match.app_name == 'ai' and 'chat' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="fa-solid fa-comments"></i> Chat
+      <i class="fa-solid fa-robot"></i> Lloyd
     </a></li>
     <li><a href="{% url 'ai:templates' %}" class="{% if 'template' in request.path %}active{% endif %}">
       <i class="fa-solid fa-wand-magic-sparkles"></i> Templates
@@ -177,6 +177,9 @@
     {% if user.is_authenticated %}
     <span class="user-tag">{{ user.get_short_name|default:user.username }}</span>
     <div style="display:flex;align-items:center;gap:6px;">
+      <button class="nav-toggle-btn" onclick="toggleSideNav()" id="nav-toggle-btn" title="Collapse nav">
+        <i class="fa-solid fa-bars" id="nav-toggle-icon"></i>
+      </button>
       <button id="pwa-bell"
               onclick="togglePush(this)"
               title="Enable notifications"
@@ -223,7 +226,7 @@
   </div>
   <div class="mob-drawer-body">
     <div class="mob-nav-group">
-      <a href="{% url 'ai:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-comments"></i> Chat</a>
+      <a href="{% url 'ai:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-robot"></i> Lloyd</a>
       <a href="{% url 'ai:templates' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-wand-magic-sparkles"></i> Templates</a>
       <a href="{% url 'ai:documents' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-file-lines"></i> Documents</a>
       <a href="{% url 'ai:voice' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-microphone"></i> Voice Notes</a>
@@ -515,6 +518,25 @@ document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(step);
   });
 });
+
+// ── sidenav collapse ─────────────────────────────────────────────────────────
+function _applyNavCollapse(collapsed) {
+  // Override --nav-w on <html> (same element as :root) so it propagates reliably
+  document.documentElement.style.setProperty('--nav-w', collapsed ? '52px' : '220px');
+  document.body.classList.toggle('nav-collapsed', collapsed);
+}
+
+// Restore on page load — runs before first paint via inline script in <head> ideally,
+// but here we just apply immediately on script parse (DOM is ready at this point)
+(function(){
+  if (localStorage.getItem('nav_collapsed') === '1') _applyNavCollapse(true);
+})();
+
+function toggleSideNav() {
+  var collapsed = !document.body.classList.contains('nav-collapsed');
+  _applyNavCollapse(collapsed);
+  localStorage.setItem('nav_collapsed', collapsed ? '1' : '0');
+}
 
 // ── grab project (shared across project index + detail + dashboard) ──────────
 function toggleGrab(pk, btn) {

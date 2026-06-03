@@ -3,6 +3,7 @@ import hashlib
 from datetime import date, timedelta, datetime
 
 import requests
+import recurring_ical_events
 from icalendar import Calendar as ICalendar
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -38,15 +39,33 @@ def _fetch_ics_events(feed: UserCalendarFeed, window_start: date, window_end: da
     if cached is not None:
         return cached
 
+    # webcal:// is identical to https:// — browsers use it to trigger calendar apps
+    url = feed.ics_url
+    if url.startswith('webcal://'):
+        url = 'https://' + url[9:]
+
     try:
-        resp = requests.get(feed.ics_url, timeout=8)
+        resp = requests.get(
+            url,
+            timeout=10,
+            allow_redirects=True,
+            headers={'User-Agent': 'HiHiLabs/1.0 (calendar reader)'},
+        )
         resp.raise_for_status()
         cal = ICalendar.from_ical(resp.content)
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning('ICS fetch failed feed=%s: %s', feed.id, e)
         return []
 
+    # Use recurring_ical_events to expand recurrences within the window
+    try:
+        components = recurring_ical_events.of(cal).between(window_start, window_end)
+    except Exception:
+        components = [c for c in cal.walk() if c.name == 'VEVENT']
+
     events = []
-    for component in cal.walk():
+    for component in components:
         if component.name != 'VEVENT':
             continue
         try:
@@ -56,6 +75,13 @@ def _fetch_ics_events(feed: UserCalendarFeed, window_start: date, window_end: da
             val = dtstart.dt
             if isinstance(val, datetime):
                 ev_date = val.date()
+                # normalize to local time for display
+                if hasattr(val, 'tzinfo') and val.tzinfo:
+                    import zoneinfo
+                    try:
+                        val = val.astimezone(zoneinfo.ZoneInfo('America/Los_Angeles'))
+                    except Exception:
+                        pass
                 ev_time = val.strftime('%H:%M')
                 all_day = False
             else:
@@ -66,15 +92,12 @@ def _fetch_ics_events(feed: UserCalendarFeed, window_start: date, window_end: da
             if not (window_start <= ev_date <= window_end):
                 continue
 
-            summary = str(component.get('SUMMARY', ''))
-            location = str(component.get('LOCATION', ''))
-
             events.append({
                 'date':     ev_date.isoformat(),
                 'time':     ev_time,
                 'all_day':  all_day,
-                'title':    summary,
-                'location': location,
+                'title':    str(component.get('SUMMARY', '')),
+                'location': str(component.get('LOCATION', '')),
                 'color':    feed.color,
                 'calendar': feed.name,
             })
@@ -288,7 +311,7 @@ def module_digest(request):
     grabbed_ids = set(
         ProjectSubscription.objects.filter(user=request.user).values_list('project_id', flat=True)
     )
-    proj_q = Q(owner=request.user) | Q(id__in=grabbed_ids)
+    proj_q = Q(project__owner=request.user) | Q(project__id__in=grabbed_ids)
 
     overdue_tasks = list(
         Task.objects.filter(proj_q, due_date__lt=today)
