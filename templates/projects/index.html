@@ -48,6 +48,11 @@
         <span class="unbilled"><i class="fa-solid fa-file-invoice-dollar"></i> {{ p.unbilled_hours }}h unbilled</span>
         {% endif %}
         <span class="status-dot status-{{ p.status }}">{{ p.get_status_display }}</span>
+        <button class="grab-pill {% if p.pk in grabbed_ids %}grabbed{% endif %}"
+                onclick="event.preventDefault();event.stopPropagation();toggleGrab({{ p.pk }},this)"
+                title="{% if p.pk in grabbed_ids %}Remove from dashboard{% else %}Add to dashboard task list{% endif %}">
+          {% if p.pk in grabbed_ids %}<i class="fa-solid fa-star"></i>{% else %}<i class="fa-regular fa-star"></i>{% endif %}
+        </button>
       </div>
       {% if ts.total > 0 %}
       <div style="margin-top:8px;">
@@ -98,6 +103,16 @@
     <div class="form-group">
       <label class="form-label">Client (optional)</label>
       <input class="form-control" id="np-client" type="text" placeholder="e.g. FCKRY LLC">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Entity</label>
+      <select class="form-control" id="np-entity">
+        <option value="general">General</option>
+        <option value="binsky">Binsky</option>
+        <option value="fckry">FCKRY LLC</option>
+        <option value="community">Community Playlist</option>
+        <option value="clients">Clients</option>
+      </select>
     </div>
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
       <div style="flex:1;">
@@ -232,6 +247,7 @@ async function createProject() {
     body: JSON.stringify({
       name,
       client: document.getElementById('np-client').value.trim(),
+      entity: document.getElementById('np-entity').value,
       hourly_rate: document.getElementById('np-rate').value,
       color: document.getElementById('np-color').value,
     }),

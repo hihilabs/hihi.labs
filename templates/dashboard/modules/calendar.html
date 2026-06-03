@@ -1,0 +1,104 @@
+{# Rendered by module_calendar — full calendar partial with feed strip #}
+<style>
+.cal-layout-inner{display:flex;flex:1;overflow:hidden;min-height:0;}
+.cal-feed-strip{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 3px;border-right:1px solid var(--border);flex-shrink:0;width:26px;overflow-y:auto;}
+.cal-feed-strip::-webkit-scrollbar{display:none;}
+.cfeed-btn{writing-mode:vertical-lr;transform:rotate(180deg);font-size:8px;letter-spacing:.05em;color:var(--text-dim);background:transparent;border:1px solid transparent;border-radius:3px;padding:6px 3px;cursor:pointer;font-family:inherit;transition:all .13s;white-space:nowrap;flex-shrink:0;max-height:72px;overflow:hidden;text-overflow:ellipsis;}
+.cfeed-btn:hover{color:var(--text);border-color:var(--border-hover);}
+.cfeed-btn.on{border-color:currentColor;}
+#cal-scroll{flex:1;overflow-y:auto;padding-bottom:8px;}
+.dlbl{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);padding:8px 14px 2px;}
+.dlbl:first-child{padding-top:6px;}
+.cblk{display:flex;align-items:flex-start;gap:8px;padding:4px 14px;transition:background .12s;cursor:default;}
+.cblk:hover{background:var(--bg-hover);}
+.cbar{width:3px;min-height:22px;border-radius:2px;flex-shrink:0;margin-top:3px;}
+.cn{font-size:11px;color:var(--text);}
+.ct{font-size:10px;color:var(--text-muted);}
+.cnote{font-size:10px;color:var(--text-dim);font-style:italic;}
+.now-line{display:flex;align-items:center;gap:6px;padding:2px 14px;margin:2px 0;}
+.now-dot{width:6px;height:6px;border-radius:50%;background:#f87171;flex-shrink:0;}
+.now-bar{flex:1;height:1px;background:#f87171;opacity:.4;}
+.now-t{font-size:9px;color:#f87171;flex-shrink:0;}
+.cal-empty-msg{padding:10px 14px;font-size:11px;color:var(--text-dim);font-style:italic;}
+.quick-note-bar{padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:6px;}
+.qni{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:5px 9px;font-family:inherit;font-size:11px;outline:none;}
+.qni::placeholder{color:var(--text-dim);}
+.qni:focus{border-color:var(--accent);}
+.qna{padding:5px 10px;border-radius:var(--r-sm);background:var(--accent);border:none;color:#fff;font-family:inherit;font-size:11px;cursor:pointer;}
+.note-row{display:flex;align-items:center;gap:6px;padding:2px 10px 3px;font-size:11px;}
+.note-row span{flex:1;color:var(--text-muted);}
+.note-del{cursor:pointer;color:var(--text-dim);background:none;border:none;font-size:11px;padding:0 4px;}
+.note-del:hover{color:#f87171;}
+.notes-area{flex-shrink:0;border-top:1px solid var(--border);padding:4px 0 2px;max-height:80px;overflow-y:auto;}
+</style>
+
+<div class="cal-layout-inner">
+  {# vertical feed strip #}
+  <div class="cal-feed-strip">
+    <button class="cfeed-btn {% if cal_filter == 'all' %}on{% endif %}"
+            style="color:var(--text-muted);"
+            onclick="loadCalendar('all')">all</button>
+    {% for name, color in all_calendars %}
+    <button class="cfeed-btn {% if cal_filter == name %}on{% endif %}"
+            style="color:{{ color }};"
+            onclick="loadCalendar('{{ name|escapejs }}')"
+            title="{{ name }}">{{ name|truncatechars:8 }}</button>
+    {% endfor %}
+  </div>
+
+  {# events scroll area #}
+  <div id="cal-scroll">
+    {% for day in days %}
+    {% if day.events %}
+    <div class="dlbl">{{ day.label }}{% if day.label == 'today' %} · <span style="color:var(--text)">{{ day.date|date:"M j" }}</span>{% endif %}</div>
+    {% for ev in day.events %}
+    <div class="cblk">
+      <div class="cbar" style="background:{{ ev.color }};"></div>
+      <div style="flex:1;min-width:0;">
+        <div class="cn">{{ ev.title|truncatechars:60 }}</div>
+        <div class="ct">{% if ev.all_day %}all day{% else %}{{ ev.time }}{% endif %}</div>
+        {% if ev.location %}<div class="cnote">{{ ev.location|truncatechars:50 }}</div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% empty %}
+    <div class="cal-empty-msg">nothing in the next 7 days</div>
+    {% endfor %}
+    {% if not days %}
+    <div class="cal-empty-msg">nothing in the next 7 days</div>
+    {% endif %}
+  </div>
+</div>
+
+{# quick notes — lives below the calendar #}
+<div class="notes-area" id="notes-area">
+  {% include 'dashboard/modules/notes.html' %}
+</div>
+<div class="quick-note-bar">
+  <input class="qni" id="note-in" placeholder="quick note…" onkeydown="if(event.key==='Enter')submitNote()"/>
+  <button class="qna" onclick="submitNote()">+</button>
+</div>
+<script>
+function submitNote() {
+  var inp = document.getElementById('note-in');
+  var txt = inp.value.trim();
+  if (!txt) return;
+  fetch(DASH.noteAddUrl, {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':DASH.csrf},
+    body: JSON.stringify({content: txt})
+  }).then(r => r.json()).then(d => {
+    inp.value = '';
+    // prepend note row
+    var area = document.getElementById('notes-area');
+    var row = document.createElement('div');
+    row.className = 'note-row'; row.id = 'note-' + d.id;
+    row.innerHTML = '<span>' + d.content.replace(/</g,'&lt;') + '</span><button class="note-del" onclick="deleteNote('+d.id+',this)">×</button>';
+    area.insertBefore(row, area.firstChild);
+  });
+}
+function deleteNote(id, btn) {
+  fetch(DASH.noteDelBase + id + '/delete/', {method:'POST',headers:{'X-CSRFToken':DASH.csrf}})
+    .then(() => { var r = document.getElementById('note-' + id); if(r) r.remove(); });
+}
+</script>

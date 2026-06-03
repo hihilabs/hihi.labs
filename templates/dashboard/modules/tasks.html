@@ -1,0 +1,82 @@
+<style>
+.task-list-wrap{flex:1;overflow-y:auto;min-height:0;}
+.proj-group{margin-bottom:2px;}
+.proj-hdr{display:flex;align-items:center;gap:7px;padding:6px 12px 4px;cursor:pointer;user-select:none;position:sticky;top:0;z-index:1;background:var(--bg-card);}
+.proj-hdr:hover{background:var(--bg-hover);}
+.proj-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.proj-name{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.proj-meta{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.proj-ct{font-size:9px;color:var(--text-dim);}
+.proj-chevron{font-size:9px;color:var(--text-dim);transition:transform .15s;}
+.proj-tasks.collapsed{display:none;}
+.task-row{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 22px;transition:background .12s;cursor:default;}
+.task-row:hover{background:var(--bg-hover);}
+.task-chk{width:14px;height:14px;border-radius:3px;border:1px solid var(--border-hover);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;cursor:pointer;}
+.task-chk:hover{border-color:var(--accent);background:rgba(124,106,247,.12);}
+.task-chk.checked{border-color:var(--green);background:rgba(74,222,128,.15);}
+.task-title{flex:1;font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.task-badge{font-size:9px;padding:1px 5px;border-radius:3px;white-space:nowrap;flex-shrink:0;}
+.tb-overdue{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.2);}
+.tb-today{background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2);}
+.tb-soon{background:rgba(167,139,250,.08);color:#a78bfa;border:1px solid rgba(167,139,250,.18);}
+.tb-doing{background:rgba(124,106,247,.1);color:var(--accent);border:1px solid rgba(124,106,247,.2);}
+.tb-blocked{background:rgba(248,113,113,.08);color:#f87171;border:1px solid rgba(248,113,113,.15);}
+.grab-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:3px;padding:1px 5px;font-size:9px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.grab-btn:hover{border-color:var(--accent);color:var(--accent);}
+.grab-btn.grabbed{border-color:#2dd4bf;color:#2dd4bf;}
+.task-add-bar{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);background:var(--bg-card);flex-shrink:0;}
+.task-add-bar .task-input{flex:2;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:5px 9px;font-family:inherit;font-size:11px;outline:none;}
+.task-add-bar .task-input:focus{border-color:var(--accent);}
+.task-add-bar .task-proj-sel{flex:0 0 auto;background:var(--bg);border:1px solid var(--border);color:var(--text-muted);border-radius:var(--r-sm);padding:5px 8px;font-family:inherit;font-size:10px;outline:none;max-width:150px;}
+.task-add-bar .task-proj-sel:focus{border-color:var(--accent);}
+.task-add-btn{padding:5px 10px;border-radius:var(--r-sm);background:var(--accent);border:none;color:#fff;font-family:inherit;font-size:11px;cursor:pointer;}
+.task-add-btn:hover{opacity:.85;}
+.no-tasks{padding:12px 14px;color:var(--text-dim);font-size:11px;font-style:italic;}
+</style>
+
+<div class="task-list-wrap">
+{% for g in groups %}
+<div class="proj-group">
+  <div class="proj-hdr" onclick="toggleTaskGroup(this)">
+    <div class="proj-dot" style="background:{{ g.color }};"></div>
+    <div class="proj-name" style="color:{{ g.ec }};">{{ g.project.name }}</div>
+    <div class="proj-meta">
+      <span class="proj-ct">{{ g.tasks|length }}</span>
+      <button class="grab-btn {% if g.grabbed %}grabbed{% endif %}"
+              onclick="event.stopPropagation();grabProject({{ g.project.pk }},this)"
+              title="{% if g.grabbed %}ungrab project{% else %}grab project{% endif %}">
+        {% if g.grabbed %}&#9733; grabbed{% else %}&#9734; grab{% endif %}
+      </button>
+      <span class="proj-chevron">&#9660;</span>
+    </div>
+  </div>
+  <div class="proj-tasks">
+    {% for t in g.tasks %}
+    <div class="task-row" id="task-{{ t.id }}">
+      <div class="task-chk" onclick="markDone({{ t.id }},this)"></div>
+      <div class="task-title" title="{{ t.title }}">{{ t.title }}</div>
+      {% if t.overdue %}<div class="task-badge tb-overdue">overdue</div>
+      {% elif t.today %}<div class="task-badge tb-today">today</div>
+      {% elif t.due %}<div class="task-badge tb-soon">{{ t.due|slice:"-5:"|slice:":2" }}/{{ t.due|slice:"-2:" }}</div>
+      {% endif %}
+      {% if t.status == 'doing' %}<div class="task-badge tb-doing">doing</div>
+      {% elif t.status == 'blocked' %}<div class="task-badge tb-blocked">blocked</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% empty %}
+<div class="no-tasks">no open tasks{% if entity_filter != 'all' %} in <strong>{{ entity_filter }}</strong>{% endif %}</div>
+{% endfor %}
+</div>
+
+<form class="task-add-bar" onsubmit="event.preventDefault();addTask(this)">
+  <input class="task-input" placeholder="new task…" required/>
+  <select class="task-proj-sel">
+    {% for p in all_projects %}
+    <option value="{{ p.pk }}">{{ p.name|truncatechars:28 }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="task-add-btn">+ add</button>
+</form>

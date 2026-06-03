@@ -151,7 +151,15 @@
       {% if project.client %}<small>{{ project.client }}</small>{% endif %}
     </div>
   </div>
-  <div style="display:flex;gap:8px;">
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button id="grab-btn"
+            class="btn btn-ghost btn-sm {% if is_grabbed %}grabbed{% endif %}"
+            onclick="toggleGrab({{ project.pk }},this)"
+            title="{% if is_grabbed %}Remove from dashboard task list{% else %}Add tasks to dashboard{% endif %}"
+            style="{% if is_grabbed %}color:#2dd4bf;border-color:#2dd4bf;{% endif %}">
+      <i class="fa-{% if is_grabbed %}solid{% else %}regular{% endif %} fa-star"></i>
+      {% if is_grabbed %}grabbed{% else %}grab{% endif %}
+    </button>
     <button class="btn btn-ghost btn-sm" onclick="startTimer({{ project.pk }})">
       <i class="fa-solid fa-play"></i> Start timer
     </button>
