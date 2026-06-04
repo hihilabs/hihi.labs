@@ -21,9 +21,10 @@
 <body>
 
 <nav class="sidenav">
-  <div class="sidenav-logo">
+  <div class="sidenav-logo" onclick="if(document.body.classList.contains('nav-collapsed'))toggleSideNav()" style="cursor:default;" id="sidenav-logo-wrap">
     <span class="logo-hi">hi</span><span class="logo-hi2">hi</span>
     <span class="logo-tag">labs</span>
+    <i class="fa-solid fa-angles-right nav-expand-hint" title="Expand menu"></i>
   </div>
   <ul class="sidenav-links">
     <li><a href="{% url 'dashboard:index' %}" class="{% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}">
@@ -59,8 +60,14 @@
           <i class="fa-solid fa-chart-line"></i> Value Board
         </a></li>
       </ul>
+      <div class="subnav-flyout">
+        <div class="flyout-label">Projects</div>
+        <a href="{% url 'projects:index' %}"><i class="fa-solid fa-folder-open"></i> All Projects</a>
+        <a href="{% url 'projects:global_tasks' %}"><i class="fa-solid fa-circle-check"></i> Tasks</a>
+        <a href="{% url 'projects:value_board' %}"><i class="fa-solid fa-chart-line"></i> Value Board</a>
+      </div>
     </li>
-    <li><a href="{% url 'clients:index' %}" class="{% if 'clients' in request.path %}active{% endif %}">
+    <li><a href="{% url 'clients:index' %}" data-label="Clients" class="{% if 'clients' in request.path %}active{% endif %}">
       <i class="fa-solid fa-address-book"></i> Clients
     </a></li>
     <li class="has-subnav">
@@ -83,8 +90,15 @@
           <i class="fa-solid fa-tags"></i> Services
         </a></li>
       </ul>
+      <div class="subnav-flyout">
+        <div class="flyout-label">Billing</div>
+        <a href="{% url 'billing:index' %}"><i class="fa-solid fa-receipt"></i> Invoices</a>
+        <a href="{% url 'proposals:index' %}"><i class="fa-solid fa-file-pen"></i> Proposals</a>
+        <a href="{% url 'contracts:index' %}"><i class="fa-solid fa-file-contract"></i> Contracts</a>
+        <a href="{% url 'services:index' %}"><i class="fa-solid fa-tags"></i> Services</a>
+      </div>
     </li>
-    <li><a href="{% url 'files:index' %}" class="{% if 'files' in request.path %}active{% endif %}">
+    <li><a href="{% url 'files:index' %}" data-label="Files" class="{% if 'files' in request.path %}active{% endif %}">
       <i class="fa-brands fa-google-drive"></i> Files
     </a></li>
     <li class="has-subnav">
@@ -112,37 +126,44 @@
           <i class="fa-solid fa-at"></i> Email Accounts
         </a></li>
       </ul>
+      <div class="subnav-flyout">
+        <div class="flyout-label">Messages</div>
+        <a href="{% url 'messaging:inbox' %}?tab=internal"><i class="fa-solid fa-comments"></i> Internal</a>
+        <a href="{% url 'messaging:inbox' %}?tab=email"><i class="fa-solid fa-envelope"></i> Email</a>
+        <a href="{% url 'messaging:inbox' %}?tab=notifs"><i class="fa-solid fa-bell"></i> Notifications</a>
+        <a href="{% url 'messaging:email_accounts' %}"><i class="fa-solid fa-at"></i> Email Accounts</a>
+      </div>
     </li>
-    <li><a href="{% url 'wiki:index' %}" class="{% if 'wiki' in request.path %}active{% endif %}">
+    <li><a href="{% url 'wiki:index' %}" data-label="Wiki" class="{% if 'wiki' in request.path %}active{% endif %}">
       <i class="fa-solid fa-book-open"></i> Wiki
     </a></li>
-    <li><a href="{% url 'whiteboards:index' %}" class="{% if 'whiteboards' in request.path %}active{% endif %}">
+    <li><a href="{% url 'whiteboards:index' %}" data-label="Whiteboards" class="{% if 'whiteboards' in request.path %}active{% endif %}">
       <i class="fa-solid fa-chalkboard"></i> Whiteboards
     </a></li>
-    <li><a href="{% url 'tickets:index' %}" class="{% if 'tickets' in request.path %}active{% endif %}">
+    <li><a href="{% url 'tickets:index' %}" data-label="Tickets" class="{% if 'tickets' in request.path %}active{% endif %}">
       <i class="fa-solid fa-ticket"></i> Tickets
     </a></li>
     {% if user.is_staff %}
-    <li><a href="{% url 'portal:admin' %}" class="{% if 'portal' in request.path %}active{% endif %}">
+    <li><a href="{% url 'portal:admin' %}" data-label="Client Portal" class="{% if 'portal' in request.path %}active{% endif %}">
       <i class="fa-solid fa-user-shield"></i> Client Portal
     </a></li>
     {% endif %}
-    <li><a href="{% url 'sound:index' %}" class="{% if 'sound' in request.path %}active{% endif %}">
+    <li><a href="{% url 'sound:index' %}" data-label="Sound" class="{% if 'sound' in request.path %}active{% endif %}">
       <i class="fa-solid fa-music"></i> Sound
     </a></li>
-    <li><a href="{% url 'modules:index' %}" class="{% if 'modules' in request.path %}active{% endif %}">
+    <li><a href="{% url 'modules:index' %}" data-label="Modules" class="{% if 'modules' in request.path %}active{% endif %}">
       <i class="fa-solid fa-cubes"></i> Modules
     </a></li>
-    <li><a href="/works/" target="_blank" rel="noopener" title="Public portfolio">
+    <li><a href="/works/" data-label="Works" target="_blank" rel="noopener">
       <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;opacity:.6;"></i> Works
     </a></li>
-    <li><a href="{% url 'pepperjuice:dashboard' %}" class="{% if 'finance' in request.path %}active{% endif %}">
+    <li><a href="{% url 'pepperjuice:dashboard' %}" data-label="Pepperjuice" class="{% if 'finance' in request.path %}active{% endif %}">
       <i class="fa-solid fa-pepper-hot"></i> Pepperjuice
     </a></li>
-    <li><a href="{% url 'tax:index' %}" class="{% if 'tax' in request.path %}active{% endif %}">
+    <li><a href="{% url 'tax:index' %}" data-label="Expenses" class="{% if 'tax' in request.path %}active{% endif %}">
       <i class="fa-solid fa-receipt"></i> Expenses
     </a></li>
-    <li><a href="{% url 'subscriptions:upgrade' %}" class="{% if 'subscriptions' in request.path %}active{% endif %}">
+    <li><a href="{% url 'subscriptions:upgrade' %}" data-label="Plans" class="{% if 'subscriptions' in request.path %}active{% endif %}">
       <i class="fa-solid fa-rocket"></i> Plans
     </a></li>
     {% if user.is_staff %}
@@ -170,6 +191,14 @@
           <i class="fa-solid fa-code-branch"></i> HiHi Node
         </a></li>
       </ul>
+      <div class="subnav-flyout">
+        <div class="flyout-label">System</div>
+        <a href="/admin/"><i class="fa-solid fa-shield-halved"></i> Django Admin</a>
+        <a href="{% url 'ops:panel' %}"><i class="fa-solid fa-sliders"></i> Ops</a>
+        <a href="{% url 'servers:index' %}"><i class="fa-solid fa-satellite-dish"></i> Fleet</a>
+        <a href="{% url 'workers:index' %}"><i class="fa-solid fa-microchip"></i> Workers</a>
+        <a href="{% url 'gitnode:index' %}"><i class="fa-solid fa-code-branch"></i> HiHi Node</a>
+      </div>
     </li>
     {% endif %}
   </ul>
@@ -521,15 +550,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── sidenav collapse ─────────────────────────────────────────────────────────
 function _applyNavCollapse(collapsed) {
-  // Override --nav-w on <html> (same element as :root) so it propagates reliably
   document.documentElement.style.setProperty('--nav-w', collapsed ? '52px' : '220px');
   document.body.classList.toggle('nav-collapsed', collapsed);
 }
 
-// Restore on page load — runs before first paint via inline script in <head> ideally,
-// but here we just apply immediately on script parse (DOM is ready at this point)
 (function(){
-  if (localStorage.getItem('nav_collapsed') === '1') _applyNavCollapse(true);
+  // Never apply collapsed state on tablet/mobile — bottom tabs handle nav there
+  if (window.innerWidth > 900 && localStorage.getItem('nav_collapsed') === '1') {
+    _applyNavCollapse(true);
+  }
 })();
 
 function toggleSideNav() {
