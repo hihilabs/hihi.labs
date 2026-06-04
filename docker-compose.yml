@@ -14,6 +14,8 @@ services:
       - ./hihilabs:/app/hihilabs
       # workspace for dev tools (read/write via Claude)
       - ./:/workspace
+      # SSH key for HiHi Node git operations
+      - /root/.ssh/id_ed25519_unraid:/app/ssh/id_ed25519_unraid:ro
       # docker socket for rebuild tool
       - /var/run/docker.sock:/var/run/docker.sock
     labels:

@@ -328,6 +328,22 @@ MODULES = [
         'tags':        ['marketplace', 'community', 'e-commerce'],
     },
 
+    # ── HiHi Node ─────────────────────────────────────────────────────────────
+
+    {
+        'slug':        'hihi-node',
+        'name':        'HiHi Node',
+        'type':        'infra',
+        'icon':        'fa-code-branch',
+        'color':       '#4ade80',
+        'description': 'Git operations dashboard for all managed VPS repos. Live status, commit diff, scoop (stage → commit → push) per-repo or all at once. SSH into each server at deploy time. Replaces manual `scoop` shell workflow.',
+        'status':      'live',
+        'platform':    'Web',
+        'live_url':    'https://hihilabs.xyz/gitnode/',
+        'source_url':  'https://github.com/khildren/hihi.labs',
+        'tags':        ['git', 'deploy', 'ssh', 'ops', 'vps'],
+    },
+
     # ── Infra / Tools ─────────────────────────────────────────────────────────
 
     {

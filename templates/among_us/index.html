@@ -1,0 +1,613 @@
+{% extends 'base.html' %}
+{% block title %}Among Us — Family Game Server{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --au-red: #c51111;
+    --au-red-dark: #9a0d0d;
+  }
+
+  .au-tab-bar {
+    display: flex;
+    gap: 4px;
+    background: var(--bg2);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 20px;
+  }
+  .au-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    font-family: inherit;
+  }
+  .au-tab.active {
+    background: var(--bg3);
+    color: var(--text);
+  }
+  .au-tab i { margin-right: 5px; }
+
+  .au-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; }
+  .au-steps li { display: flex; gap: 12px; align-items: flex-start; }
+  .au-step-num {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--au-red);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .au-step-body { flex: 1; min-width: 0; }
+  .au-step-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .au-step-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .au-step-desc code {
+    background: var(--bg2);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 11px;
+    color: var(--teal);
+  }
+
+  .au-code {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    color: var(--teal);
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    word-break: break-all;
+  }
+  .au-code-copy {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: color 0.15s;
+  }
+  .au-code-copy:hover { color: var(--text); }
+
+  .au-section-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .au-card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .au-card-header .title { font-weight: 600; font-size: 15px; }
+  .au-card-header .sub { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+  .au-card-body { padding: 20px; }
+
+  .au-status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #4caf50;
+    box-shadow: 0 0 6px #4caf5080;
+    flex-shrink: 0;
+  }
+
+  .au-dl-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    background: var(--bg2);
+    transition: border-color 0.15s, background 0.15s;
+    margin-top: 6px;
+    cursor: pointer;
+  }
+  .au-dl-btn:hover { border-color: var(--accent); background: var(--bg3); }
+  .au-dl-btn.red { background: var(--au-red); border-color: var(--au-red); color: #fff; }
+  .au-dl-btn.red:hover { background: var(--au-red-dark); border-color: var(--au-red-dark); }
+  .au-dl-btn.teal { border-color: var(--teal); color: var(--teal); }
+  .au-dl-btn.teal:hover { background: var(--teal); color: var(--bg); }
+
+  .au-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0 24px; }
+  @media (max-width: 900px) { .au-grid { grid-template-columns: 1fr; } }
+
+  .au-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .au-host-step { margin-bottom: 18px; }
+  .au-host-step:last-child { margin-bottom: 0; }
+  .au-host-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .au-cfg-gen {
+    padding: 0 24px 32px;
+    margin-top: 20px;
+  }
+  .au-cfg-gen-inner {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .au-cfg-gen-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .au-cfg-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  .au-cfg-form-group { display: flex; flex-direction: column; gap: 4px; }
+  .au-cfg-form-group label { font-size: 11px; color: var(--text-muted); }
+  .au-cfg-form-group input {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: var(--font-mono, monospace);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .au-cfg-form-group input:focus { border-color: var(--accent); }
+  .au-cfg-form-group input.ip { width: 160px; }
+  .au-cfg-form-group input.port { width: 80px; }
+  .au-cfg-form-group input.name { width: 180px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="page-title">
+    <i class="fa-solid fa-user-astronaut" style="color:var(--au-red);margin-right:8px;"></i>
+    Family Game Server
+  </div>
+  <div style="color:var(--text-muted);font-size:12px;margin-top:2px;">Among Us · Private · LAN · No Randos</div>
+</div>
+
+{% if server %}
+<div style="margin:0 24px 16px;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+  <div class="au-status-dot"></div>
+  <span style="font-weight:600;font-size:13px;">{{ server.name }}</span>
+  <code style="font-size:12px;color:var(--teal);background:var(--bg2);padding:2px 8px;border-radius:4px;">{{ server.ip }}:{{ server.port }}</code>
+  <span style="color:var(--text-muted);font-size:12px;">Impostor server · Docker on Unraid</span>
+  <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% url 'among_us:download_family_cfg' %}" class="au-dl-btn red">
+      <i class="fa-solid fa-download"></i> Family Config
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<div class="au-grid">
+
+  {# ── LEFT: Quick Connect ─────────────────────────────────── #}
+  <div class="au-section-card">
+    <div class="au-card-header">
+      <i class="fa-solid fa-gamepad" style="color:var(--au-red);"></i>
+      <span class="title">Quick Connect</span>
+      <span class="sub">For players joining the family server</span>
+    </div>
+    <div class="au-card-body">
+
+      <div class="au-tab-bar" id="platform-tabs">
+        <button class="au-tab active" onclick="switchTab('deck', this)">
+          <i class="fa-brands fa-steam"></i> Steam Deck
+        </button>
+        <button class="au-tab" onclick="switchTab('pc', this)">
+          <i class="fa-solid fa-desktop"></i> Windows PC
+        </button>
+      </div>
+
+      {# Steam Deck steps #}
+      <div id="tab-deck">
+        <ol class="au-steps">
+          <li>
+            <div class="au-step-num">1</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Switch to Desktop Mode</div>
+              <div class="au-step-desc">Steam button → Power → Switch to Desktop</div>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">2</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Download BepInEx Pack</div>
+              <div class="au-step-desc">Pre-configured mod loader for Among Us.</div>
+              <a href="https://thunderstore.io/c/among-us/p/BepInEx/BepInExPack_AmongUs/" target="_blank" rel="noopener" class="au-dl-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Thunderstore
+              </a>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">3</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Download Reactor</div>
+              <div class="au-step-desc">Required dependency for Unify.</div>
+              <a href="https://thunderstore.io/c/among-us/p/Reactor/Reactor/" target="_blank" rel="noopener" class="au-dl-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Thunderstore
+              </a>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">4</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Download Unify</div>
+              <div class="au-step-desc">Custom server region selector mod.</div>
+              <a href="https://thunderstore.io/c/among-us/p/MoltenMods/Unify/" target="_blank" rel="noopener" class="au-dl-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Thunderstore
+              </a>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">5</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Extract BepInEx into Among Us folder</div>
+              <div class="au-step-desc">Open Dolphin, navigate to:</div>
+              <div class="au-code">
+                <span>~/.local/share/Steam/steamapps/common/Among Us/</span>
+                <button class="au-code-copy" onclick="copyText('~/.local/share/Steam/steamapps/common/Among Us/', this)"><i class="fa-solid fa-copy"></i></button>
+              </div>
+              <div class="au-step-desc" style="margin-top:6px;">Extract BepInEx zip here so <code>winhttp.dll</code> sits next to <code>Among Us.exe</code>.<br>Drop <code>Reactor.dll</code> + <code>Unify.dll</code> into <code>BepInEx/plugins/</code></div>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">6</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Set Launch Option in Steam</div>
+              <div class="au-step-desc">Among Us → right-click → Properties → Launch Options:</div>
+              <div class="au-code">
+                <span>WINEDLLOVERRIDES="winhttp=n,b" %command%</span>
+                <button class="au-code-copy" onclick="copyText('WINEDLLOVERRIDES=&quot;winhttp=n,b&quot; %command%', this)"><i class="fa-solid fa-copy"></i></button>
+              </div>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">7</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Launch Among Us once</div>
+              <div class="au-step-desc">Let it reach the main menu so BepInEx generates configs. Then close it.</div>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">8</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Download & drop in the config file</div>
+              <div class="au-step-desc">Drop into <code>BepInEx/config/</code> — replaces or creates <code>daemon.unify.cfg</code></div>
+              {% if server %}
+              <a href="{% url 'among_us:download_family_cfg' %}" class="au-dl-btn red" style="margin-top:8px;">
+                <i class="fa-solid fa-download"></i> daemon.unify.cfg ({{ server.name }})
+              </a>
+              {% else %}
+              <div class="au-step-desc" style="margin-top:8px;color:var(--text-muted);">Use the config generator below ↓</div>
+              {% endif %}
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">9</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Back to Game Mode — you're done</div>
+              <div class="au-step-desc">Launch Among Us → globe icon on main menu → pick your server → Create game.</div>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      {# Windows PC steps #}
+      <div id="tab-pc" style="display:none;">
+        <ol class="au-steps">
+          <li>
+            <div class="au-step-num">1</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Find Among Us folder</div>
+              <div class="au-step-desc">Steam → Library → Among Us → right-click → Manage → Browse Local Files</div>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">2</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Download BepInEx Pack</div>
+              <a href="https://thunderstore.io/c/among-us/p/BepInEx/BepInExPack_AmongUs/" target="_blank" rel="noopener" class="au-dl-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Thunderstore
+              </a>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">3</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Download Reactor + Unify</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <a href="https://thunderstore.io/c/among-us/p/Reactor/Reactor/" target="_blank" rel="noopener" class="au-dl-btn">
+                  <i class="fa-solid fa-arrow-up-right-from-square"></i> Reactor
+                </a>
+                <a href="https://thunderstore.io/c/among-us/p/MoltenMods/Unify/" target="_blank" rel="noopener" class="au-dl-btn">
+                  <i class="fa-solid fa-arrow-up-right-from-square"></i> Unify
+                </a>
+              </div>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">4</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Extract BepInEx into game folder</div>
+              <div class="au-step-desc">Extract so <code>winhttp.dll</code> sits next to <code>Among Us.exe</code>.<br>Drop <code>Reactor.dll</code> + <code>Unify.dll</code> into <code>BepInEx\plugins\</code></div>
+              <div class="au-step-desc" style="margin-top:4px;">No launch option needed on Windows — BepInEx loads automatically.</div>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">5</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Launch Among Us once, then close</div>
+              <div class="au-step-desc">This generates <code>BepInEx\config\</code></div>
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">6</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Download & drop config file</div>
+              <div class="au-step-desc">Drop into <code>BepInEx\config\</code></div>
+              {% if server %}
+              <a href="{% url 'among_us:download_family_cfg' %}" class="au-dl-btn red" style="margin-top:8px;">
+                <i class="fa-solid fa-download"></i> daemon.unify.cfg ({{ server.name }})
+              </a>
+              {% else %}
+              <div class="au-step-desc" style="margin-top:8px;color:var(--text-muted);">Use the config generator below ↓</div>
+              {% endif %}
+            </div>
+          </li>
+          <li>
+            <div class="au-step-num">7</div>
+            <div class="au-step-body">
+              <div class="au-step-title">Launch Among Us</div>
+              <div class="au-step-desc">Globe icon → pick your server → Create game.</div>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+    </div>
+  </div>
+
+  {# ── RIGHT: Host Your Own ─────────────────────────────────── #}
+  <div class="au-section-card">
+    <div class="au-card-header">
+      <i class="fa-solid fa-server" style="color:var(--teal);"></i>
+      <span class="title">Host Your Own</span>
+      <span class="sub">Self-hosted private server setup</span>
+    </div>
+    <div class="au-card-body">
+
+      <div class="au-tab-bar" id="host-tabs">
+        <button class="au-tab active" onclick="switchHostTab('docker', this)">
+          <i class="fa-brands fa-docker"></i> Unraid / Docker
+        </button>
+        <button class="au-tab" onclick="switchHostTab('client', this)">
+          <i class="fa-solid fa-plug"></i> Client Setup
+        </button>
+      </div>
+
+      <div id="htab-docker">
+        <div class="au-host-step">
+          <div class="au-host-label">1 — Create config dir</div>
+          <div class="au-code">
+            <span>mkdir -p /mnt/user/appdata/impostor</span>
+            <button class="au-code-copy" onclick="copyText('mkdir -p /mnt/user/appdata/impostor', this)"><i class="fa-solid fa-copy"></i></button>
+          </div>
+        </div>
+
+        <div class="au-host-step">
+          <div class="au-host-label">2 — Create config.json</div>
+          <div class="au-step-desc" style="margin-bottom:6px;">Set <code>PublicIp</code> to your server's LAN IP.</div>
+          <div class="au-code" style="flex-direction:column;align-items:flex-start;gap:2px;">
+            <div style="display:flex;width:100%;justify-content:space-between;align-items:center;">
+              <span style="color:var(--text-muted);font-size:11px;">/mnt/user/appdata/impostor/config.json</span>
+              <button class="au-code-copy" onclick="copyText('{&quot;Server&quot;:{&quot;PublicIp&quot;:&quot;YOUR.LAN.IP&quot;,&quot;PublicPort&quot;:22023,&quot;ListenIp&quot;:&quot;0.0.0.0&quot;,&quot;ListenPort&quot;:22023}}', this)"><i class="fa-solid fa-copy"></i></button>
+            </div>
+            <pre style="margin:6px 0 0;font-size:11px;line-height:1.6;color:var(--teal);white-space:pre-wrap;">{
+  "Server": {
+    "PublicIp": "YOUR.LAN.IP",
+    "PublicPort": 22023,
+    "ListenIp": "0.0.0.0",
+    "ListenPort": 22023
+  }
+}</pre>
+          </div>
+        </div>
+
+        <div class="au-host-step">
+          <div class="au-host-label">3 — Run Docker container</div>
+          <div class="au-code" style="flex-direction:column;align-items:flex-start;gap:2px;">
+            <div style="display:flex;width:100%;justify-content:space-between;align-items:center;">
+              <span style="color:var(--text-muted);font-size:11px;">Terminal / Unraid Docker UI</span>
+              <button class="au-code-copy" onclick="copyDockerCmd(this)"><i class="fa-solid fa-copy"></i></button>
+            </div>
+            <pre id="docker-cmd" style="margin:6px 0 0;font-size:11px;line-height:1.6;color:var(--teal);white-space:pre-wrap;">docker run -d \
+  --name impostor \
+  --restart unless-stopped \
+  -p 22023:22023/udp \
+  -p 22023:22023/tcp \
+  -v /mnt/user/appdata/impostor/config.json:/app/config.json \
+  aeonlucid/impostor:nightly</pre>
+          </div>
+        </div>
+
+        <div class="au-host-step">
+          <div class="au-host-label">4 — Set Autostart to No in Unraid</div>
+          <div class="au-step-desc">Docker UI → click container → Edit → Autostart: No.<br>Start it manually before playing, stop when done.</div>
+        </div>
+      </div>
+
+      <div id="htab-client" style="display:none;">
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+          Once your server is running, point each client at it using the Quick Connect steps on the left. Key things to note:
+        </div>
+        <div class="au-host-step">
+          <div class="au-host-label">Server IP</div>
+          <div class="au-step-desc">Use your server's <strong>LAN IP</strong> (e.g. <code>10.0.0.x</code>) if everyone is on the same network. For remote play you'd need a VPN (Tailscale/ZeroTier) or port forwarding — LAN is simpler and safer for family play.</div>
+        </div>
+        <div class="au-host-step">
+          <div class="au-host-label">Port</div>
+          <div class="au-step-desc"><code>22023</code> UDP + TCP. No router port-forward needed for LAN-only.</div>
+        </div>
+        <div class="au-host-step">
+          <div class="au-host-label">Config file location</div>
+          <div class="au-step-desc">
+            <strong>Steam Deck:</strong> <code>~/.local/share/Steam/steamapps/common/Among Us/BepInEx/config/daemon.unify.cfg</code><br>
+            <strong>Windows:</strong> <code>%ProgramFiles(x86)%\Steam\steamapps\common\Among Us\BepInEx\config\daemon.unify.cfg</code>
+          </div>
+        </div>
+        <div class="au-host-step">
+          <div class="au-host-label">Starting a game</div>
+          <div class="au-step-desc">One player creates a private lobby → shares the 6-letter code with everyone else. The server just needs to be running — it doesn't manage lobby codes.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+{# ── Config Generator ─────────────────────────────────────────── #}
+<div class="au-cfg-gen">
+  <div class="au-cfg-gen-inner">
+    <div class="au-cfg-gen-title">
+      <i class="fa-solid fa-gears" style="color:var(--accent);"></i>
+      Config Generator
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);">Enter your server details to generate a ready-to-use <code>daemon.unify.cfg</code> file.</div>
+    <div class="au-cfg-form">
+      <div class="au-cfg-form-group">
+        <label>Server Name</label>
+        <input type="text" id="gen-name" class="name" placeholder="My Server" value="My Server">
+      </div>
+      <div class="au-cfg-form-group">
+        <label>Server IP</label>
+        <input type="text" id="gen-ip" class="ip" placeholder="192.168.1.100">
+      </div>
+      <div class="au-cfg-form-group">
+        <label>Port</label>
+        <input type="number" id="gen-port" class="port" value="22023" min="1" max="65535">
+      </div>
+      <button class="au-dl-btn teal" onclick="generateCfg()" style="margin-top:0;align-self:flex-end;">
+        <i class="fa-solid fa-download"></i> Download Config
+      </button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function switchTab(id, btn) {
+  document.querySelectorAll('#platform-tabs .au-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-deck').style.display = id === 'deck' ? '' : 'none';
+  document.getElementById('tab-pc').style.display  = id === 'pc'   ? '' : 'none';
+}
+
+function switchHostTab(id, btn) {
+  document.querySelectorAll('#host-tabs .au-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('htab-docker').style.display = id === 'docker' ? '' : 'none';
+  document.getElementById('htab-client').style.display = id === 'client' ? '' : 'none';
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+    setTimeout(() => btn.innerHTML = orig, 1500);
+  });
+}
+
+function copyDockerCmd(btn) {
+  copyText(document.getElementById('docker-cmd').textContent.trim(), btn);
+}
+
+function generateCfg() {
+  const name = document.getElementById('gen-name').value.trim() || 'My Server';
+  const ip   = document.getElementById('gen-ip').value.trim();
+  const port = parseInt(document.getElementById('gen-port').value) || 22023;
+
+  if (!ip) {
+    document.getElementById('gen-ip').focus();
+    return;
+  }
+
+  const content = [
+    '[General]',
+    '',
+    '## Show default regions alongside custom ones.',
+    '# Setting type: Boolean',
+    '# Default value: false',
+    'ShowVanillaRegions = false',
+    '',
+    '[Region 1]',
+    '',
+    '## Display name shown in the region selector.',
+    '# Setting type: String',
+    '# Default value: ',
+    `Name = ${name}`,
+    '',
+    '## IP address of the custom server.',
+    '# Setting type: String',
+    '# Default value: ',
+    `IP = ${ip}`,
+    '',
+    '## Port number of the custom server.',
+    '# Setting type: Int32',
+    '# Default value: 22023',
+    `Port = ${port}`,
+    '',
+  ].join('\n');
+
+  const blob = new Blob([content], {type: 'text/plain'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'daemon.unify.cfg';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}
