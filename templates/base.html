@@ -181,8 +181,11 @@
         <li><a href="{% url 'ops:panel' %}" class="{% if 'ops' in request.path %}active{% endif %}">
           <i class="fa-solid fa-sliders"></i> Ops
         </a></li>
-        <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path %}active{% endif %}">
+        <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path and 'sessions' not in request.path %}active{% endif %}">
           <i class="fa-solid fa-satellite-dish"></i> Fleet
+        </a></li>
+        <li><a href="{% url 'servers:sessions' %}" class="{% if 'sessions' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-users"></i> Sessions
         </a></li>
         <li><a href="{% url 'workers:index' %}" class="{% if 'workers' in request.path %}active{% endif %}">
           <i class="fa-solid fa-microchip"></i> Workers
@@ -196,6 +199,7 @@
         <a href="/admin/"><i class="fa-solid fa-shield-halved"></i> Django Admin</a>
         <a href="{% url 'ops:panel' %}"><i class="fa-solid fa-sliders"></i> Ops</a>
         <a href="{% url 'servers:index' %}"><i class="fa-solid fa-satellite-dish"></i> Fleet</a>
+        <a href="{% url 'servers:sessions' %}"><i class="fa-solid fa-users"></i> Sessions</a>
         <a href="{% url 'workers:index' %}"><i class="fa-solid fa-microchip"></i> Workers</a>
         <a href="{% url 'gitnode:index' %}"><i class="fa-solid fa-code-branch"></i> HiHi Node</a>
       </div>

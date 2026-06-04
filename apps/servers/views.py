@@ -103,3 +103,159 @@ def _check_service(server):
             return result == 0
         except Exception:
             return False
+
+
+# ── Session check-in / check-out ─────────────────────────────────────────────
+
+@login_required
+def sessions_index(request):
+    from .models import Developer, WorkSession
+    from django.utils import timezone
+    active = WorkSession.objects.filter(status__in=['active', 'idle']).select_related('developer', 'server')
+    recent = WorkSession.objects.filter(status='checked_out').select_related('developer', 'server')[:20]
+    devs   = Developer.objects.filter(is_active=True)
+    servers = su_qs(request.user, Server.objects)
+    return render(request, 'servers/sessions.html', {
+        'active_sessions': active,
+        'recent_sessions': recent,
+        'developers': devs,
+        'servers': servers,
+    })
+
+
+@login_required
+@require_POST
+def session_checkin(request):
+    from .models import Developer, WorkSession
+    data = json.loads(request.body)
+    dev_id  = data.get('developer_id')
+    task    = data.get('task_summary', '').strip()
+    project = data.get('project_name', '').strip()
+    srv_id  = data.get('server_id')
+    try:
+        dev = Developer.objects.get(pk=dev_id)
+    except Developer.DoesNotExist:
+        return JsonResponse({'error': 'Unknown developer'}, status=400)
+    server = Server.objects.filter(pk=srv_id).first() if srv_id else None
+    # Close any existing open session for this dev
+    WorkSession.objects.filter(developer=dev, status__in=['active', 'idle']).update(
+        status='checked_out',
+        checked_out_at=__import__('django.utils.timezone', fromlist=['timezone']).timezone.now(),
+    )
+    session = WorkSession.objects.create(
+        developer=dev, server=server,
+        project_name=project, task_summary=task,
+        client_ip=request.META.get('REMOTE_ADDR'),
+    )
+    return JsonResponse({'ok': True, 'session_id': session.pk, 'token': session.session_token,
+                         'message': f'✓ {dev.display_name} checked in'})
+
+
+@login_required
+@require_POST
+def session_checkout(request):
+    from .models import WorkSession
+    from django.utils import timezone
+    data = json.loads(request.body)
+    pk   = data.get('session_id')
+    note = data.get('note', '').strip()
+    try:
+        s = WorkSession.objects.get(pk=pk)
+    except WorkSession.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+    if note:
+        s.task_summary = (s.task_summary + '\n\n' + note).strip()
+    s.status = 'checked_out'
+    s.checked_out_at = timezone.now()
+    s.save()
+    return JsonResponse({'ok': True, 'duration': s.duration_display()})
+
+
+@login_required
+@require_POST
+def session_heartbeat(request):
+    from .models import WorkSession
+    data = json.loads(request.body)
+    WorkSession.objects.filter(pk=data.get('session_id')).update(
+        status=data.get('status', 'active')
+    )
+    return JsonResponse({'ok': True})
+
+
+# ── Terminal hook API — no browser auth, uses session_token ──────────────────
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def api_greet(request):
+    """
+    Called by the VPS login hook (PAM / MOTD script).
+    Receives SSH fingerprint + IP, returns a Lloyd greeting + identity guess.
+    POST: {fingerprint, ip, hostname}
+    """
+    from .models import Developer, WorkSession
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+    data = json.loads(request.body) if request.body else {}
+    fingerprint = data.get('fingerprint', '')
+    ip          = data.get('ip', request.META.get('REMOTE_ADDR', ''))
+    hostname    = data.get('hostname', '')
+
+    # Try to identify by SSH key fingerprint
+    dev = None
+    if fingerprint:
+        from django.db.models import Q
+        for d in Developer.objects.filter(is_active=True):
+            if fingerprint in d.fingerprint_list():
+                dev = d
+                break
+
+    if dev:
+        greeting = (
+            f"👋 Hey {dev.avatar_emoji} {dev.display_name}! Welcome back.\n"
+            f"Connected from {ip or 'unknown'}\n"
+            f"Remember to check in at https://hihilabs.xyz/servers/sessions/ "
+            f"before starting work."
+        )
+        return JsonResponse({
+            'identified': True,
+            'developer': dev.display_name,
+            'developer_id': dev.pk,
+            'greeting': greeting,
+        })
+    else:
+        greeting = (
+            "👋 Hi there! I'm Lloyd.\n"
+            "I don't recognize this device yet.\n"
+            f"Connecting from: {ip or 'unknown'}\n\n"
+            "Who is this? Please check in at:\n"
+            "  https://hihilabs.xyz/servers/sessions/\n\n"
+            "Or run:  hh-checkin  in your terminal."
+        )
+        return JsonResponse({
+            'identified': False,
+            'greeting': greeting,
+            'fingerprint': fingerprint,
+            'register_url': 'https://hihilabs.xyz/servers/sessions/',
+        })
+
+
+@csrf_exempt
+def api_identify(request):
+    """Register a new SSH fingerprint for a developer. Requires session_token from an active session."""
+    from .models import Developer, WorkSession
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+    data = json.loads(request.body)
+    token       = data.get('session_token', '')
+    fingerprint = data.get('fingerprint', '')
+    session = WorkSession.objects.filter(session_token=token, status='active').select_related('developer').first()
+    if not session:
+        return JsonResponse({'error': 'Invalid or expired session token'}, status=401)
+    dev = session.developer
+    existing = dev.fingerprint_list()
+    if fingerprint and fingerprint not in existing:
+        dev.ssh_key_fingerprints = '\n'.join(existing + [fingerprint])
+        dev.save(update_fields=['ssh_key_fingerprints'])
+    return JsonResponse({'ok': True, 'developer': dev.display_name,
+                         'message': f'Device registered for {dev.display_name}'})

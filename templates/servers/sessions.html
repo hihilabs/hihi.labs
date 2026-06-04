@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block title %}Sessions — HiHi Labs{% endblock %}
+
+{% block extra_css %}
+<style>
+.sessions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; padding: 0 24px 32px; }
+.session-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.session-card.active  { border-color: var(--green); }
+.session-card.idle    { border-color: var(--yellow); }
+.dev-row { display: flex; align-items: center; gap: 10px; }
+.dev-emoji { font-size: 22px; }
+.dev-name  { font-size: 14px; font-weight: 600; color: var(--text); }
+.dev-sub   { font-size: 11px; color: var(--text-muted); }
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-left: auto;
+}
+.status-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.idle   { background: var(--yellow); }
+.session-task { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.session-meta { font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); }
+.checkin-form { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 0 24px 24px; }
+.checkin-form h3 { font-size: 13px; font-weight: 600; color: var(--text); margin: 0 0 12px; }
+.checkin-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+@media (max-width: 680px) {
+  .sessions-grid { grid-template-columns: 1fr; padding: 0 12px 24px; }
+  .checkin-form { margin: 0 12px 16px; }
+  .checkin-row { flex-direction: column; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title"><i class="fa-solid fa-users" style="color:var(--teal);margin-right:8px;"></i>Sessions</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Who's working on what right now</div>
+  </div>
+  <button class="btn btn-primary btn-sm" onclick="document.getElementById('checkin-panel').style.display='block';this.style.display='none'">
+    <i class="fa-solid fa-right-to-bracket"></i> Check In
+  </button>
+</div>
+
+{# ── Check-in form ── #}
+<div id="checkin-panel" class="checkin-form" style="display:none;">
+  <h3><i class="fa-solid fa-right-to-bracket" style="color:var(--teal);"></i> Check In</h3>
+  <div class="checkin-row" style="margin-bottom:8px;">
+    <div style="flex:1;min-width:160px;">
+      <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Who are you?</label>
+      <select class="form-control" id="ci-dev">
+        <option value="">— select —</option>
+        {% for d in developers %}
+        <option value="{{ d.pk }}">{{ d.avatar_emoji }} {{ d.display_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex:1;min-width:160px;">
+      <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Project / server</label>
+      <select class="form-control" id="ci-server">
+        <option value="">— any —</option>
+        {% for s in servers %}
+        <option value="{{ s.pk }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex:2;min-width:200px;">
+      <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">What are you working on?</label>
+      <input class="form-control" id="ci-task" placeholder="e.g. Adding pricing disclaimers to catalog footer">
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="doCheckin()">
+      <i class="fa-solid fa-check"></i> Check In
+    </button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('checkin-panel').style.display='none'">Cancel</button>
+  </div>
+  <div id="ci-msg" style="font-size:12px;color:var(--green);display:none;margin-top:4px;"></div>
+</div>
+
+{# ── Active sessions ── #}
+{% if active_sessions %}
+<div style="padding:0 24px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);">
+  Active now
+</div>
+<div class="sessions-grid">
+  {% for s in active_sessions %}
+  <div class="session-card {{ s.status }}" id="sess-{{ s.pk }}">
+    <div class="dev-row">
+      <span class="dev-emoji">{{ s.developer.avatar_emoji }}</span>
+      <div>
+        <div class="dev-name">{{ s.developer.display_name }}</div>
+        <div class="dev-sub">{{ s.project_name|default:s.server.name|default:"VPS" }}</div>
+      </div>
+      <span class="status-dot {{ s.status }}" title="{{ s.status }}"></span>
+    </div>
+    {% if s.task_summary %}
+    <div class="session-task">{{ s.task_summary|linebreaksbr }}</div>
+    {% endif %}
+    <div class="session-meta">
+      {{ s.duration_display }} · since {{ s.checked_in_at|date:"H:i" }}
+      {% if s.client_ip %} · {{ s.client_ip }}{% endif %}
+    </div>
+    <div style="display:flex;gap:6px;border-top:1px solid var(--border);padding-top:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="doCheckout({{ s.pk }})">
+        <i class="fa-solid fa-right-from-bracket"></i> Check Out
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state" style="padding:60px 0;">
+  <i class="fa-solid fa-users-slash"></i>
+  <p>No one checked in right now.</p>
+</div>
+{% endif %}
+
+{# ── Recent sessions ── #}
+{% if recent_sessions %}
+<div style="padding:16px 24px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);">
+  Recent
+</div>
+<div style="padding:0 24px 32px;">
+  {% for s in recent_sessions %}
+  <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);">
+    <span style="font-size:16px;">{{ s.developer.avatar_emoji }}</span>
+    <div style="flex:1;min-width:0;">
+      <span style="font-size:13px;color:var(--text);">{{ s.developer.display_name }}</span>
+      <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">{{ s.project_name|default:s.server.name|default:"VPS" }}</span>
+    </div>
+    <span style="font-size:11px;color:var(--text-faint);font-family:var(--font-mono);">{{ s.duration_display }}</span>
+    <span style="font-size:11px;color:var(--text-faint);">{{ s.checked_in_at|date:"M d H:i" }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+let mySessionId = null;
+
+async function doCheckin() {
+  const devId   = document.getElementById('ci-dev').value;
+  const task    = document.getElementById('ci-task').value.trim();
+  const srvId   = document.getElementById('ci-server').value;
+  if (!devId) { alert('Select who you are first.'); return; }
+  const res = await fetch('/servers/sessions/checkin/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({developer_id: devId, task_summary: task, server_id: srvId || null}),
+  });
+  const d = await res.json();
+  if (d.ok) {
+    mySessionId = d.session_id;
+    const msg = document.getElementById('ci-msg');
+    msg.textContent = d.message;
+    msg.style.display = 'block';
+    setTimeout(() => location.reload(), 1200);
+  }
+}
+
+async function doCheckout(sessionId) {
+  const note = prompt('Any closing notes? (optional)') || '';
+  const res = await fetch('/servers/sessions/checkout/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({session_id: sessionId, note}),
+  });
+  const d = await res.json();
+  if (d.ok) {
+    document.getElementById(`sess-${sessionId}`)?.remove();
+  }
+}
+
+// Heartbeat every 3 minutes to keep session alive
+setInterval(() => {
+  if (mySessionId) {
+    fetch('/servers/sessions/heartbeat/', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+      body: JSON.stringify({session_id: mySessionId, status: 'active'}),
+    });
+  }
+}, 180_000);
+</script>
+{% endblock %}
