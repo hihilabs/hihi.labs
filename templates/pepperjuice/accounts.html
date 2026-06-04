@@ -4,17 +4,27 @@
 {% block extra_css %}
 <style>
 .pj-section { padding:0 24px 24px; }
-.account-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
-.account-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 20px; display:flex; flex-direction:column; gap:6px; }
-.account-card-header { display:flex; justify-content:space-between; align-items:flex-start; }
+.account-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+.account-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 20px; }
+.account-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
 .account-name { font-size:14px; font-weight:600; }
-.account-type-tag { font-size:10px; padding:2px 7px; border-radius:10px; background:var(--border); color:var(--text-muted); }
-.account-type-tag.biz { background:rgba(20,184,166,.15); color:#14b8a6; }
-.account-balance { font-size:24px; font-weight:700; font-family:'Syne',sans-serif; }
-.account-meta { font-size:11px; color:var(--text-muted); }
+.account-inst { font-size:11px; color:var(--text-muted); margin-bottom:4px; }
+.account-balance { font-size:22px; font-weight:700; font-family:'Syne',sans-serif; margin-bottom:10px; }
+.account-controls { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.subtype-select { background:var(--bg); border:1px solid var(--border); border-radius:var(--r-md); padding:4px 8px; font-size:11px; color:var(--text); cursor:pointer; }
+.tag { font-size:10px; padding:2px 8px; border-radius:10px; white-space:nowrap; }
+.tag-cash       { background:rgba(34,197,94,.15);   color:#22c55e; }
+.tag-investment { background:rgba(124,106,247,.15); color:var(--brand); }
+.tag-loan       { background:rgba(239,68,68,.15);   color:#ef4444; }
+.tag-credit     { background:rgba(239,68,68,.15);   color:#ef4444; }
+.tag-crypto     { background:rgba(245,158,11,.15);  color:#f59e0b; }
+.tag-bucket     { background:var(--border);         color:var(--text-muted); }
+.tag-other      { background:var(--border);         color:var(--text-muted); }
+.tag-biz        { background:rgba(20,184,166,.15);  color:#14b8a6; }
+.section-header { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
 .sync-bar { display:flex; align-items:center; justify-content:space-between; padding:10px 24px 20px; }
 .sync-meta { font-size:12px; color:var(--text-muted); }
-@media(max-width:680px) { .account-grid { grid-template-columns:1fr 1fr; } .pj-section { padding:0 16px 16px; } .sync-bar { padding:10px 16px 16px; } }
+@media(max-width:680px) { .account-grid { grid-template-columns:1fr; } .pj-section { padding:0 16px 16px; } .sync-bar { padding:10px 16px 16px; } }
 </style>
 {% endblock %}
 
@@ -41,38 +51,53 @@
 
 <div class="sync-bar">
   <span class="sync-meta">
-    {% if connection.last_sync %}
-    Last synced {{ connection.last_sync|timesince }} ago
-    {% else %}
-    Never synced — hit Sync to pull balances
-    {% endif %}
+    {% if connection.last_sync %}Last synced {{ connection.last_sync|timesince }} ago{% else %}Never synced{% endif %}
+    &nbsp;·&nbsp; <span style="font-size:11px;">Use <strong>Type</strong> to classify accounts. <strong>Biz</strong> separates Fckry.LLC.</span>
   </span>
-  <span id="sync-status"></span>
+  <span id="sync-status" style="font-size:12px;"></span>
 </div>
 
 {% if accounts %}
-<div class="pj-section" style="padding-top:0;">
-  <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Toggle <strong>Biz</strong> to separate Fckry.LLC accounts from personal.</div>
+{% regroup accounts by account_type as type_groups %}
+{% for group in type_groups %}
+<div class="pj-section" style="padding-top:0;margin-bottom:8px;">
+  <div class="section-header">
+    {% if group.grouper == 'external' %}Linked Accounts
+    {% elif group.grouper == 'pod' %}Budget Pods
+    {% else %}Income Sources{% endif %}
+    <span style="font-weight:400;margin-left:6px;">({{ group.list|length }})</span>
+  </div>
   <div class="account-grid">
-    {% for acct in accounts %}
-    <div class="account-card" id="acct-{{ acct.pk }}">
+    {% for acct in group.list %}
+    <div class="account-card">
       <div class="account-card-header">
-        <div class="account-name">{{ acct.name }}</div>
-        <span class="account-type-tag {% if acct.is_business %}biz{% endif %}" id="tag-{{ acct.pk }}">
-          {% if acct.is_business %}Biz{% else %}{{ acct.get_account_type_display }}{% endif %}
-        </span>
+        <div>
+          <div class="account-name">{{ acct.name }}</div>
+          {% if acct.institution %}<div class="account-inst">{{ acct.institution }}</div>{% endif %}
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <span class="tag tag-{{ acct.account_subtype }}">{{ acct.get_account_subtype_display }}</span>
+          {% if acct.is_business %}<span class="tag tag-biz">Biz</span>{% endif %}
+        </div>
       </div>
       <div class="account-balance">{{ acct.balance_display }}</div>
-      <div class="account-meta">{{ acct.currency }} · synced {{ acct.synced_at|timesince }} ago</div>
-      <div style="margin-top:6px;">
+      <div class="account-controls">
+        {% if group.grouper == 'external' %}
+        <select class="subtype-select" onchange="setSubtype({{ acct.pk }}, this.value)">
+          {% for val, label in subtype_choices %}
+          <option value="{{ val }}" {% if acct.account_subtype == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
         <button class="btn btn-sm" style="font-size:11px;" onclick="toggleBiz({{ acct.pk }})">
-          {% if acct.is_business %}<i class="fa-solid fa-toggle-on" style="color:var(--teal,#14b8a6);"></i> Mark Personal{% else %}<i class="fa-solid fa-toggle-off"></i> Mark Biz{% endif %}
+          {% if acct.is_business %}<i class="fa-solid fa-toggle-on" style="color:var(--teal,#14b8a6);"></i> Personal{% else %}<i class="fa-solid fa-toggle-off"></i> Biz{% endif %}
         </button>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
   </div>
 </div>
+{% endfor %}
 {% else %}
 <div style="text-align:center;padding:48px;color:var(--text-muted);">
   No accounts cached yet. Hit <strong>Sync</strong> to pull from Sequence.
@@ -95,6 +120,7 @@ function syncAccounts() {
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync';
     if (d.ok) {
+      status.style.color = 'var(--green,#22c55e)';
       status.textContent = `✓ ${d.count} accounts updated`;
       setTimeout(() => location.reload(), 800);
     } else {
@@ -104,8 +130,11 @@ function syncAccounts() {
   });
 }
 function toggleBiz(pk) {
-  post(`/finance/accounts/${pk}/toggle/`, {}).then(d => {
-    if (d.ok) location.reload();
+  post(`/finance/accounts/${pk}/toggle/`, {}).then(d => { if (d.ok) location.reload(); });
+}
+function setSubtype(pk, subtype) {
+  post(`/finance/accounts/${pk}/subtype/`, { subtype }).then(d => {
+    if (!d.ok) alert('Failed to update type: ' + d.error);
   });
 }
 </script>

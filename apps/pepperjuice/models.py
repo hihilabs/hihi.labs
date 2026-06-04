@@ -18,11 +18,22 @@ class SequenceConnection(models.Model):
 
 class CachedAccount(models.Model):
     TYPE_CHOICES = [('pod', 'Pod'), ('income', 'Income Source'), ('external', 'External')]
+    SUBTYPE_CHOICES = [
+        ('cash',       'Cash / Checking / Savings'),
+        ('investment', 'Investment / Retirement'),
+        ('loan',       'Loan'),
+        ('credit',     'Credit Card'),
+        ('crypto',     'Crypto'),
+        ('bucket',     'Budget Bucket'),
+        ('other',      'Other'),
+    ]
 
     connection = models.ForeignKey(SequenceConnection, on_delete=models.CASCADE, related_name='accounts')
     sequence_id = models.CharField(max_length=200)
     name = models.CharField(max_length=200)
+    institution = models.CharField(max_length=200, blank=True)
     account_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='pod')
+    account_subtype = models.CharField(max_length=20, choices=SUBTYPE_CHOICES, default='other')
     balance_cents = models.BigIntegerField(default=0)
     currency = models.CharField(max_length=3, default='USD')
     is_business = models.BooleanField(default=False)

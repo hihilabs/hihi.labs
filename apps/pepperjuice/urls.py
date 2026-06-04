@@ -14,7 +14,8 @@ urlpatterns = [
     path('goals/<int:pk>/delete/',    views.goal_delete,            name='goal_delete'),
     path('accounts/',                 views.accounts_view,          name='accounts'),
     path('accounts/sync/',            views.sync_accounts,          name='sync_accounts'),
-    path('accounts/<int:pk>/toggle/', views.account_toggle_business, name='account_toggle_business'),
+    path('accounts/<int:pk>/toggle/',  views.account_toggle_business, name='account_toggle_business'),
+    path('accounts/<int:pk>/subtype/', views.account_set_subtype,     name='account_set_subtype'),
     path('connect/',                  views.connect_view,           name='connect'),
     path('disconnect/',               views.disconnect,             name='disconnect'),
 ]

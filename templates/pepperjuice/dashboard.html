@@ -34,9 +34,22 @@
 
 {% block content %}
 <div class="page-header">
-  <div class="page-title">Pepperjuice</div>
-  <div style="font-size:11px;color:var(--text-muted);">Binsky & Mags · Finance HQ</div>
+  <div>
+    <div class="page-title">Pepperjuice</div>
+    <div style="font-size:11px;color:var(--text-muted);">Binsky & Mags · Finance HQ</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a href="{% url 'pepperjuice:bills' %}" class="btn btn-sm"><i class="fa-solid fa-file-invoice-dollar"></i> Bills</a>
+    <a href="{% url 'pepperjuice:goals' %}" class="btn btn-sm"><i class="fa-solid fa-piggy-bank"></i> Goals</a>
+    {% if connection %}
+    <button class="btn btn-sm" id="sync-btn" onclick="syncNow()"><i class="fa-solid fa-rotate"></i> Sync</button>
+    {% else %}
+    <a href="{% url 'pepperjuice:connect' %}" class="btn btn-sm"><i class="fa-solid fa-plug"></i> Connect</a>
+    {% endif %}
+    <a href="{% url 'pepperjuice:connect' %}" class="btn btn-sm" title="Settings"><i class="fa-solid fa-gear"></i></a>
+  </div>
 </div>
+<div id="sync-msg" style="display:none;padding:4px 24px;font-size:12px;"></div>
 
 {% if overdue_count %}
 <div class="alert-banner alert-red">
@@ -58,18 +71,18 @@
 {# ── KPI row ── #}
 <div class="pj-grid">
   <div class="pj-card">
-    <div class="pj-card-label">Personal Cash</div>
+    <div class="pj-card-label">Liquid Cash</div>
     <div class="pj-card-value" style="color:var(--brand);">${{ personal_total|floatformat:2 }}</div>
-    <div class="pj-card-sub">across all personal accounts</div>
+    <div class="pj-card-sub">checking · savings · crypto</div>
   </div>
   <div class="pj-card">
-    <div class="pj-card-label">Fckry.LLC Cash</div>
-    <div class="pj-card-value" style="color:var(--teal,#14b8a6);">${{ business_total|floatformat:2 }}</div>
-    <div class="pj-card-sub">business accounts</div>
+    <div class="pj-card-label">Total Debt</div>
+    <div class="pj-card-value" style="color:var(--red,#ef4444);">${{ total_debt|floatformat:0 }}</div>
+    <div class="pj-card-sub">loans + credit cards</div>
   </div>
   <div class="pj-card">
     <div class="pj-card-label">Monthly Bills</div>
-    <div class="pj-card-value" style="color:var(--yellow,#f59e0b);">${{ total_monthly_cents|floatformat:0 }}</div>
+    <div class="pj-card-value" style="color:var(--yellow,#f59e0b);">${{ total_monthly|floatformat:0 }}</div>
     <div class="pj-card-sub">{{ paid_count }}/{{ total_bills }} paid · {% if overdue_count %}<span style="color:var(--red,#ef4444);">{{ overdue_count }} overdue</span>{% else %}all clear{% endif %}</div>
   </div>
   <div class="pj-card">
@@ -158,6 +171,42 @@ function markPaid(pk, btn) {
 function getCookie(name) {
   const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
   return v ? v[2] : null;
+}
+function syncNow() {
+  const btn = document.getElementById('sync-btn');
+  const msg = document.getElementById('sync-msg');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Syncing…';
+  msg.style.display = 'none';
+  fetch('/finance/accounts/sync/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken')},
+    body: JSON.stringify({}),
+  }).then(r => r.text()).then(text => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync';
+    msg.style.display = 'block';
+    let d;
+    try { d = JSON.parse(text); } catch(e) {
+      msg.style.color = 'var(--red,#ef4444)';
+      msg.textContent = `Parse error — server said: ${text.slice(0, 120)}`;
+      return;
+    }
+    if (d.ok) {
+      msg.style.color = 'var(--green,#22c55e)';
+      msg.textContent = `✓ ${d.count} accounts synced`;
+      setTimeout(() => location.reload(), 900);
+    } else {
+      msg.style.color = 'var(--red,#ef4444)';
+      msg.textContent = `Error: ${d.error}`;
+    }
+  }).catch(e => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync';
+    msg.style.display = 'block';
+    msg.style.color = 'var(--red,#ef4444)';
+    msg.textContent = `Network error: ${e.message}`;
+  });
 }
 </script>
 {% endblock %}
