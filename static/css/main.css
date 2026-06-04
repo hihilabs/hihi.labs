@@ -2747,7 +2747,12 @@ body.nav-collapsed .sidenav-links li:not(.has-subnav) > a:hover::after {
 .nav-toggle-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 
 /* smooth sidenav transition */
-.sidenav  { transition: width var(--dur-slow) var(--ease); overflow-x: hidden; }
+/* overflow-x:hidden clips fly-out panels when collapsed — use overflow:visible
+   but clip only during the width transition to prevent layout flash */
+.sidenav  { transition: width var(--dur-slow) var(--ease); overflow-x: visible; overflow-y: hidden; }
+.sidenav-links { overflow-y: auto; overflow-x: visible; }
+/* during transition, temporarily clip so the expanding bar looks clean */
+.sidenav.collapsing { overflow-x: hidden; }
 .content  { transition: margin-left var(--dur-slow) var(--ease); }
 
 /* footer must sit above the scrollable links layer so buttons are clickable */

@@ -563,6 +563,10 @@ function _applyNavCollapse(collapsed) {
 
 function toggleSideNav() {
   var collapsed = !document.body.classList.contains('nav-collapsed');
+  // clip overflow during the width transition, then release
+  var nav = document.querySelector('.sidenav');
+  nav.classList.add('collapsing');
+  setTimeout(() => nav.classList.remove('collapsing'), 280);
   _applyNavCollapse(collapsed);
   localStorage.setItem('nav_collapsed', collapsed ? '1' : '0');
 }
