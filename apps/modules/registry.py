@@ -3,6 +3,7 @@
 # status:  'live' | 'beta' | 'wip'
 # platform: free text — 'Web', 'Unraid Docker', 'Unraid / Plex', 'Android', etc.
 # icon_class: FA prefix — defaults to 'fa-solid'; use 'fa-brands' for brand icons
+# fleet_service: Server.name from the Fleet registry — links module → infrastructure
 
 MODULES = [
 
@@ -20,6 +21,7 @@ MODULES = [
         'live_url':    'https://hihilabs.xyz',
         'source_url':  'https://github.com/khildren/hihi.labs',
         'tags':        ['django', 'claude', 'ai', 'docker'],
+        'fleet_service': 'HiHi Labs CRM',
     },
     {
         'slug':        'camagent',
@@ -33,6 +35,7 @@ MODULES = [
         'live_url':    'https://agent.omegamep.com',
         'source_url':  'https://github.com/khildren/camagent',
         'tags':        ['ocr', 'ai', 'gpu', 'unraid', 'hvac', 'django'],
+        'fleet_service': 'OmegaMEP / HiHi',
     },
 
     # ── Web Apps ──────────────────────────────────────────────────────────────
@@ -49,6 +52,7 @@ MODULES = [
         'live_url':    'https://hihi.omegamep.com',
         'source_url':  'https://github.com/khildren/hihi',
         'tags':        ['django', 'crm', 'hvac', 'docker', 'pwa'],
+        'fleet_service': 'OmegaMEP / HiHi',
     },
     {
         'slug':        'communityplaylist',
@@ -62,6 +66,7 @@ MODULES = [
         'live_url':    'https://communityplaylist.com',
         'source_url':  'https://github.com/khildren/communityplaylist',
         'tags':        ['django', 'music', 'social', 'platform', 'pwa'],
+        'fleet_service': 'Community Playlist',
     },
 
     # ── Community Playlist — Feature Modules ─────────────────────────────────
@@ -78,6 +83,7 @@ MODULES = [
         'live_url':    'https://communityplaylist.com/events/',
         'source_url':  'https://github.com/hihilabs/cp-events',
         'tags':        ['leaflet', 'map', 'hybrid-view', 'gps', 'django'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-player',
@@ -91,6 +97,7 @@ MODULES = [
         'live_url':    'https://communityplaylist.com/events/player/',
         'source_url':  'https://github.com/hihilabs/cp-player',
         'tags':        ['audio', 'plex', 'youtube', 'shuffle', 'queue', 'pwa'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-flyer',
@@ -104,6 +111,7 @@ MODULES = [
         'live_url':    'https://communityplaylist.com/events/example/flyer/',
         'source_url':  'https://github.com/hihilabs/cp-flyer',
         'tags':        ['pil', 'html2canvas', 'social', 'bluesky', 'instagram'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-social',
@@ -117,6 +125,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/hihilabs/cp-social',
         'tags':        ['buffer', 'bluesky', 'discord', 'pil', 'instagram', 'automation'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-wiki',
@@ -130,6 +139,7 @@ MODULES = [
         'live_url':    'https://wiki.communityplaylist.com',
         'source_url':  'https://github.com/hihilabs/cp-wiki',
         'tags':        ['d3', 'graph', 'taxonomy', 'musicbrainz', 'django-app'],
+        'fleet_service': 'Genre Wiki',
     },
     {
         'slug':        'cp-artists',
@@ -143,6 +153,7 @@ MODULES = [
         'live_url':    'https://communityplaylist.com/promoters/',
         'source_url':  'https://github.com/hihilabs/cp-artists',
         'tags':        ['profiles', 'vinyl', 'record-shop', 'solana'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-board',
@@ -156,6 +167,7 @@ MODULES = [
         'live_url':    'https://communityplaylist.com/board/',
         'source_url':  'https://github.com/hihilabs/cp-board',
         'tags':        ['community', 'forum', 'bluesky', 'discord', 'moderation'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-discord',
@@ -170,6 +182,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/hihilabs/cp-discord',
         'tags':        ['discord', 'webhooks', 'sync', 'automation'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-ops',
@@ -183,6 +196,7 @@ MODULES = [
         'live_url':    'https://communityplaylist.com/ops/',
         'source_url':  'https://github.com/hihilabs/cp-ops',
         'tags':        ['django-app', 'ops', 'deploy', 'tickets', 'staff-only'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-video',
@@ -196,6 +210,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/hihilabs/cp-video',
         'tags':        ['youtube', 'twitch', 'video', 'embed'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-genres',
@@ -209,6 +224,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/hihilabs/cp-genres',
         'tags':        ['genres', 'taxonomy', 'edit-music', 'management-command'],
+        'fleet_service': 'Genre Wiki',
     },
     {
         'slug':        'cp-spaces',
@@ -222,6 +238,7 @@ MODULES = [
         'live_url':    'https://communityplaylist.com/spaces/',
         'source_url':  'https://github.com/hihilabs/cp-spaces',
         'tags':        ['mutual-aid', 'community', 'spaces', 'kofi'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-shelter',
@@ -235,6 +252,7 @@ MODULES = [
         'live_url':    'https://communityplaylist.com/shelter/',
         'source_url':  'https://github.com/hihilabs/cp-shelter',
         'tags':        ['mutual-aid', 'shelter', 'housing', 'community'],
+        'fleet_service': 'Community Playlist',
     },
     {
         'slug':        'cp-labeler',
@@ -248,6 +266,7 @@ MODULES = [
         'live_url':    'http://10.0.0.124:8090',
         'source_url':  'https://github.com/khildren/edit.music',
         'tags':        ['pwa', 'music-tagging', 'lidarr', 'tidal', 'unraid'],
+        'fleet_service': 'edit.music',
     },
     {
         'slug':        'lostsignal',
@@ -261,6 +280,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/lostsignal',
         'tags':        ['music', 'label'],
+        'fleet_service': 'Lost Signal',
     },
     {
         'slug':        'apothecary',
@@ -274,6 +294,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/apothecary',
         'tags':        [],
+        'fleet_service': 'VPS (panel)',
     },
     {
         'slug':        'bluesolutions',
@@ -287,6 +308,7 @@ MODULES = [
         'live_url':    'https://bluesolutions.biz',
         'source_url':  'https://github.com/khildren/bluesolutions',
         'tags':        ['wordpress', 'business'],
+        'fleet_service': 'VPS (panel)',
     },
     {
         'slug':        'epk',
@@ -300,6 +322,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/epk',
         'tags':        ['music', 'press', 'portfolio'],
+        'fleet_service': 'FAC / EPK',
     },
     {
         'slug':        'portfolio-blue',
@@ -313,6 +336,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/portfolio-blue',
         'tags':        ['portfolio'],
+        'fleet_service': 'VPS (panel)',
     },
     {
         'slug':        'seedling-society',
@@ -326,6 +350,7 @@ MODULES = [
         'live_url':    'https://seedlingsociety.com',
         'source_url':  'https://github.com/khildren/seedling-society-market',
         'tags':        ['marketplace', 'community', 'e-commerce'],
+        'fleet_service': 'Seedling Society',
     },
 
     # ── HiHi Node ─────────────────────────────────────────────────────────────
@@ -342,6 +367,7 @@ MODULES = [
         'live_url':    'https://hihilabs.xyz/gitnode/',
         'source_url':  'https://github.com/khildren/hihi.labs',
         'tags':        ['git', 'deploy', 'ssh', 'ops', 'vps'],
+        'fleet_service': 'HiHi Labs CRM',
     },
 
     # ── Infra / Tools ─────────────────────────────────────────────────────────
@@ -358,6 +384,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/docker-sapiens',
         'tags':        ['docker', 'game', 'unraid', 'small-biz', 'template'],
+        'fleet_service': 'Unraid NAS',
     },
     {
         'slug':        'lidarr-mv-sync',
@@ -371,6 +398,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/mv-lidarr-addon',
         'tags':        ['plex', 'lidarr', 'unraid', 'music', 'automation'],
+        'fleet_service': 'Unraid NAS',
     },
     {
         'slug':        'cp-worker',
@@ -384,6 +412,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/cp-worker',
         'tags':        ['docker', 'unraid', 'worker', 'communityplaylist'],
+        'fleet_service': 'Unraid NAS',
     },
     {
         'slug':        'tokyo7-admin-api',
@@ -397,6 +426,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/tokyo7-admin-api',
         'tags':        ['api', 'admin', 'unraid', 'server', 'automation'],
+        'fleet_service': 'Unraid NAS',
     },
 
     # ── Utility / Bots ────────────────────────────────────────────────────────
@@ -413,6 +443,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/discord-bot',
         'tags':        ['discord', 'bot', 'docker', 'unraid'],
+        'fleet_service': 'Unraid NAS',
     },
     {
         'slug':        'tokyo7-discord-bot',
@@ -426,6 +457,7 @@ MODULES = [
         'live_url':    '',
         'source_url':  'https://github.com/khildren/tokyo7-discord-bot',
         'tags':        ['discord', 'bot', 'tokyo7'],
+        'fleet_service': 'Unraid NAS',
     },
     {
         'slug':        'sms-autoreplier',
@@ -439,5 +471,6 @@ MODULES = [
         'live_url':    'https://expo.hihilabs.xyz',
         'source_url':  'https://expo.hihilabs.xyz/sms-autoreplier-src.tar',
         'tags':        ['android', 'kotlin', 'sms', 'automation'],
+        'fleet_service': '',
     },
 ]

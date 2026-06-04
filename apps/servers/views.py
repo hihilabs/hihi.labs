@@ -9,8 +9,21 @@ from apps.core.superuser import su_qs, su_get
 
 @login_required
 def index(request):
-    servers = su_qs(request.user, Server.objects)
-    # Group by platform for the fleet view
+    servers = list(su_qs(request.user, Server.objects))
+    # Annotate module counts
+    try:
+        from apps.modules.registry import MODULES
+        mod_counts = {}
+        for m in MODULES:
+            svc = m.get('fleet_service', '')
+            if svc:
+                mod_counts[svc] = mod_counts.get(svc, 0) + 1
+        for s in servers:
+            s.module_count = mod_counts.get(s.name, 0)
+    except Exception:
+        for s in servers:
+            s.module_count = 0
+
     order = ['vps', 'docker', 'unraid', 'local', 'external']
     groups = {}
     for s in servers:
@@ -259,3 +272,83 @@ def api_identify(request):
         dev.save(update_fields=['ssh_key_fingerprints'])
     return JsonResponse({'ok': True, 'developer': dev.display_name,
                          'message': f'Device registered for {dev.display_name}'})
+
+
+# ── Architecture / topology view ─────────────────────────────────────────────
+
+@login_required
+def arch_view(request):
+    """Architecture topology — services grouped by zone with module counts."""
+    from .models import Server
+    from apps.modules.registry import MODULES
+    from apps.core.superuser import su_qs
+    import json as _json
+
+    servers = list(su_qs(request.user, Server.objects))
+
+    # Build module-count map: server name → count
+    mod_counts = {}
+    mod_index  = {}   # server name → list of {name, slug, color, icon}
+    for m in MODULES:
+        svc = m.get('fleet_service', '')
+        if svc:
+            mod_counts[svc] = mod_counts.get(svc, 0) + 1
+            mod_index.setdefault(svc, []).append({
+                'name':  m['name'],
+                'slug':  m['slug'],
+                'color': m.get('color', '#7c6af7'),
+                'icon':  m.get('icon', 'fa-cube'),
+                'url':   m.get('live_url', ''),
+            })
+
+    # Annotate servers
+    for s in servers:
+        s.module_count = mod_counts.get(s.name, 0)
+        s.modules_json = _json.dumps(mod_index.get(s.name, []))
+
+    # Zone groups
+    zones = [
+        ('vps',    'VPS',    [s for s in servers if s.platform in ('vps',)]),
+        ('docker', 'Docker', [s for s in servers if s.platform == 'docker']),
+        ('unraid', 'Unraid', [s for s in servers if s.platform == 'unraid']),
+        ('other',  'Other',  [s for s in servers if s.platform in ('external','local')]),
+    ]
+    zones = [(z, l, svcs) for z, l, svcs in zones if svcs]
+
+    return render(request, 'servers/arch.html', {
+        'zones':      zones,
+        'all_servers': servers,
+        'mod_counts': mod_counts,
+    })
+
+
+# ── SSE — live health stream ──────────────────────────────────────────────────
+
+from django.views.decorators.http import require_GET
+
+@login_required
+@require_GET
+def status_stream(request):
+    """Server-Sent Events stream: pushes health check results every 30s."""
+    import time
+    from django.http import StreamingHttpResponse
+
+    def event_generator():
+        from .models import Server
+        from apps.core.superuser import su_qs
+        servers = list(su_qs(request.user, Server.objects))
+        while True:
+            results = {}
+            for s in servers:
+                results[s.pk] = _check_service(s)
+            data = __import__('json').dumps(results)
+            yield f"data: {data}\n\n"
+            time.sleep(30)
+
+    response = StreamingHttpResponse(
+        event_generator(),
+        content_type='text/event-stream',
+    )
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response

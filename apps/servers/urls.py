@@ -9,6 +9,8 @@ urlpatterns = [
     path('<int:pk>/delete/', views.server_delete, name='server_delete'),
     path('<int:pk>/ping/', views.server_ping, name='ping'),
     path('status/', views.fleet_status, name='fleet_status'),
+    path('arch/', views.arch_view, name='arch'),
+    path('stream/', views.status_stream, name='status_stream'),
     # Session check-in system
     path('sessions/', views.sessions_index, name='sessions'),
     path('sessions/checkin/', views.session_checkin, name='session_checkin'),
