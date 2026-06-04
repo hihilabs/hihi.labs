@@ -21,10 +21,13 @@
 <body>
 
 <nav class="sidenav">
-  <div class="sidenav-logo" onclick="if(document.body.classList.contains('nav-collapsed'))toggleSideNav()" style="cursor:default;" id="sidenav-logo-wrap">
+  {# Rail toggle — only visible in collapsed mode, always at top #}
+  <button class="nav-rail-toggle" onclick="toggleSideNav()" title="Expand menu" id="nav-rail-btn">
+    <i class="fa-solid fa-angles-right"></i>
+  </button>
+  <div class="sidenav-logo" id="sidenav-logo-wrap">
     <span class="logo-hi">hi</span><span class="logo-hi2">hi</span>
     <span class="logo-tag">labs</span>
-    <i class="fa-solid fa-angles-right nav-expand-hint" title="Expand menu"></i>
   </div>
   <ul class="sidenav-links">
     <li><a href="{% url 'dashboard:index' %}" class="{% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}">
@@ -211,8 +214,8 @@
     {% if user.is_authenticated %}
     <span class="user-tag">{{ user.get_short_name|default:user.username }}</span>
     <div style="display:flex;align-items:center;gap:6px;">
-      <button class="nav-toggle-btn" onclick="toggleSideNav()" id="nav-toggle-btn" title="Collapse nav">
-        <i class="fa-solid fa-bars" id="nav-toggle-icon"></i>
+      <button class="nav-toggle-btn" onclick="toggleSideNav()" id="nav-toggle-btn" title="Collapse menu">
+        <i class="fa-solid fa-angles-left" id="nav-toggle-icon"></i>
       </button>
       <button id="pwa-bell"
               onclick="togglePush(this)"
@@ -557,6 +560,15 @@ document.addEventListener('DOMContentLoaded', () => {
 function _applyNavCollapse(collapsed) {
   document.documentElement.style.setProperty('--nav-w', collapsed ? '52px' : '220px');
   document.body.classList.toggle('nav-collapsed', collapsed);
+  // Update both toggle buttons to reflect direction
+  var footerIcon = document.getElementById('nav-toggle-icon');
+  var footerBtn  = document.getElementById('nav-toggle-btn');
+  if (footerIcon) {
+    footerIcon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+  }
+  if (footerBtn) {
+    footerBtn.title = collapsed ? 'Expand menu' : 'Collapse menu';
+  }
 }
 
 (function(){
@@ -568,10 +580,6 @@ function _applyNavCollapse(collapsed) {
 
 function toggleSideNav() {
   var collapsed = !document.body.classList.contains('nav-collapsed');
-  // clip overflow during the width transition, then release
-  var nav = document.querySelector('.sidenav');
-  nav.classList.add('collapsing');
-  setTimeout(() => nav.classList.remove('collapsing'), 280);
   _applyNavCollapse(collapsed);
   localStorage.setItem('nav_collapsed', collapsed ? '1' : '0');
 }

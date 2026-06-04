@@ -2661,21 +2661,26 @@ body.nav-collapsed .sidenav-divider { margin: 6px 8px; }
 body.nav-collapsed .sidenav-footer { justify-content: center; gap: 4px; }
 body.nav-collapsed .sidenav-footer .user-tag { display: none; }
 
-/* ── expand hint — visible only when collapsed ───────────────────── */
-.nav-expand-hint { display: none; }
-body.nav-collapsed .nav-expand-hint {
-  display: block;
-  font-size: 11px;
+/* ── nav rail toggle button (dedicated — always visible) ─────────── */
+.nav-rail-toggle {
+  display: none;  /* only shown when collapsed */
+  width: 100%;
+  border: none;
+  background: none;
   color: var(--text-faint);
-  animation: hint-pulse 2.5s ease-in-out infinite;
+  font-size: 14px;
+  padding: 8px 0 6px;
+  cursor: pointer;
+  transition: color var(--dur-base), background var(--dur-base);
+  text-align: center;
+  border-bottom: 1px solid var(--border);
 }
-body.nav-collapsed #sidenav-logo-wrap {
-  cursor: pointer !important;
-  flex-direction: column;
-  gap: 2px;
-}
-body.nav-collapsed #sidenav-logo-wrap:hover { background: var(--bg3); border-radius: var(--r-sm); }
-body.nav-collapsed #sidenav-logo-wrap:hover .nav-expand-hint { color: var(--accent); animation: none; }
+.nav-rail-toggle:hover { color: var(--accent); background: var(--bg3); }
+body.nav-collapsed .nav-rail-toggle { display: block; }
+
+/* logo area: no longer a click target when collapsed — rail toggle handles it */
+body.nav-collapsed #sidenav-logo-wrap { cursor: default !important; }
+.nav-expand-hint { display: none; }  /* removed — replaced by rail toggle */
 @keyframes hint-pulse { 0%,100% { opacity:.35; } 60% { opacity:1; } }
 
 /* ── collapsed: fly-out panels for sub-menu groups ──────────────── */
@@ -2747,12 +2752,13 @@ body.nav-collapsed .sidenav-links li:not(.has-subnav) > a:hover::after {
 .nav-toggle-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 
 /* smooth sidenav transition */
-/* overflow-x:hidden clips fly-out panels when collapsed — use overflow:visible
-   but clip only during the width transition to prevent layout flash */
-.sidenav  { transition: width var(--dur-slow) var(--ease); overflow-x: visible; overflow-y: hidden; }
-.sidenav-links { overflow-y: auto; overflow-x: visible; }
-/* during transition, temporarily clip so the expanding bar looks clean */
-.sidenav.collapsing { overflow-x: hidden; }
+/* sidenav clips its own content but individual has-subnav items
+   use overflow:visible so fly-out panels can escape the rail */
+.sidenav  { transition: width var(--dur-slow) var(--ease); overflow: hidden; }
+.sidenav-links { overflow-y: auto; overflow-x: hidden; }
+/* fly-outs escape the clip via individual item overflow */
+body.nav-collapsed .sidenav-links li.has-subnav { overflow: visible; }
+body.nav-collapsed .sidenav-links li.has-subnav > .subnav-toggle { overflow: hidden; }
 .content  { transition: margin-left var(--dur-slow) var(--ease); }
 
 /* footer must sit above the scrollable links layer so buttons are clickable */
