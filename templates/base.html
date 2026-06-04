@@ -161,7 +161,7 @@
           <i class="fa-solid fa-sliders"></i> Ops
         </a></li>
         <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path %}active{% endif %}">
-          <i class="fa-solid fa-server"></i> Servers
+          <i class="fa-solid fa-satellite-dish"></i> Fleet
         </a></li>
         <li><a href="{% url 'workers:index' %}" class="{% if 'workers' in request.path %}active{% endif %}">
           <i class="fa-solid fa-microchip"></i> Workers
@@ -251,7 +251,7 @@
     </div>
     <div class="mob-nav-divider"></div>
     <div class="mob-nav-group">
-      <a href="{% url 'servers:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-server"></i> Servers</a>
+      <a href="{% url 'servers:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-satellite-dish"></i> Fleet</a>
       <a href="{% url 'workers:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-microchip"></i> Workers</a>
       <a href="{% url 'tax:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-receipt"></i> Expenses</a>
       <a href="{% url 'modules:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-cubes"></i> Modules</a>

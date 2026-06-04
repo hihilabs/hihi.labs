@@ -1,79 +1,270 @@
 {% extends 'base.html' %}
-{% block title %}Servers — HiHi Labs{% endblock %}
+{% block title %}Fleet — HiHi Labs{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Fleet layout ─────────────────────────────────────────────────────── */
+.fleet-section { margin: 0 24px 32px; }
+.fleet-section-hdr {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-muted);
+  margin-bottom: 10px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.fleet-section-hdr .plat-badge {
+  padding: 2px 8px; border-radius: var(--r-full); font-size: 10px;
+  font-weight: 600; letter-spacing: .04em;
+}
+.fleet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+/* ── Service card ─────────────────────────────────────────────────────── */
+.svc-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: border-color var(--dur-base);
+  position: relative;
+}
+.svc-card:hover { border-color: var(--sv-color, var(--accent)); }
+
+.svc-top { display: flex; align-items: flex-start; gap: 10px; }
+.svc-icon {
+  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; color: var(--sv-color, var(--accent));
+  background: color-mix(in srgb, var(--sv-color, var(--accent)) 12%, transparent);
+}
+.svc-meta { flex: 1; min-width: 0; }
+.svc-name {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.svc-domain {
+  font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.svc-domain a { color: var(--teal); text-decoration: none; }
+.svc-domain a:hover { text-decoration: underline; }
+
+/* status dot */
+.svc-status {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: var(--border); margin-top: 5px;
+  transition: background .4s;
+}
+.svc-status.up   { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.svc-status.down { background: var(--red); }
+.svc-status.checking { background: var(--yellow); animation: dot-pulse 1s infinite; }
+@keyframes dot-pulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+
+.svc-notes {
+  font-size: 12px; color: var(--text-muted); line-height: 1.45;
+}
+.svc-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.svc-tag {
+  font-size: 10px; padding: 2px 6px; border-radius: var(--r-full);
+  background: var(--bg4); color: var(--text-muted); font-family: var(--font-mono);
+}
+
+.svc-actions {
+  display: flex; gap: 6px; align-items: center;
+  border-top: 1px solid var(--border); padding-top: 8px; margin-top: 2px;
+}
+.svc-actions a, .svc-actions button {
+  font-size: 11px; padding: 4px 8px;
+}
+
+/* type badge */
+.svc-type {
+  font-size: 9px; padding: 2px 6px; border-radius: var(--r-full);
+  font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--bg4); color: var(--text-muted);
+  position: absolute; top: 12px; right: 12px;
+}
+
+/* ── Add form ─────────────────────────────────────────────────────────── */
+#add-form { padding: 0 24px 16px; }
+#add-form .form-grid {
+  display: grid; gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+#add-form .form-grid.trio  { grid-template-columns: 1fr 1fr 80px; }
+#add-form .form-grid.quad  { grid-template-columns: 1fr 1fr 140px 44px; }
+#add-form .form-grid.full  { grid-template-columns: 1fr; }
+#add-form select.form-control option { background: var(--bg3); }
+
+/* ── Summary bar ──────────────────────────────────────────────────────── */
+.fleet-summary {
+  display: flex; gap: 16px; padding: 0 24px 16px;
+  font-size: 12px; color: var(--text-muted);
+  align-items: center; flex-wrap: wrap;
+}
+.fleet-summary strong { color: var(--text); }
+#summary-up { color: var(--green); font-weight: 700; }
+#summary-down { color: var(--red); font-weight: 700; }
+
+/* ── Mobile ───────────────────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .fleet-section { margin: 0 12px 24px; }
+  .fleet-grid { grid-template-columns: 1fr; gap: 8px; }
+  #add-form { padding: 0 12px 12px; }
+  #add-form .form-grid,
+  #add-form .form-grid.trio,
+  #add-form .form-grid.quad { grid-template-columns: 1fr; }
+  .fleet-summary { padding: 0 12px 12px; gap: 10px; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <div class="page-title"><i class="fa-solid fa-server" style="color:var(--teal);margin-right:8px;"></i>Servers</div>
+  <div>
+    <div class="page-title"><i class="fa-solid fa-satellite-dish" style="color:var(--teal);margin-right:8px;"></i>Fleet</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">All services, machines, and repos</div>
+  </div>
   <button class="btn btn-primary btn-sm" onclick="toggleAddForm()">
-    <i class="fa-solid fa-plus"></i> Add Server
+    <i class="fa-solid fa-plus"></i> Add
+  </button>
+</div>
+
+{# summary bar — populated by JS after status poll #}
+<div class="fleet-summary">
+  <span><strong id="summary-total">{{ servers|length }}</strong> services</span>
+  <span><span id="summary-up">—</span> online</span>
+  <span><span id="summary-down">—</span> down</span>
+  <button class="btn btn-ghost btn-sm" onclick="pollAll()" style="margin-left:auto;">
+    <i class="fa-solid fa-rotate" id="refresh-icon"></i> Refresh
   </button>
 </div>
 
 {# Add form #}
-<div id="add-form" style="display:none;padding:0 24px 16px;">
+<div id="add-form" style="display:none;">
   <div style="background:var(--bg3);border:1px solid var(--teal);border-radius:10px;padding:16px;">
-    <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin-bottom:8px;">
-      <input class="form-control" id="sv-name" placeholder="Name (e.g. Unraid)">
-      <input class="form-control" id="sv-host" placeholder="Host / IP">
-      <input class="form-control" id="sv-port" placeholder="Port" type="number" value="22">
+    <div class="form-grid trio" style="margin-bottom:8px;">
+      <input class="form-control" id="sv-name"   placeholder="Name">
+      <input class="form-control" id="sv-host"   placeholder="Host / IP">
+      <input class="form-control" id="sv-port"   placeholder="Port" type="number" value="22">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 120px 48px;gap:8px;margin-bottom:8px;">
-      <input class="form-control" id="sv-user" placeholder="SSH user" value="root">
-      <input class="form-control" id="sv-tags" placeholder="Tags (comma-separated)">
-      <select class="form-control" id="sv-icon">
-        {% for val, label in icons %}<option value="fa-{{ val|slice:'3:' }}">{{ label }}</option>{% endfor %}
+    <div class="form-grid" style="margin-bottom:8px;">
+      <input class="form-control" id="sv-domain"  placeholder="Domain (https://...)">
+      <input class="form-control" id="sv-git"     placeholder="GitHub repo URL">
+    </div>
+    <div class="form-grid quad" style="margin-bottom:8px;">
+      <input class="form-control" id="sv-user"   placeholder="SSH user" value="root">
+      <input class="form-control" id="sv-tags"   placeholder="Tags">
+      <select class="form-control" id="sv-platform">
+        {% for val, label in platforms %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
       </select>
-      <input type="color" id="sv-color" value="#7c6af7" style="width:100%;height:38px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;">
+      <select class="form-control" id="sv-type">
+        {% for val, label in service_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+      </select>
     </div>
-    <textarea class="form-control" id="sv-notes" placeholder="Notes…" rows="2" style="margin-bottom:10px;"></textarea>
+    <div class="form-grid" style="margin-bottom:8px;">
+      <input class="form-control" id="sv-status-url" placeholder="Health-check URL (optional)">
+      <input class="form-control" id="sv-notes" placeholder="Notes">
+    </div>
+    <div class="form-grid quad" style="margin-bottom:10px;">
+      <select class="form-control" id="sv-icon">
+        {% for val, label in icons %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+      </select>
+      <input type="color" id="sv-color" value="#7c6af7"
+             style="width:100%;height:38px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;">
+      <div></div><div></div>
+    </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;">
       <button class="btn btn-ghost btn-sm" onclick="toggleAddForm()">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="addServer()"><i class="fa-solid fa-plus"></i> Add</button>
+      <button class="btn btn-primary btn-sm" onclick="addServer()">
+        <i class="fa-solid fa-plus"></i> Add Service
+      </button>
     </div>
   </div>
 </div>
 
-{# Server cards #}
-<div style="padding:0 24px 32px;">
-  <div class="server-grid" id="server-grid">
-    {% for s in servers %}
-    <div class="server-card" id="sv-{{ s.pk }}" style="--sv-color:{{ s.color }};">
-      <div class="server-header">
-        <div class="server-icon"><i class="fa-solid {{ s.icon }}"></i></div>
-        <div style="flex:1;min-width:0;">
-          <div class="server-name">{{ s.name }}</div>
-          <div class="server-host">{{ s.ssh_user }}@{{ s.host }}{% if s.port != 22 %}:{{ s.port }}{% endif %}</div>
+{# Fleet sections by platform #}
+{% for platform, label, group in platform_groups %}
+<div class="fleet-section">
+  <div class="fleet-section-hdr">
+    <span>{{ label }}</span>
+    <span class="plat-badge" style="
+      {% if platform == 'vps' %}background:#1e1b4b;color:#818cf8;
+      {% elif platform == 'docker' %}background:#0c2340;color:#38bdf8;
+      {% elif platform == 'unraid' %}background:#1c1409;color:#f97316;
+      {% elif platform == 'local' %}background:#0d1f12;color:#3ecf8e;
+      {% else %}background:var(--bg4);color:var(--text-muted);{% endif %}
+    ">{{ group|length }}</span>
+  </div>
+  <div class="fleet-grid">
+    {% for s in group %}
+    <div class="svc-card" id="svc-{{ s.pk }}" style="--sv-color:{{ s.color }};">
+      <span class="svc-type">{{ s.get_service_type_display }}</span>
+      <div class="svc-top">
+        <div class="svc-icon"><i class="fa-solid {{ s.icon }}"></i></div>
+        <div class="svc-meta">
+          <div class="svc-name">{{ s.name }}</div>
+          <div class="svc-domain">
+            {% if s.domain %}
+              <a href="{{ s.domain }}" target="_blank" rel="noopener">
+                {{ s.domain|slice:"8:" }}
+              </a>
+            {% else %}
+              <span>{{ s.ssh_user }}@{{ s.host }}</span>
+            {% endif %}
+          </div>
         </div>
-        <button class="btn-icon danger" onclick="deleteServer({{ s.pk }})"><i class="fa-solid fa-trash"></i></button>
+        <div class="svc-status checking" id="dot-{{ s.pk }}" title="Checking…"></div>
       </div>
-      {% if s.tag_list %}
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin:8px 0;">
-        {% for tag in s.tag_list %}<span class="track-tag">{{ tag }}</span>{% endfor %}
-      </div>
-      {% endif %}
+
       {% if s.notes %}
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">{{ s.notes }}</div>
+      <div class="svc-notes">{{ s.notes }}</div>
       {% endif %}
-      <div class="server-actions">
-        <a href="{{ s.ssh_url }}" class="btn btn-primary btn-sm" style="background:var(--sv-color);border-color:var(--sv-color);">
-          <i class="fa-solid fa-terminal"></i> Connect
+
+      {% if s.tag_list %}
+      <div class="svc-tags">
+        {% for tag in s.tag_list %}<span class="svc-tag">{{ tag }}</span>{% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="svc-actions">
+        {% if s.domain %}
+        <a href="{{ s.domain }}" target="_blank" class="btn btn-primary btn-sm"
+           style="background:var(--sv-color);border-color:var(--sv-color);">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
         </a>
-        <button class="btn btn-ghost btn-sm" onclick="copyCmd('{{ s.ssh_command }}')" title="Copy SSH command">
+        {% endif %}
+        {% if s.host and s.service_type == 'ssh' or not s.domain %}
+        <a href="{{ s.ssh_url }}" class="btn btn-ghost btn-sm" title="{{ s.ssh_command }}">
+          <i class="fa-solid fa-terminal"></i>
+        </a>
+        {% endif %}
+        {% if s.git_repo %}
+        <a href="{{ s.git_repo }}" target="_blank" class="btn btn-ghost btn-sm" title="GitHub">
+          <i class="fa-brands fa-github"></i>
+        </a>
+        {% endif %}
+        <button class="btn btn-ghost btn-sm" onclick="copyText('{{ s.ssh_command }}')" title="Copy SSH">
           <i class="fa-solid fa-copy"></i>
         </button>
-        <code style="font-size:11px;color:var(--text-muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          {{ s.ssh_command }}
-        </code>
+        <button class="btn-icon danger" style="margin-left:auto;"
+                onclick="deleteSvc({{ s.pk }})">
+          <i class="fa-solid fa-trash"></i>
+        </button>
       </div>
-    </div>
-    {% empty %}
-    <div class="empty-state" id="empty-servers" style="padding:80px 0;grid-column:1/-1;">
-      <i class="fa-solid fa-server"></i>
-      <p>No servers yet.</p>
     </div>
     {% endfor %}
   </div>
 </div>
+{% empty %}
+<div class="empty-state" style="padding:80px 0;">
+  <i class="fa-solid fa-satellite-dish"></i>
+  <p>No services yet. <a href="#" onclick="toggleAddForm()">Add one</a> or run <code>manage.py seed_fleet</code>.</p>
+</div>
+{% endfor %}
 {% endblock %}
 
 {% block extra_js %}
@@ -82,8 +273,9 @@ const CSRF = '{{ csrf_token }}';
 
 function toggleAddForm() {
   const f = document.getElementById('add-form');
-  f.style.display = f.style.display === 'none' ? 'block' : 'none';
-  if (f.style.display === 'block') document.getElementById('sv-name').focus();
+  const show = f.style.display === 'none';
+  f.style.display = show ? 'block' : 'none';
+  if (show) document.getElementById('sv-name').focus();
 }
 
 async function addServer() {
@@ -95,29 +287,68 @@ async function addServer() {
     headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
     body: JSON.stringify({
       name, host,
-      ssh_user: document.getElementById('sv-user').value.trim() || 'root',
-      port: parseInt(document.getElementById('sv-port').value) || 22,
-      tags: document.getElementById('sv-tags').value.trim(),
-      notes: document.getElementById('sv-notes').value.trim(),
-      icon: document.getElementById('sv-icon').value,
-      color: document.getElementById('sv-color').value,
+      port:        parseInt(document.getElementById('sv-port').value) || 22,
+      ssh_user:    document.getElementById('sv-user').value.trim() || 'root',
+      tags:        document.getElementById('sv-tags').value.trim(),
+      notes:       document.getElementById('sv-notes').value.trim(),
+      domain:      document.getElementById('sv-domain').value.trim(),
+      git_repo:    document.getElementById('sv-git').value.trim(),
+      platform:    document.getElementById('sv-platform').value,
+      service_type:document.getElementById('sv-type').value,
+      status_url:  document.getElementById('sv-status-url').value.trim(),
+      icon:        document.getElementById('sv-icon').value,
+      color:       document.getElementById('sv-color').value,
     }),
   });
   if (res.ok) location.reload();
 }
 
-async function deleteServer(id) {
-  if (!confirm('Remove this server?')) return;
-  await fetch(`/servers/${id}/delete/`, { method: 'POST', headers: {'X-CSRFToken': CSRF} });
-  document.getElementById(`sv-${id}`)?.remove();
+async function deleteSvc(id) {
+  if (!confirm('Remove from fleet?')) return;
+  await fetch(`/servers/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
+  document.getElementById(`svc-${id}`)?.remove();
 }
 
-function copyCmd(cmd) {
-  navigator.clipboard.writeText(cmd).then(() => {
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => {
     const btn = event.currentTarget;
+    const orig = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-check"></i>';
-    setTimeout(() => btn.innerHTML = '<i class="fa-solid fa-copy"></i>', 1500);
+    setTimeout(() => btn.innerHTML = orig, 1500);
   });
 }
+
+// ── Status polling ────────────────────────────────────────────────────────
+let upCount = 0, downCount = 0;
+
+async function pollAll() {
+  const icon = document.getElementById('refresh-icon');
+  icon.style.animation = 'spin 1s linear infinite';
+
+  try {
+    const res = await fetch('/servers/status/');
+    const data = await res.json();
+    upCount = 0; downCount = 0;
+    for (const [id, up] of Object.entries(data)) {
+      const dot = document.getElementById(`dot-${id}`);
+      if (!dot) continue;
+      dot.classList.remove('checking', 'up', 'down');
+      dot.classList.add(up ? 'up' : 'down');
+      dot.title = up ? 'Online' : 'Unreachable';
+      up ? upCount++ : downCount++;
+    }
+    document.getElementById('summary-up').textContent   = upCount;
+    document.getElementById('summary-down').textContent = downCount;
+  } finally {
+    icon.style.animation = '';
+  }
+}
+
+// Poll on load, then every 60s
+pollAll();
+setInterval(pollAll, 60_000);
 </script>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 {% endblock %}
