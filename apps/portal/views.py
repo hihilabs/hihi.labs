@@ -128,20 +128,25 @@ def _portal_context(client, is_preview=False):
     accent = (cfg.accent_color if cfg else None) or client.color or '#7c6af7'
     theme  = (cfg.portal_theme  if cfg else None) or 'default'
 
+    display   = client.company or client.name or ''
+    initials  = ''.join(w[0] for w in display.split()[:2]).upper() or '?'
+
     return {
-        'client':        client,
-        'cfg':           cfg,
-        'projects':      projects,
-        'portal_footer': portal_footer,
-        'accent':        accent,
-        'theme':         theme,
-        'is_preview':    is_preview,
-        'show_projects': cfg.show_projects  if cfg else True,
-        'show_invoices': cfg.show_invoices  if cfg else True,
-        'show_files':    cfg.show_files     if cfg else True,
-        'show_tickets':  cfg.show_tickets   if cfg else True,
-        'show_messages': cfg.show_messages  if cfg else False,
-        'welcome':       cfg.welcome_message if cfg else '',
+        'client':          client,
+        'cfg':             cfg,
+        'projects':        projects,
+        'notifications':   [],   # future: client-visible notification queryset
+        'portal_footer':   portal_footer,
+        'accent':          accent,
+        'theme':           theme,
+        'is_preview':      is_preview,
+        'avatar_initials': initials,
+        'show_projects':   cfg.show_projects  if cfg else True,
+        'show_invoices':   cfg.show_invoices  if cfg else True,
+        'show_files':      cfg.show_files     if cfg else True,
+        'show_tickets':    cfg.show_tickets   if cfg else True,
+        'show_messages':   cfg.show_messages  if cfg else False,
+        'welcome':         cfg.welcome_message if cfg else '',
     }
 
 

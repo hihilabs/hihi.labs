@@ -4,166 +4,286 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% if client.company %}{{ client.company }}{% else %}{{ client.name }}{% endif %} — Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --accent: {{ accent }};
-      --bg:     #080810;
-      --bg2:    #10101a;
-      --bg3:    #18182a;
-      --border: #22223a;
-      --text:   #e0e0f0;
-      --muted:  #6060a0;
+      --accent:      {{ accent }};
+      --accent-glow: {{ accent }}28;
+      --accent-dim:  {{ accent }}14;
+      --bg:          #080810;
+      --bg2:         #0f0f1a;
+      --bg3:         #171726;
+      --border:      #1e1e32;
+      --text:        #dcdcf0;
+      --muted:       #5a5a80;
     }
 
+    html, body { height: 100%; }
+
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
       font-size: 14px;
     }
 
+    /* ── Preview banner ── */
     .preview-banner {
-      background: #f59e0b; color: #1a1000; text-align: center;
-      padding: 8px; font-size: 12px; font-weight: 600; position: sticky; top: 0; z-index: 100;
+      background: #f59e0b;
+      color: #1a1000;
+      text-align: center;
+      padding: 7px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .04em;
     }
-    .preview-banner a { color: inherit; }
+    .preview-banner a { color: inherit; text-decoration: underline; }
 
-    /* ── Sidebar layout ── */
-    .layout { display: flex; min-height: 100vh; }
+    /* ── Layout ── */
+    .app-layout { display: flex; height: 100vh; {% if is_preview %}height: calc(100vh - 31px);{% endif %} }
 
+    /* ── Sidebar ── */
     .sidebar {
-      width: 220px;
+      width: 210px;
       flex-shrink: 0;
       background: var(--bg2);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      padding: 24px 0;
       position: sticky;
       top: 0;
-      height: 100vh;
+      height: 100%;
       overflow-y: auto;
     }
 
-    .sb-brand {
-      padding: 0 20px 24px;
+    .sb-header {
+      padding: 20px 18px 16px;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 16px;
+    }
+    .sb-avatar {
+      width: 40px; height: 40px;
+      border-radius: 11px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 700; color: #fff;
+      box-shadow: 0 0 20px var(--accent-glow);
+      margin-bottom: 12px;
     }
     .sb-client-name {
-      font-size: 14px; font-weight: 700; color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .sb-portal-tag {
-      font-size: 10px; color: var(--accent);
-      text-transform: uppercase; letter-spacing: .12em; font-weight: 600;
+    .sb-tag {
+      font-size: 9px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      font-weight: 700;
       margin-top: 2px;
     }
-    .sb-dot {
-      width: 32px; height: 32px; border-radius: 50%;
-      background: var(--accent)22; border: 1px solid var(--accent)44;
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 10px;
-    }
-    .sb-dot::after {
-      content: ''; width: 10px; height: 10px; border-radius: 50%;
-      background: var(--accent);
-    }
 
-    .sb-nav { padding: 0 12px; flex: 1; }
+    .sb-nav { padding: 10px 10px; flex: 1; }
     .sb-link {
-      display: flex; align-items: center; gap: 10px;
-      padding: 8px 10px; border-radius: 8px;
-      font-size: 13px; font-weight: 500; color: var(--muted);
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 12px; font-weight: 500;
+      color: var(--muted);
       text-decoration: none; cursor: pointer;
-      border: none; background: none; width: 100%;
-      margin-bottom: 2px; transition: all .15s;
+      border: none; background: none;
+      width: 100%; margin-bottom: 1px;
+      transition: all .14s;
+      font-family: inherit;
     }
-    .sb-link:hover, .sb-link.active {
-      background: var(--accent)15; color: var(--text);
+    .sb-link:hover  { background: var(--bg3); color: var(--text); }
+    .sb-link.active { background: var(--accent-dim); color: var(--accent); }
+    .sb-link i { width: 14px; text-align: center; font-size: 12px; }
+    .sb-count {
+      margin-left: auto;
+      font-size: 10px; font-weight: 700;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 20px; padding: 1px 7px; color: var(--muted);
     }
-    .sb-link.active { color: var(--accent); }
-    .sb-link i { width: 16px; text-align: center; font-size: 13px; }
+    .sb-link.active .sb-count { background: var(--accent-dim); border-color: var(--accent)44; color: var(--accent); }
 
-    /* ── Main content ── */
-    .content { flex: 1; min-width: 0; padding: 32px; overflow-y: auto; }
-
-    .page-head {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      margin-bottom: 28px;
+    /* ── Main ── */
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
-    .page-title { font-size: 22px; font-weight: 700; color: var(--text); }
-    .page-sub   { font-size: 13px; color: var(--muted); margin-top: 4px; }
-
-    /* ── KPI strip ── */
-    .kpi-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
-    .kpi {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 10px; padding: 16px;
-    }
-    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 6px; }
-    .kpi-value { font-size: 26px; font-weight: 700; color: var(--accent); }
 
     /* ── Section panels ── */
-    .section { display: none; }
-    .section.active { display: block; }
-    .section-head {
-      display: flex; align-items: center; gap: 10px;
-      margin-bottom: 16px;
-    }
-    .section-title { font-size: 16px; font-weight: 700; }
+    .section { display: none; flex: 1; flex-direction: column; padding: 28px 32px 48px; }
+    .section.active { display: flex; }
 
-    /* ── Project cards ── */
-    .proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-    .proj-card {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 12px; padding: 18px;
-      transition: border-color .2s;
+    /* ── Section header ── */
+    .sec-head { margin-bottom: 24px; }
+    .sec-title { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+    .sec-sub   { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    /* ── KPI strip ── */
+    .kpi-strip {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
     }
-    .proj-card:hover { border-color: var(--accent)66; }
-    .proj-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-    .proj-card-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .proj-card-name { font-weight: 600; font-size: 14px; flex: 1; }
-    .proj-card-status {
+    .kpi {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      min-width: 130px;
+      flex: 1;
+    }
+    .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin-bottom: 8px; }
+    .kpi-value { font-size: 28px; font-weight: 700; color: var(--accent); letter-spacing: -.03em; line-height: 1; }
+    .kpi-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Project cards (grid) ── */
+    .proj-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .proj-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .proj-card:hover {
+      border-color: var(--accent)55;
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+
+    .proj-card-header { display: flex; align-items: flex-start; gap: 10px; }
+    .proj-color-bar {
+      width: 3px;
+      min-height: 36px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .proj-card-meta { flex: 1; min-width: 0; }
+    .proj-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .proj-client-label { font-size: 11px; color: var(--muted); }
+
+    .proj-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+    .proj-badge {
       font-size: 9px; font-weight: 700; text-transform: uppercase;
-      padding: 2px 7px; border-radius: 20px;
+      padding: 2px 8px; border-radius: 20px;
       border: 1px solid var(--border); color: var(--muted);
     }
-    .proj-card-status.active { border-color: #22c55e44; color: #22c55e; }
-    .proj-card-status.paused { border-color: #f59e0b44; color: #f59e0b; }
-    .proj-card-desc { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
-    .proj-bar-wrap { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
-    .proj-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
-    .proj-bar-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+    .proj-badge.active { border-color: #22c55e44; color: #22c55e; background: #22c55e0c; }
+    .proj-badge.paused { border-color: #f59e0b44; color: #f59e0b; background: #f59e0b0c; }
+    .proj-badge.done   { border-color: #818cf844; color: #818cf8; background: #818cf80c; }
 
+    .proj-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .proj-progress-area {}
+    .proj-progress-bar-wrap {
+      height: 4px;
+      background: var(--bg3);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .proj-progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width .5s ease;
+    }
+    .proj-progress-label {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: var(--muted);
+    }
+    .proj-task-chips { display: flex; gap: 6px; }
+    .proj-task-chip {
+      font-size: 10px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 3px 8px; color: var(--muted);
+    }
+    .proj-task-chip.done-chip { color: #22c55e; border-color: #22c55e33; background: #22c55e0a; }
+
+    /* Empty / coming soon */
     .empty-state {
-      background: var(--bg2); border: 1px dashed var(--border);
-      border-radius: 12px; padding: 40px; text-align: center; color: var(--muted);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      text-align: center;
+      padding: 60px 24px;
     }
-    .empty-state i { font-size: 28px; margin-bottom: 10px; display: block; }
+    .empty-state i { font-size: 32px; margin-bottom: 14px; color: var(--accent); opacity: .5; }
+    .empty-state-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .empty-state-sub   { font-size: 13px; }
 
-    .coming-soon {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 12px; padding: 20px; color: var(--muted);
-      display: flex; align-items: center; gap: 12px; font-size: 13px;
+    .coming-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      max-width: 480px;
     }
-    .coming-soon i { color: var(--accent); font-size: 18px; }
+    .coming-card i { color: var(--accent); font-size: 22px; opacity: .8; }
 
-    footer { padding: 20px 32px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+    /* Welcome message */
+    .welcome-banner {
+      background: var(--accent-dim);
+      border: 1px solid var(--accent)33;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
 
-    @media (max-width: 700px) {
-      .layout { flex-direction: column; }
-      .sidebar { width: 100%; height: auto; position: relative; flex-direction: row; flex-wrap: wrap; padding: 12px 16px; gap: 8px; }
-      .sb-brand { padding: 0; border: none; margin: 0; display: flex; align-items: center; gap: 10px; }
-      .sb-brand .sb-dot { margin: 0; }
-      .sb-nav { display: flex; gap: 4px; padding: 0; flex-wrap: wrap; }
-      .content { padding: 20px 16px; }
-      .kpi-strip { grid-template-columns: 1fr 1fr; }
+    /* Scrollbar */
+    .main-content::-webkit-scrollbar { width: 4px; }
+    .main-content::-webkit-scrollbar-track { background: transparent; }
+    .main-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Mobile */
+    @media (max-width: 680px) {
+      .app-layout { flex-direction: column; height: auto; }
+      .sidebar {
+        width: 100%; height: auto; position: relative;
+        flex-direction: row; flex-wrap: wrap; gap: 6px;
+        padding: 12px; border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .sb-header { padding: 0; border: none; display: flex; align-items: center; gap: 10px; width: 100%; }
+      .sb-avatar { margin-bottom: 0; }
+      .sb-nav { display: flex; gap: 4px; padding: 0; flex-wrap: wrap; width: 100%; }
+      .main-content { overflow-y: visible; }
+      .section { padding: 18px 16px 32px; }
+      .kpi-strip { gap: 8px; }
       .proj-grid { grid-template-columns: 1fr; }
     }
   </style>
@@ -171,27 +291,31 @@
 <body>
 
 {% if is_preview %}
-<div class="preview-banner">Staff Preview — <strong>{{ client.display_name }}</strong> &nbsp;·&nbsp; <a href="/portal/">Back to Admin</a></div>
+<div class="preview-banner">
+  <i class="fa-solid fa-eye" style="margin-right:5px;"></i>
+  Staff Preview — <strong>{{ client.display_name }}</strong>&nbsp;·&nbsp;<a href="/portal/">Back to Admin</a>
+</div>
 {% endif %}
 
-<div class="layout">
+<div class="app-layout">
 
-  <!-- Sidebar -->
+  {# ── Sidebar ── #}
   <nav class="sidebar">
-    <div class="sb-brand">
-      <div class="sb-dot"></div>
+    <div class="sb-header">
+      <div class="sb-avatar">{{ avatar_initials }}</div>
       <div>
         <div class="sb-client-name">{% if client.company %}{{ client.company }}{% else %}{{ client.name }}{% endif %}</div>
-        <div class="sb-portal-tag">Dashboard</div>
+        <div class="sb-tag">Dashboard</div>
       </div>
     </div>
     <div class="sb-nav">
       <button class="sb-link active" onclick="showSection('overview',this)">
-        <i class="fa-solid fa-house"></i> Overview
+        <i class="fa-solid fa-house-chimney"></i> Overview
       </button>
       {% if show_projects %}
       <button class="sb-link" onclick="showSection('projects',this)">
         <i class="fa-solid fa-diagram-project"></i> Projects
+        {% if projects %}<span class="sb-count">{{ projects|length }}</span>{% endif %}
       </button>
       {% endif %}
       {% if show_invoices %}
@@ -205,124 +329,196 @@
       </button>
       {% endif %}
       {% if show_tickets %}
-      <button class="sb-link" onclick="showSection('tickets',this)">
+      <button class="sb-link" onclick="showSection('support',this)">
         <i class="fa-solid fa-ticket"></i> Support
+      </button>
+      {% endif %}
+      {% if show_messages %}
+      <button class="sb-link" onclick="showSection('messages',this)">
+        <i class="fa-solid fa-comments"></i> Messages
       </button>
       {% endif %}
     </div>
   </nav>
 
-  <!-- Content -->
-  <main class="content">
+  {# ── Main ── #}
+  <main class="main-content">
 
-    <!-- Overview -->
+    {# Overview #}
     <div id="section-overview" class="section active">
-      <div class="page-head">
-        <div>
-          <div class="page-title">Welcome{% if welcome %}, {{ client.name.split.0 }}{% endif %}</div>
-          <div class="page-sub">{% if welcome %}{{ welcome }}{% else %}Here's your project overview.{% endif %}</div>
+      <div class="sec-head">
+        <div class="sec-title">
+          Hi{% if client.name %}, {{ client.name.split.0 }}{% endif %}
         </div>
+        <div class="sec-sub">Here's a snapshot of your work with us.</div>
       </div>
 
+      {% if welcome %}
+      <div class="welcome-banner">{{ welcome }}</div>
+      {% endif %}
+
+      {# KPI strip #}
       <div class="kpi-strip">
         {% if show_projects %}
         <div class="kpi">
-          <div class="kpi-label">Active Projects</div>
+          <div class="kpi-label">Projects</div>
           <div class="kpi-value">{{ projects|length }}</div>
+          <div class="kpi-sub">active</div>
         </div>
-        {% for p in projects %}
-        {% if p.task_total %}
+        {% for p in projects %}{% if p.task_total %}
         <div class="kpi">
-          <div class="kpi-label">{{ p.name|truncatechars:20 }}</div>
+          <div class="kpi-label">{{ p.name|truncatechars:22 }}</div>
           <div class="kpi-value">{{ p.task_pct }}%</div>
+          <div class="kpi-sub">{{ p.task_done }}/{{ p.task_total }} tasks</div>
         </div>
-        {% endif %}
-        {% endfor %}
+        {% endif %}{% endfor %}
         {% endif %}
       </div>
 
+      {# Quick project cards #}
       {% if show_projects and projects %}
-      <div class="section-head">
-        <span class="section-title">Projects</span>
-      </div>
       <div class="proj-grid">
         {% for p in projects %}
         <div class="proj-card">
-          <div class="proj-card-top">
-            <div class="proj-card-dot" style="background:{{ p.color }};"></div>
-            <div class="proj-card-name">{{ p.name }}</div>
-            <div class="proj-card-status {{ p.status }}">{{ p.status }}</div>
+          <div class="proj-card-header">
+            <div class="proj-color-bar" style="background:{{ p.color }};"></div>
+            <div class="proj-card-meta">
+              <div class="proj-name">{{ p.name }}</div>
+            </div>
           </div>
-          {% if p.description %}
-          <div class="proj-card-desc">{{ p.description|truncatechars:100 }}</div>
-          {% endif %}
+          <div class="proj-badges">
+            <span class="proj-badge {{ p.status }}">{{ p.status }}</span>
+            {% if p.stage %}<span class="proj-badge">{{ p.stage }}</span>{% endif %}
+          </div>
+          {% if p.description %}<div class="proj-desc">{{ p.description|truncatechars:100 }}</div>{% endif %}
           {% if p.task_total %}
-          <div class="proj-bar-wrap"><div class="proj-bar-fill" style="width:{{ p.task_pct }}%;"></div></div>
-          <div class="proj-bar-label"><span>{{ p.task_done }}/{{ p.task_total }} tasks</span><span>{{ p.task_pct }}%</span></div>
+          <div class="proj-progress-area">
+            <div class="proj-progress-bar-wrap">
+              <div class="proj-progress-bar" style="width:{{ p.task_pct }}%;"></div>
+            </div>
+            <div class="proj-progress-label">
+              <span>{{ p.task_done }} of {{ p.task_total }} tasks done</span>
+              <span>{{ p.task_pct }}%</span>
+            </div>
+          </div>
           {% endif %}
         </div>
         {% endfor %}
       </div>
       {% elif show_projects %}
-      <div class="empty-state"><i class="fa-regular fa-folder-open"></i>No active projects yet.</div>
+      <div class="empty-state">
+        <i class="fa-regular fa-folder-open"></i>
+        <div class="empty-state-title">No active projects yet</div>
+        <div class="empty-state-sub">Projects will appear here once they're set up.</div>
+      </div>
       {% endif %}
     </div>
 
-    <!-- Projects -->
+    {# Projects #}
     {% if show_projects %}
     <div id="section-projects" class="section">
-      <div class="page-head"><div class="page-title">Projects</div></div>
+      <div class="sec-head">
+        <div class="sec-title">Projects</div>
+        <div class="sec-sub">{{ projects|length }} active project{{ projects|length|pluralize }}</div>
+      </div>
       {% if projects %}
       <div class="proj-grid">
         {% for p in projects %}
         <div class="proj-card">
-          <div class="proj-card-top">
-            <div class="proj-card-dot" style="background:{{ p.color }};"></div>
-            <div class="proj-card-name">{{ p.name }}</div>
-            <div class="proj-card-status {{ p.status }}">{{ p.status }}</div>
+          <div class="proj-card-header">
+            <div class="proj-color-bar" style="background:{{ p.color }};"></div>
+            <div class="proj-card-meta">
+              <div class="proj-name">{{ p.name }}</div>
+              {% if p.stage %}<div class="proj-client-label">{{ p.stage|capfirst }}</div>{% endif %}
+            </div>
           </div>
-          {% if p.description %}<div class="proj-card-desc">{{ p.description|truncatechars:140 }}</div>{% endif %}
+          <div class="proj-badges">
+            <span class="proj-badge {{ p.status }}">{{ p.status }}</span>
+          </div>
+          {% if p.description %}
+          <div class="proj-desc">{{ p.description|truncatechars:160 }}</div>
+          {% endif %}
           {% if p.task_total %}
-          <div class="proj-bar-wrap"><div class="proj-bar-fill" style="width:{{ p.task_pct }}%;"></div></div>
-          <div class="proj-bar-label"><span>{{ p.task_done }}/{{ p.task_total }} tasks</span><span>{{ p.task_pct }}%</span></div>
+          <div class="proj-progress-area">
+            <div class="proj-progress-bar-wrap">
+              <div class="proj-progress-bar" style="width:{{ p.task_pct }}%;"></div>
+            </div>
+            <div class="proj-progress-label">
+              <span>{{ p.task_pct }}% complete</span>
+              <span>{{ p.open_tasks }} open</span>
+            </div>
+          </div>
+          <div class="proj-task-chips">
+            <span class="proj-task-chip done-chip"><i class="fa-solid fa-check" style="margin-right:3px;"></i>{{ p.task_done }} done</span>
+            {% if p.open_tasks %}<span class="proj-task-chip">{{ p.open_tasks }} remaining</span>{% endif %}
+          </div>
           {% endif %}
         </div>
         {% endfor %}
       </div>
       {% else %}
-      <div class="empty-state"><i class="fa-regular fa-folder-open"></i>No active projects yet.</div>
+      <div class="empty-state" style="flex:none;padding-top:40px;">
+        <i class="fa-regular fa-folder-open"></i>
+        <div class="empty-state-title">No active projects</div>
+        <div class="empty-state-sub">Your projects will show up here.</div>
+      </div>
       {% endif %}
     </div>
     {% endif %}
 
-    <!-- Invoices -->
+    {# Invoices #}
     {% if show_invoices %}
     <div id="section-invoices" class="section">
-      <div class="page-head"><div class="page-title">Invoices</div></div>
-      <div class="coming-soon"><i class="fa-solid fa-hourglass-half"></i>Invoice history coming soon.</div>
+      <div class="sec-head"><div class="sec-title">Invoices</div></div>
+      <div class="coming-card">
+        <i class="fa-solid fa-hourglass-half"></i>
+        Invoice history coming soon — your billing records will appear here.
+      </div>
     </div>
     {% endif %}
 
-    <!-- Files -->
+    {# Files #}
     {% if show_files %}
     <div id="section-files" class="section">
-      <div class="page-head"><div class="page-title">Files</div></div>
-      <div class="coming-soon"><i class="fa-solid fa-hourglass-half"></i>Shared files coming soon.</div>
+      <div class="sec-head"><div class="sec-title">Files</div></div>
+      <div class="coming-card">
+        <i class="fa-solid fa-hourglass-half"></i>
+        Shared files coming soon — deliverables and assets will appear here.
+      </div>
     </div>
     {% endif %}
 
-    <!-- Support -->
+    {# Support #}
     {% if show_tickets %}
-    <div id="section-tickets" class="section">
-      <div class="page-head"><div class="page-title">Support</div></div>
-      <div class="coming-soon"><i class="fa-solid fa-hourglass-half"></i>Ticket history coming soon.</div>
+    <div id="section-support" class="section">
+      <div class="sec-head"><div class="sec-title">Support</div></div>
+      <div class="coming-card">
+        <i class="fa-solid fa-hourglass-half"></i>
+        Ticket history coming soon — open and resolved requests will appear here.
+      </div>
+    </div>
+    {% endif %}
+
+    {# Messages #}
+    {% if show_messages %}
+    <div id="section-messages" class="section">
+      <div class="sec-head"><div class="sec-title">Messages</div></div>
+      <div class="coming-card">
+        <i class="fa-solid fa-hourglass-half"></i>
+        Messaging coming soon.
+      </div>
     </div>
     {% endif %}
 
   </main>
+
 </div>
 
-<footer>{% if portal_footer.html_content %}{{ portal_footer.html_content|safe }}{% else %}Powered by HiHi Labs{% endif %}</footer>
+{% if portal_footer.html_content %}
+<footer style="border-top:1px solid var(--border);padding:14px 32px;font-size:11px;color:var(--muted);text-align:center;">
+  {{ portal_footer.html_content|safe }}
+</footer>
+{% endif %}
 
 <script>
 function showSection(name, btn) {
