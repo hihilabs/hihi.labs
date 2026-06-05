@@ -53,6 +53,11 @@
                 title="{% if p.pk in grabbed_ids %}Remove from dashboard{% else %}Add to dashboard task list{% endif %}">
           {% if p.pk in grabbed_ids %}<i class="fa-solid fa-star"></i>{% else %}<i class="fa-regular fa-star"></i>{% endif %}
         </button>
+        <button class="merge-pill"
+                onclick="event.preventDefault();event.stopPropagation();openMerge({{ p.pk }},'{{ p.name|escapejs }}')"
+                title="Combine with another project">
+          <i class="fa-solid fa-code-merge"></i>
+        </button>
       </div>
       {% if ts.total > 0 %}
       <div style="margin-top:8px;">
@@ -91,6 +96,52 @@
     <span class="sp-dot" style="background:var(--green);"></span> Maintaining
   </div>
 </div>
+
+{# ── Merge modal ── #}
+<div id="merge-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:600;align-items:center;justify-content:center;">
+  <div class="merge-box">
+    <div class="merge-header">
+      <i class="fa-solid fa-code-merge" style="color:var(--accent);"></i>
+      Combine Projects
+      <button class="merge-close" onclick="closeMerge()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    {# Source pill #}
+    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Absorbing</div>
+    <div class="merge-source-pill" id="merge-source-label">—</div>
+
+    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 6px;">Merge into</div>
+    <input id="merge-target-search" class="merge-search" type="text" placeholder="Search projects…" oninput="filterMergeTargets(this.value)" autocomplete="off">
+    <div class="merge-target-list" id="merge-target-list"></div>
+
+    {# Preview counts #}
+    <div class="merge-preview" id="merge-preview" style="display:none;">
+      <div class="mp-label">What transfers</div>
+      <div id="merge-counts" class="mp-counts"></div>
+    </div>
+
+    {# Portfolio name #}
+    <div style="margin-top:14px;">
+      <label style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px;">
+        Canonical / Portfolio Name
+      </label>
+      <input id="merge-name" class="merge-search" type="text" placeholder="Leave blank to keep target name" style="margin-bottom:0;">
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeMerge()">Cancel</button>
+      <button class="btn btn-primary" id="merge-confirm-btn" onclick="confirmMerge()" disabled>
+        <i class="fa-solid fa-code-merge"></i> Combine
+      </button>
+    </div>
+    <div id="merge-result" style="display:none;margin-top:12px;padding:10px;border-radius:var(--r-sm);background:color-mix(in srgb,var(--green) 10%,transparent);border:1px solid color-mix(in srgb,var(--green) 25%,transparent);font-size:11px;color:var(--green);"></div>
+  </div>
+</div>
+
+{# Project data for merge target list (hidden) #}
+<script id="proj-data" type="application/json">
+[{% for p in projects %}{"pk":{{ p.pk }},"name":"{{ p.name|escapejs }}","client":"{{ p.client|default:''|escapejs }}","color":"{{ p.color }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+</script>
 
 {# New project modal #}
 <div id="new-project-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;">
@@ -165,6 +216,84 @@
 .sp-opt:hover { background: var(--bg2); color: var(--text); }
 .sp-opt.active { color: var(--text); font-weight: 600; }
 .sp-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Merge pill button ───────────────────────────────────────── */
+.merge-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-faint); cursor: pointer; font-size: 10px;
+  transition: all var(--dur-fast);
+}
+.merge-pill:hover { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb,var(--accent) 10%,transparent); }
+
+/* ── Merge modal ─────────────────────────────────────────────── */
+.merge-box {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px;
+  width: 440px; max-width: 92vw; max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+.merge-header {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-ui); font-size: 15px; font-weight: 700;
+  color: var(--text); margin-bottom: 18px;
+}
+.merge-close {
+  margin-left: auto; background: none; border: none;
+  color: var(--text-muted); cursor: pointer; font-size: 14px;
+  padding: 2px 6px; border-radius: var(--r-sm);
+  transition: color var(--dur-fast);
+}
+.merge-close:hover { color: var(--text); }
+
+.merge-source-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: var(--r-full);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--red) 28%, transparent);
+  color: var(--red); font-size: 12px; font-weight: 600;
+}
+
+.merge-search {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text);
+  font-family: var(--font-mono); font-size: 12px;
+  padding: 8px 12px; outline: none;
+  transition: border-color var(--dur-base); box-sizing: border-box;
+}
+.merge-search:focus { border-color: var(--accent); }
+
+.merge-target-list { margin-top: 6px; max-height: 180px; overflow-y: auto; }
+.merge-target-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--r-sm);
+  cursor: pointer; transition: background var(--dur-fast);
+  border: 1px solid transparent;
+}
+.merge-target-item:hover { background: var(--bg3); }
+.merge-target-item.selected {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.mti-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.mti-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.mti-client { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+
+.merge-preview {
+  margin-top: 14px; padding: 12px 14px;
+  background: var(--bg3); border-radius: var(--r-md);
+  border: 1px solid var(--border);
+}
+.mp-label { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+.mp-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.mp-count {
+  padding: 3px 9px; border-radius: var(--r-full);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  font-size: 10px; color: var(--accent); font-family: var(--font-mono);
+}
+.mp-count.zero { opacity: .35; background: var(--bg2); border-color: var(--border); color: var(--text-faint); }
 </style>
 {% endblock %}
 
@@ -291,5 +420,105 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#stage-picker') && !e.target.closest('.stage-chip'))
     document.getElementById('stage-picker').style.display = 'none';
 });
+
+// ── Merge ─────────────────────────────────────────────────────────────────────
+const ALL_PROJECTS = JSON.parse(document.getElementById('proj-data').textContent);
+let _mergeSrcPk = null, _mergeTargetPk = null;
+
+function openMerge(pk, name) {
+  _mergeSrcPk = pk; _mergeTargetPk = null;
+  document.getElementById('merge-source-label').innerHTML =
+    '<i class="fa-solid fa-code-branch" style="font-size:10px;"></i> ' + name;
+  document.getElementById('merge-target-search').value = '';
+  document.getElementById('merge-name').value = '';
+  document.getElementById('merge-preview').style.display = 'none';
+  document.getElementById('merge-result').style.display = 'none';
+  document.getElementById('merge-confirm-btn').disabled = true;
+  renderMergeTargets('');
+  document.getElementById('merge-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('merge-target-search').focus(), 80);
+}
+function closeMerge() {
+  document.getElementById('merge-modal').style.display = 'none';
+}
+document.getElementById('merge-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeMerge();
+});
+
+function renderMergeTargets(q) {
+  const list = document.getElementById('merge-target-list');
+  const items = ALL_PROJECTS.filter(p =>
+    p.pk !== _mergeSrcPk &&
+    (!q || p.name.toLowerCase().includes(q.toLowerCase()))
+  );
+  list.innerHTML = items.map(p => `
+    <div class="merge-target-item ${p.pk === _mergeTargetPk ? 'selected' : ''}"
+         onclick="selectMergeTarget(${p.pk},'${p.name.replace(/'/g,"\\'")}')">
+      <span class="mti-dot" style="background:${p.color}"></span>
+      <span class="mti-name">${p.name}</span>
+      ${p.client ? `<span class="mti-client">${p.client}</span>` : ''}
+    </div>`).join('');
+  if (!items.length) list.innerHTML = '<div style="padding:10px;font-size:11px;color:var(--text-faint);">No matches</div>';
+}
+
+function filterMergeTargets(q) { renderMergeTargets(q); }
+
+async function selectMergeTarget(pk, name) {
+  _mergeTargetPk = pk;
+  renderMergeTargets(document.getElementById('merge-target-search').value);
+  if (!document.getElementById('merge-name').value)
+    document.getElementById('merge-name').value = name;
+  // Fetch preview counts for source
+  const preview = document.getElementById('merge-preview');
+  const countsEl = document.getElementById('merge-counts');
+  preview.style.display = 'block';
+  countsEl.innerHTML = '<span style="font-size:10px;color:var(--text-faint);">Loading…</span>';
+  try {
+    const r = await fetch(`/projects/${_mergeSrcPk}/merge-preview/`, {
+      headers: {'X-CSRFToken': CSRF}
+    });
+    const d = await r.json();
+    const labels = {tasks:'Tasks', time_entries:'Time entries', notes:'Notes',
+                    tickets:'Tickets', files:'Files', whiteboards:'Boards', modules:'Modules'};
+    countsEl.innerHTML = Object.entries(labels).map(([k, l]) => {
+      const n = d.counts?.[k] || 0;
+      return `<span class="mp-count${n === 0 ? ' zero' : ''}">${n} ${l}</span>`;
+    }).join('');
+  } catch(e) {
+    countsEl.innerHTML = '<span style="font-size:10px;color:var(--red);">Preview failed</span>';
+  }
+  document.getElementById('merge-confirm-btn').disabled = false;
+}
+
+async function confirmMerge() {
+  if (!_mergeSrcPk || !_mergeTargetPk) return;
+  const btn = document.getElementById('merge-confirm-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Combining…';
+  const newName = document.getElementById('merge-name').value.trim();
+  try {
+    const r = await fetch(`/projects/${_mergeSrcPk}/merge/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+      body: JSON.stringify({into_pk: _mergeTargetPk, new_name: newName}),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const res = document.getElementById('merge-result');
+      const moved = Object.entries(d.moved).filter(([,v]) => v > 0)
+        .map(([k,v]) => `${v} ${k}`).join(', ');
+      res.innerHTML = `<i class="fa-solid fa-circle-check"></i> Combined into <strong>${d.target_name}</strong>${moved ? ' — transferred: ' + moved : ''}. Redirecting…`;
+      res.style.display = 'block';
+      setTimeout(() => window.location = `/projects/${d.target_pk}/`, 1400);
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-code-merge"></i> Combine';
+      alert('Error: ' + (d.error || 'Unknown'));
+    }
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-code-merge"></i> Combine';
+  }
+}
 </script>
 {% endblock %}

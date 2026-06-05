@@ -39,4 +39,8 @@ urlpatterns = [
 
     # Stage
     path('<int:pk>/set-stage/', views.project_set_stage, name='set_stage'),
+
+    # Merge
+    path('<int:pk>/merge-preview/', views.merge_preview,  name='merge_preview'),
+    path('<int:pk>/merge/',         views.merge_project,  name='merge'),
 ]

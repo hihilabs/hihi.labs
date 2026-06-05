@@ -505,3 +505,119 @@ def project_set_stage(request, pk):
     project.stage = stage
     project.save(update_fields=['stage', 'updated_at'])
     return JsonResponse({'ok': True, 'stage': stage, 'label': dict(Project.STAGE).get(stage, '')})
+
+
+# ── Merge ─────────────────────────────────────────────────────────────────────
+
+@login_required
+def merge_preview(request, pk):
+    """GET — return counts of related records that would transfer."""
+    source = _get_project(pk, request.user)
+    data = {
+        'id':   source.pk,
+        'name': source.name,
+        'counts': {
+            'tasks':       source.tasks.count(),
+            'time_entries': source.time_entries.count(),
+            'notes':       source.notes.count(),
+        },
+    }
+    try:
+        from apps.tickets.models import Ticket
+        data['counts']['tickets'] = Ticket.objects.filter(project=source).count()
+    except Exception:
+        pass
+    try:
+        from apps.files.models import ClientFile
+        data['counts']['files'] = ClientFile.objects.filter(project=source).count()
+    except Exception:
+        pass
+    try:
+        from apps.whiteboards.models import Whiteboard
+        data['counts']['whiteboards'] = Whiteboard.objects.filter(project=source).count()
+    except Exception:
+        pass
+    try:
+        from apps.modules.models import HihiModule
+        data['counts']['modules'] = HihiModule.objects.filter(project=source).count()
+    except Exception:
+        pass
+    return JsonResponse(data)
+
+
+@login_required
+@require_POST
+def merge_project(request, pk):
+    """
+    Absorb project `pk` (source/stub) into `into_pk` (canonical target).
+    Re-points all relations, optionally renames the target, then archives source.
+    """
+    source = _get_project(pk, request.user)
+    data   = json.loads(request.body)
+    into_pk   = data.get('into_pk')
+    new_name  = data.get('new_name', '').strip()
+
+    if not into_pk:
+        return JsonResponse({'error': 'into_pk required'}, status=400)
+    if int(into_pk) == source.pk:
+        return JsonResponse({'error': 'Cannot merge a project into itself'}, status=400)
+
+    target = _get_project(into_pk, request.user)
+    moved  = {}
+
+    # ── Re-point CASCADE / SET_NULL relations ──────────────────────────────────
+    moved['tasks']        = source.tasks.update(project=target)
+    moved['time_entries'] = source.time_entries.update(project=target)
+    moved['notes']        = source.notes.update(project=target)
+
+    _optional_transfer = [
+        ('apps.tickets.models',      'Ticket',              'project'),
+        ('apps.files.models',        'ClientFile',          'project'),
+        ('apps.files.models',        'DriveFolder',         'project'),
+        ('apps.whiteboards.models',  'Whiteboard',          'project'),
+        ('apps.sound.models',        'Track',               'project'),
+        ('apps.billing.models',      'InvoiceLine',         'project'),
+        ('apps.contracts.models',    'Contract',            'project'),
+        ('apps.dashboard.models',    'ProjectSubscription', 'project'),
+        ('apps.messaging.models',    'Thread',              'project'),
+        ('apps.proposals.models',    'Proposal',            'project'),
+        ('apps.services.models',     'ProjectService',      'project'),
+        ('apps.modules.models',      'HihiModule',          'project'),
+    ]
+    for module_path, model_name, field in _optional_transfer:
+        try:
+            import importlib
+            mod   = importlib.import_module(module_path)
+            Model = getattr(mod, model_name)
+            n = Model.objects.filter(**{field: source}).update(**{field: target})
+            if n:
+                moved[model_name] = n
+        except Exception:
+            pass
+
+    # ── Rename target if requested ─────────────────────────────────────────────
+    if new_name and new_name != target.name:
+        target.name = new_name
+        target.save(update_fields=['name', 'updated_at'])
+
+    # ── Copy missing metadata from source → target where target is blank ───────
+    if not target.description and source.description:
+        target.description = source.description
+        target.save(update_fields=['description', 'updated_at'])
+    if not target.client and source.client:
+        target.client = source.client
+        target.save(update_fields=['client', 'updated_at'])
+    if not target.url and source.url:
+        target.url = source.url
+        target.save(update_fields=['url', 'updated_at'])
+
+    # ── Archive source ─────────────────────────────────────────────────────────
+    source.status = 'archived'
+    source.save(update_fields=['status', 'updated_at'])
+
+    return JsonResponse({
+        'ok':        True,
+        'moved':     moved,
+        'target_pk': target.pk,
+        'target_name': target.name,
+    })
