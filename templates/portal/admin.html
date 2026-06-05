@@ -76,6 +76,23 @@
   <div style="font-size:11px;color:var(--text-muted);">Admin · Staff only</div>
 </div>
 
+{# ── System notice — token security model ── #}
+<div style="
+  display:flex;align-items:flex-start;gap:12px;
+  background:color-mix(in srgb,var(--yellow) 8%,var(--bg2));
+  border:1px solid color-mix(in srgb,var(--yellow) 30%,transparent);
+  border-radius:var(--r-lg);padding:14px 16px;margin:0 24px 20px;
+">
+  <i class="fa-solid fa-triangle-exclamation" style="color:var(--yellow);font-size:14px;margin-top:1px;flex-shrink:0;"></i>
+  <div style="font-size:12px;line-height:1.6;color:var(--text-muted);">
+    <strong style="color:var(--text);display:block;margin-bottom:4px;">Portal links grant full access — no login required</strong>
+    Each client has a unique token URL. Anyone who has the link can view that client's portal.
+    <strong style="color:var(--text);">Always remind clients to keep their portal link private.</strong>
+    Use the <i class="fa-solid fa-rotate" style="font-size:10px;"></i> rotate button to invalidate a compromised link immediately.
+    Task progress shown in the portal reflects <strong style="color:var(--text);">client-visible tasks only</strong> — internal tasks are not counted.
+  </div>
+</div>
+
 <div class="portal-tabs">
   <button class="portal-tab active" onclick="switchPortalTab('views',this)">
     <i class="fa-solid fa-eye"></i> Client Views
@@ -122,7 +139,8 @@
           </button>
         </div>
         <div style="font-size:11px;color:var(--text-muted);">
-          Send this URL directly to the client — no login required. Rotating the token invalidates the old URL.
+          Send directly to the client — no login required. Remind them to keep it private.
+          Rotating the token <strong style="color:var(--text);">immediately</strong> invalidates the old URL.
         </div>
       </div>
 
@@ -310,6 +328,12 @@ const CLIENT_META = {
 
 let activeCid   = null;
 let activeTheme = 'default';
+
+// Fire on load if browser pre-filled the dropdown (form memory doesn't trigger onchange)
+window.addEventListener('DOMContentLoaded', () => {
+  const sw = document.getElementById('client-switcher');
+  if (sw && sw.value) loadClientConfig(sw.value);
+});
 
 function loadClientConfig(cid) {
   if (!cid) { document.getElementById('client-config-panel').style.display = 'none'; return; }
