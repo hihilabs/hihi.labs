@@ -40,6 +40,12 @@ Thumbs.db
 *.swp
 *~
 
+# Claude Code session state (per-checkout, not shared)
+.claude/
+
+# Let's Encrypt webroot challenges (must exist on disk for cert renewal but not in git)
+.well-known/acme-challenge/
+
 # Node
 node_modules/
 npm-debug.log*
