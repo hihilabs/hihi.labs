@@ -2,6 +2,9 @@
 .env
 *.env
 
+# Temp commit-message scratch files
+.commit-msg.txt
+
 # Database
 db.sqlite3
 *.sqlite3
