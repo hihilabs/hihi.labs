@@ -183,17 +183,14 @@
         <li><a href="/admin/" class="{% if 'admin' in request.path %}active{% endif %}">
           <i class="fa-solid fa-shield-halved"></i> Django Admin
         </a></li>
-        <li><a href="{% url 'ops:panel' %}" class="{% if 'ops' in request.path %}active{% endif %}">
-          <i class="fa-solid fa-sliders"></i> Ops
+        <li><a href="{% url 'ops:system' %}" class="{% if 'ops/system' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-terminal"></i> Command Center
+        </a></li>
+        <li><a href="{% url 'ops:panel' %}" class="{% if 'ops' in request.path and 'system' not in request.path %}active{% endif %}">
+          <i class="fa-solid fa-sliders"></i> Ops Panel
         </a></li>
         <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path and 'sessions' not in request.path %}active{% endif %}">
           <i class="fa-solid fa-satellite-dish"></i> Fleet
-        </a></li>
-        <li><a href="{% url 'servers:sessions' %}" class="{% if 'sessions' in request.path %}active{% endif %}">
-          <i class="fa-solid fa-users"></i> Sessions
-        </a></li>
-        <li><a href="{% url 'workers:index' %}" class="{% if 'workers' in request.path %}active{% endif %}">
-          <i class="fa-solid fa-microchip"></i> Workers
         </a></li>
         <li><a href="{% url 'gitnode:index' %}" class="{% if 'gitnode' in request.path %}active{% endif %}">
           <i class="fa-solid fa-code-branch"></i> HiHi Node
@@ -202,9 +199,9 @@
       <div class="subnav-flyout">
         <div class="flyout-label">System</div>
         <a href="/admin/"><i class="fa-solid fa-shield-halved"></i> Django Admin</a>
-        <a href="{% url 'ops:panel' %}"><i class="fa-solid fa-sliders"></i> Ops</a>
+        <a href="{% url 'ops:system' %}"><i class="fa-solid fa-terminal"></i> Command Center</a>
+        <a href="{% url 'ops:panel' %}"><i class="fa-solid fa-sliders"></i> Ops Panel</a>
         <a href="{% url 'servers:index' %}"><i class="fa-solid fa-satellite-dish"></i> Fleet</a>
-        <a href="{% url 'servers:arch' %}"><i class="fa-solid fa-sitemap"></i> Architecture</a>
         <a href="{% url 'servers:sessions' %}"><i class="fa-solid fa-users"></i> Sessions</a>
         <a href="{% url 'workers:index' %}"><i class="fa-solid fa-microchip"></i> Workers</a>
         <a href="{% url 'gitnode:index' %}"><i class="fa-solid fa-code-branch"></i> HiHi Node</a>

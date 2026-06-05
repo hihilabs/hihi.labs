@@ -137,8 +137,10 @@ h1{color:#ff6b35;font-size:1.6em;margin-bottom:4px}
         <button class="ops-btn" onclick="runCmd('git_status','git-out')">📋 Status</button>
         <button class="ops-btn" onclick="runCmd('git_log','git-out')">📜 Log</button>
         <button class="ops-btn primary" onclick="runCmd('git_pull','git-out')">⬇ Pull</button>
+        <button class="ops-btn" onclick="checkAllRepos()" id="check-all-btn">🔍 All Repos</button>
       </div>
       <pre class="cmd-output" id="git-out"></pre>
+      <pre class="cmd-output" id="repos-out"></pre>
     </div>
 
     {# ── Server / Deploy ── #}
@@ -294,6 +296,34 @@ function updateTicket(pk, status, rowEl) {
     if (status === 'done' || status === 'closed') rowEl.classList.add('done');
     else rowEl.classList.remove('done');
   });
+}
+
+function checkAllRepos() {
+  var out = document.getElementById('repos-out');
+  var btn = document.getElementById('check-all-btn');
+  out.textContent = '⏳ Checking all repos…';
+  out.className = 'cmd-output show';
+  out.classList.remove('error');
+  btn.disabled = true;
+  fetch('{% url "ops:check_all_repos" %}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.disabled = false;
+    if (!d.ok) { out.textContent = 'Error: ' + (d.error || '?'); out.classList.add('error'); return; }
+    var anyDirty = false;
+    var lines = d.repos.map(function(r){
+      var icon = r.clean ? '✓' : '✗';
+      if (!r.clean) anyDirty = true;
+      var line = icon + ' [' + r.branch + '] ' + r.name + ' — ' + r.status;
+      return line;
+    });
+    out.textContent = lines.join('\n');
+    if (anyDirty) out.classList.add('error');
+  })
+  .catch(function(e){ btn.disabled = false; out.textContent = 'Error: ' + e; out.classList.add('error'); });
 }
 
 // Color git log output

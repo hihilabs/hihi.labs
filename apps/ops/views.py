@@ -205,6 +205,66 @@ def panel(request):
 
 
 @staff_member_required
+def system_panel(request):
+    """Unified system command center — fleet, repos, workers, sessions in one view."""
+    fleet = []
+    try:
+        from apps.servers.models import Server
+        fleet = list(Server.objects.all().order_by('platform', 'name'))
+    except Exception:
+        pass
+
+    repos = []
+    try:
+        from apps.gitnode.models import ManagedRepo
+        repos = list(ManagedRepo.objects.filter(active=True).select_related('server'))
+    except Exception:
+        pass
+
+    workers = []
+    worker_stats = {'online': 0, 'total': 0, 'queued': 0, 'running': 0}
+    try:
+        from apps.workers.models import WorkerNode, Job
+        workers = list(WorkerNode.objects.all())
+        worker_stats = {
+            'online': sum(1 for w in workers if w.online),
+            'total': len(workers),
+            'queued': Job.objects.filter(status__in=['queued', 'claimed']).count(),
+            'running': Job.objects.filter(status='running').count(),
+        }
+    except Exception:
+        pass
+
+    active_sessions = []
+    try:
+        from apps.servers.models import WorkSession
+        active_sessions = list(
+            WorkSession.objects.filter(checked_out_at__isnull=True)
+            .select_related('developer', 'server')
+            .order_by('-checked_in_at')
+        )
+    except Exception:
+        pass
+
+    ctx = {
+        'project_name': PROJECT_NAME,
+        'git':          _git_info(),
+        'server_info':  _server_info(),
+        'fleet':        fleet,
+        'repos':        repos,
+        'workers':      workers,
+        'worker_stats': worker_stats,
+        'active_sessions': active_sessions,
+        'open_tickets': Ticket.objects.filter(status__in=['open', 'in_progress'])
+                                      .order_by('-priority', '-created_at')[:8],
+        'ops_log':      OpsEvent.objects.all()[:8],
+        'ticket_types':      Ticket.TYPE_CHOICES,
+        'ticket_priorities': Ticket.PRIORITY_CHOICES,
+    }
+    return render(request, 'ops/system.html', ctx)
+
+
+@staff_member_required
 @require_POST
 def run_cmd(request):
     cmd = request.POST.get('cmd', '')
@@ -223,6 +283,69 @@ def run_cmd(request):
     else:
         messages.error(request, output)
     return redirect('ops:panel')
+
+
+@staff_member_required
+@require_POST
+def check_all_repos(request):
+    """Check git status of local project repo + all gitnode ManagedRepos."""
+    results = []
+
+    # local repo
+    try:
+        status_out = subprocess.run(
+            ['git', '-C', str(PROJECT_ROOT), 'status', '--short'],
+            capture_output=True, text=True, timeout=10
+        )
+        local_status = (status_out.stdout + status_out.stderr).strip()
+        local_branch = subprocess.check_output(
+            ['git', '-C', str(PROJECT_ROOT), 'rev-parse', '--abbrev-ref', 'HEAD'],
+            stderr=subprocess.DEVNULL, text=True, timeout=5
+        ).strip()
+        local_log = subprocess.check_output(
+            ['git', '-C', str(PROJECT_ROOT), 'log', '--oneline', '-3', '--decorate'],
+            stderr=subprocess.DEVNULL, text=True, timeout=5
+        ).strip()
+        results.append({
+            'name': PROJECT_NAME + ' (local)',
+            'branch': local_branch,
+            'status': local_status or '✓ clean',
+            'log': local_log,
+            'clean': not local_status,
+        })
+    except Exception as e:
+        results.append({'name': PROJECT_NAME + ' (local)', 'clean': False,
+                        'status': f'error: {e}', 'branch': '?', 'log': ''})
+
+    # remote repos via gitnode
+    try:
+        from apps.gitnode.models import ManagedRepo
+        from apps.gitnode import ssh as gitnode_ssh
+        repos = ManagedRepo.objects.filter(active=True).select_related('server')
+        for repo in repos:
+            status = gitnode_ssh.git_status(repo.server, repo.path)
+            branch = gitnode_ssh.git_branch(repo.server, repo.path)
+            log = gitnode_ssh.git_log(repo.server, repo.path, n=3)
+            clean = status == ''
+            results.append({
+                'name': repo.name,
+                'branch': branch,
+                'status': status if status else '✓ clean',
+                'log': log,
+                'clean': clean,
+            })
+    except Exception as e:
+        results.append({'name': 'managed repos', 'clean': False,
+                        'status': f'error: {e}', 'branch': '?', 'log': ''})
+
+    clean_count = sum(1 for r in results if r['clean'])
+    OpsEvent.objects.create(
+        action='git_check_all',
+        triggered_by=request.user,
+        output=f'Checked {len(results)} repos — {clean_count} clean',
+        success=True,
+    )
+    return JsonResponse({'ok': True, 'repos': results})
 
 
 @require_POST
