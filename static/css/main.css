@@ -2846,3 +2846,74 @@ a, button, [role="button"], input, select, textarea, .mob-nav-link, .subnav-togg
   body { background: #fff !important; color: #000 !important; }
 }
 
+/* mobile drawer footer — user identity left, actions row right */
+.mob-drawer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg2) 96%, transparent);
+  flex-shrink: 0;
+}
+.mob-drawer-foot-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  letter-spacing: .02em;
+}
+.mob-drawer-foot-user i { color: var(--text-faint); font-size: 18px; flex-shrink: 0; }
+.mob-drawer-foot-user span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mob-drawer-foot-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.mob-foot-btn {
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  font-size: 15px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.mob-foot-btn[hidden] { display: none !important; }
+.mob-foot-btn:active {
+  transform: scale(.96);
+  background: var(--bg4);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+.mob-foot-btn.on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--accent-glow);
+}
+.mob-foot-btn.danger { color: var(--text-muted); }
+.mob-foot-btn.danger:active {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 50%, var(--border));
+  background: color-mix(in srgb, var(--red) 12%, var(--bg3));
+}
+/* drawer body shouldn't pad-bottom anymore — the foot bar owns inset-bottom */
+.mob-drawer-body { padding-bottom: 6px !important; }
+

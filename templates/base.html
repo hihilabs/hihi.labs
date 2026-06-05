@@ -220,6 +220,7 @@
         <i class="fa-solid fa-angles-left" id="nav-toggle-icon"></i>
       </button>
       <button id="pwa-bell"
+              data-pwa-bell
               onclick="togglePush(this)"
               title="Enable notifications"
               style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;transition:color 0.15s;"
@@ -297,9 +298,26 @@
       <a href="{% url 'whiteboards:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-chalkboard"></i> Whiteboards</a>
       <a href="{% url 'tickets:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-ticket"></i> Tickets</a>
     </div>
-    <div class="mob-nav-divider"></div>
-    <div class="mob-nav-group">
-      <form method="post" action="{% url 'logout' %}" style="display:contents;">{% csrf_token %}<button type="submit" class="mob-nav-link" style="color:var(--red);background:none;border:none;cursor:pointer;width:100%;text-align:left;"><i class="fa-solid fa-right-from-bracket"></i> Log out</button></form>
+  </div>
+  <div class="mob-drawer-foot">
+    <div class="mob-drawer-foot-user">
+      <i class="fa-solid fa-circle-user"></i>
+      <span>{{ user.get_short_name|default:user.username }}</span>
+    </div>
+    <div class="mob-drawer-foot-actions">
+      <button id="pwa-bell-mob" type="button" class="mob-foot-btn" data-pwa-bell
+              onclick="togglePush(this)" aria-label="Toggle notifications" title="Toggle notifications">
+        <i class="fa-solid fa-bell"></i>
+      </button>
+      <button data-pwa-install type="button" class="mob-foot-btn" hidden
+              onclick="pwaInstall()" aria-label="Install app" title="Install app">
+        <i class="fa-solid fa-download"></i>
+      </button>
+      <form method="post" action="{% url 'logout' %}" style="display:contents;">{% csrf_token %}
+        <button type="submit" class="mob-foot-btn danger" aria-label="Log out" title="Log out">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+      </form>
     </div>
   </div>
 </div>
@@ -353,11 +371,11 @@ let _deferredInstall = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _deferredInstall = e;
-  document.querySelectorAll('[data-pwa-install]').forEach(el => el.style.removeProperty('display'));
+  document.querySelectorAll('[data-pwa-install]').forEach(el => { el.hidden = false; el.style.removeProperty('display'); });
 });
 window.addEventListener('appinstalled', () => {
   _deferredInstall = null;
-  document.querySelectorAll('[data-pwa-install]').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('[data-pwa-install]').forEach(el => { el.hidden = true; el.style.display = 'none'; });
 });
 function pwaInstall() {
   if (!_deferredInstall) return;
@@ -409,14 +427,17 @@ function getCookie(name) {
     .find(c=>c.startsWith(name+'='))?.split('=')[1] || '';
 }
 
-// Update bell on load
+// Update all bells on load (desktop sidenav + mobile drawer footer)
 document.addEventListener('DOMContentLoaded', () => {
-  const bell = document.getElementById('pwa-bell');
-  if (!bell || !('Notification' in window)) return;
-  if (Notification.permission === 'granted') {
-    bell.style.color = 'var(--accent)';
-    bell.title = 'Push on — click to disable';
-  }
+  if (!('Notification' in window)) return;
+  const on = Notification.permission === 'granted';
+  document.querySelectorAll('[data-pwa-bell]').forEach(bell => {
+    if (on) {
+      bell.classList.add('on');
+      bell.style.color = 'var(--accent)';
+      bell.title = 'Push on — click to disable';
+    }
+  });
 });
 
 // Unread badge polling
