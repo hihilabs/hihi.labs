@@ -192,8 +192,8 @@
         <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path and 'sessions' not in request.path %}active{% endif %}">
           <i class="fa-solid fa-satellite-dish"></i> Fleet
         </a></li>
-        <li><a href="{% url 'gitnode:index' %}" class="{% if 'gitnode' in request.path %}active{% endif %}">
-          <i class="fa-solid fa-code-branch"></i> HiHi Node
+        <li><a href="{% url 'modules:index' %}" class="{% if 'modules' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-cubes"></i> Modules
         </a></li>
       </ul>
       <div class="subnav-flyout">
@@ -204,7 +204,7 @@
         <a href="{% url 'servers:index' %}"><i class="fa-solid fa-satellite-dish"></i> Fleet</a>
         <a href="{% url 'servers:sessions' %}"><i class="fa-solid fa-users"></i> Sessions</a>
         <a href="{% url 'workers:index' %}"><i class="fa-solid fa-microchip"></i> Workers</a>
-        <a href="{% url 'gitnode:index' %}"><i class="fa-solid fa-code-branch"></i> HiHi Node</a>
+        <a href="{% url 'modules:index' %}"><i class="fa-solid fa-cubes"></i> Modules</a>
       </div>
     </li>
     {% endif %}

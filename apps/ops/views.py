@@ -246,6 +246,20 @@ def system_panel(request):
     except Exception:
         pass
 
+    modules_summary = {'total': 0, 'public': 0, 'live': 0, 'last_sync': None}
+    try:
+        from apps.modules.models import HihiModule
+        modules_summary['total']     = HihiModule.objects.filter(is_active=True).count()
+        modules_summary['public']    = HihiModule.objects.filter(is_active=True, is_public=True).count()
+        modules_summary['live']      = HihiModule.objects.filter(is_active=True, status='live').count()
+        modules_summary['last_sync'] = (HihiModule.objects
+                                        .filter(synced_at__isnull=False)
+                                        .order_by('-synced_at')
+                                        .values_list('synced_at', flat=True)
+                                        .first())
+    except Exception:
+        pass
+
     ctx = {
         'project_name': PROJECT_NAME,
         'git':          _git_info(),
@@ -260,6 +274,7 @@ def system_panel(request):
         'ops_log':      OpsEvent.objects.all()[:8],
         'ticket_types':      Ticket.TYPE_CHOICES,
         'ticket_priorities': Ticket.PRIORITY_CHOICES,
+        'modules_summary':   modules_summary,
     }
     return render(request, 'ops/system.html', ctx)
 

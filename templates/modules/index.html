@@ -1,12 +1,33 @@
 {% extends 'base.html' %}
-{% block title %}Modules — HiHi Labs{% endblock %}
+{% block title %}HiHi Modules{% endblock %}
 
 {% block extra_css %}
 <style>
-/* ── Service category tabs ─────────────────────────────────── */
+/* ── Toolbar ───────────────────────────────────────────────────── */
+.mod-toolbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding: 0 24px 16px;
+}
+.mod-toolbar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.mod-toolbar-right { display: flex; align-items: center; gap: 6px; }
+.mod-search {
+  flex: 1; max-width: 280px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text);
+  font-family: var(--font-mono); font-size: 12px;
+  padding: 7px 12px; outline: none; transition: border-color var(--dur-base);
+}
+.mod-search:focus { border-color: var(--accent); }
+.mod-search::placeholder { color: var(--text-faint); }
+.sync-status {
+  font-size: 10px; color: var(--text-faint); font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+/* ── Category tabs ─────────────────────────────────────────────── */
 .svc-tabs {
   display: flex; gap: 6px; flex-wrap: wrap;
-  padding: 0 24px 24px;
+  padding: 0 24px 20px;
 }
 .svc-tab {
   display: inline-flex; align-items: center; gap: 7px;
@@ -19,21 +40,20 @@
 }
 .svc-tab:hover { border-color: var(--accent); color: var(--accent); background: var(--brand-subtle); }
 .svc-tab.active { border-color: var(--accent); color: var(--accent); background: var(--brand-subtle); }
-.svc-tab i { font-size: 11px; }
 .svc-count {
   font-size: 9px; padding: 1px 5px; border-radius: var(--r-full);
   background: color-mix(in srgb, currentColor 15%, transparent);
 }
 
-/* ── Module grid ───────────────────────────────────────────── */
+/* ── Module grid ───────────────────────────────────────────────── */
 .mod-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
   gap: 14px;
-  padding: 0 24px 16px;
+  padding: 0 24px 40px;
 }
 
-/* ── Module card ───────────────────────────────────────────── */
+/* ── Module card ───────────────────────────────────────────────── */
 .mod-card {
   background: var(--bg2);
   border: 1px solid var(--border);
@@ -48,11 +68,11 @@
   position: absolute; inset: 0;
   border-radius: var(--r-lg);
   background: radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--mc) 6%, transparent) 0%, transparent 70%);
-  pointer-events: none;
-  opacity: 0; transition: opacity var(--dur-slow);
+  pointer-events: none; opacity: 0; transition: opacity var(--dur-slow);
 }
-.mod-card:hover { border-color: var(--mc); box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc) 20%, transparent), var(--shadow-sm); transform: translateY(-1px); }
+.mod-card:hover { border-color: color-mix(in srgb, var(--mc) 50%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--mc) 15%, transparent), var(--shadow-sm); transform: translateY(-1px); }
 .mod-card:hover::before { opacity: 1; }
+.mod-card.is-public { border-top: 2px solid color-mix(in srgb, var(--green) 40%, transparent); }
 
 .mod-head {
   padding: 16px 18px 12px;
@@ -76,26 +96,32 @@
   font-family: var(--font-ui); font-weight: var(--weight-bold);
   font-size: var(--text-md); color: var(--text);
   margin-bottom: 5px; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mod-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip {
   font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
   padding: 2px 7px; border-radius: var(--r-full);
 }
-.chip-type {
-  background: color-mix(in srgb, var(--mc) 14%, transparent);
-  color: var(--mc);
-  border: 1px solid color-mix(in srgb, var(--mc) 30%, transparent);
-}
-.chip-live   { background: color-mix(in srgb, var(--green)  10%, transparent); color: var(--green);  border: 1px solid color-mix(in srgb, var(--green)  28%, transparent); }
-.chip-beta   { background: color-mix(in srgb, var(--yellow) 10%, transparent); color: var(--yellow); border: 1px solid color-mix(in srgb, var(--yellow) 28%, transparent); }
-.chip-wip    { background: transparent; color: var(--text-faint); border: 1px solid var(--border); }
-/* subtle pulse on live */
+.chip-type { background: color-mix(in srgb, var(--mc) 14%, transparent); color: var(--mc); border: 1px solid color-mix(in srgb, var(--mc) 30%, transparent); }
+.chip-live     { background: color-mix(in srgb, var(--green)  10%, transparent); color: var(--green);     border: 1px solid color-mix(in srgb, var(--green)  28%, transparent); }
+.chip-beta     { background: color-mix(in srgb, var(--yellow) 10%, transparent); color: var(--yellow);    border: 1px solid color-mix(in srgb, var(--yellow) 28%, transparent); }
+.chip-wip      { background: transparent; color: var(--text-faint); border: 1px solid var(--border); }
+.chip-archived { background: transparent; color: var(--text-faint); border: 1px solid var(--border); opacity: .6; }
 .chip-live::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin-right: 4px; animation: live-glow-green 2s ease-in-out infinite; }
 
-.mod-body {
-  padding: 0 18px 12px; flex: 1;
+/* GitHub meta row */
+.mod-gh-row {
+  padding: 0 18px 8px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; color: var(--text-faint); font-family: var(--font-mono);
 }
+.mod-gh-row a { color: var(--text-faint); text-decoration: none; }
+.mod-gh-row a:hover { color: var(--accent); }
+.gh-lang { display: flex; align-items: center; gap: 4px; }
+.lang-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mc); display: inline-block; }
+
+.mod-body { padding: 0 18px 12px; flex: 1; }
 .mod-desc {
   font-size: var(--text-sm); color: var(--text-muted);
   line-height: 1.65; margin-bottom: 10px;
@@ -110,14 +136,23 @@
 }
 .mod-card:hover .mod-tag { color: var(--text-muted); border-color: color-mix(in srgb, var(--mc) 20%, var(--border)); }
 
+/* Git status row (lazy-loaded) */
+.mod-git-row {
+  margin: 0 18px 10px;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-faint);
+  display: flex; align-items: center; gap: 6px;
+}
+.mod-git-row.git-clean { color: var(--green); border-color: color-mix(in srgb, var(--green) 20%, transparent); }
+.mod-git-row.git-dirty { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 20%, transparent); }
+
 .mod-foot {
   padding: 10px 18px;
   border-top: 1px solid var(--border);
-  display: flex; align-items: center; gap: 8px;
-}
-.mod-platform {
-  margin-left: auto; font-size: 10px; color: var(--text-faint);
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
 }
 .pub-toggle {
   display: inline-flex; align-items: center; gap: 5px;
@@ -134,50 +169,28 @@
   color: var(--green);
 }
 .pub-toggle.is-public:hover { background: color-mix(in srgb, var(--green) 14%, transparent); }
-.pub-label { font-size: 10px; }
-.mod-card.is-public { border-top: 2px solid color-mix(in srgb, var(--green) 40%, transparent); }
 
-/* ── Contact section ───────────────────────────────────────── */
-.contact-section {
-  margin: 16px 24px 40px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 28px 32px;
-  max-width: 560px;
-  position: relative;
-  overflow: hidden;
+/* ── Sync output log ───────────────────────────────────────────── */
+.sync-log {
+  margin: 0 24px 20px;
+  padding: 12px 16px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+  display: none;
 }
-.contact-section::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--brand-glow), transparent);
-}
-.contact-heading {
-  font-family: var(--font-ui); font-size: var(--text-lg); font-weight: var(--weight-bold);
-  color: var(--text); margin-bottom: 4px;
-}
-.contact-sub { font-size: var(--text-sm); color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
-.contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-.contact-section textarea { resize: vertical; min-height: 80px; }
-.contact-section select option { background: var(--bg3); }
-.contact-success {
-  display: none; text-align: center; padding: 16px 0;
-  color: var(--green); font-size: var(--text-sm); font-family: var(--font-mono);
-}
+.sync-log.visible { display: block; }
 
-/* ── Empty state ───────────────────────────────────────────── */
+/* ── Empty ─────────────────────────────────────────────────────── */
 .mod-empty {
   grid-column: 1 / -1; text-align: center; padding: 60px 0;
   color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-sm);
 }
 
-/* ── Mobile ────────────────────────────────────────────────── */
 @media (max-width: 680px) {
-  .mod-grid { grid-template-columns: 1fr; padding: 0 16px 12px; }
+  .mod-grid { grid-template-columns: 1fr; padding: 0 16px 24px; }
   .svc-tabs { padding: 0 16px 16px; }
-  .contact-section { margin: 12px 16px 32px; padding: 20px; }
-  .contact-grid { grid-template-columns: 1fr; }
+  .mod-toolbar { padding: 0 16px 16px; }
 }
 </style>
 {% endblock %}
@@ -185,71 +198,130 @@
 {% block content %}
 <div class="page-header">
   <div class="page-title">
-    <i class="fa-solid fa-cubes" style="color:var(--accent);margin-right:8px;"></i>Work
+    <i class="fa-solid fa-cubes" style="color:var(--accent);margin-right:8px;"></i>HiHi Modules
   </div>
-  <span style="font-size:11px;color:var(--text-muted);">{{ total }} project{{ total|pluralize }}</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:11px;color:var(--text-muted);">{{ total }} total · {{ public_count }} public</span>
+    {% if last_sync %}
+    <span class="sync-status">synced {{ last_sync|timesince }} ago</span>
+    {% endif %}
+  </div>
 </div>
 
-{# ── Service category tabs ────────────────────────────────────────────────── #}
+{# ── Toolbar ──────────────────────────────────────────────────────────────── #}
+<div class="mod-toolbar">
+  <div class="mod-toolbar-left">
+    <form method="get" style="display:contents;">
+      {% if type_filter %}<input type="hidden" name="type" value="{{ type_filter }}">{% endif %}
+      {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+      <input type="search" name="q" class="mod-search" placeholder="Search modules…" value="{{ search }}" autocomplete="off">
+    </form>
+    {% if status_filter or search %}
+    <a href="{% url 'modules:index' %}{% if type_filter %}?type={{ type_filter }}{% endif %}" class="btn btn-ghost btn-sm">
+      <i class="fa-solid fa-xmark"></i> Clear
+    </a>
+    {% endif %}
+  </div>
+  <div class="mod-toolbar-right">
+    <select class="form-control form-control-sm" onchange="filterStatus(this.value)" style="font-size:11px;padding:5px 10px;">
+      <option value="" {% if not status_filter %}selected{% endif %}>All Statuses</option>
+      {% for v, l in status_choices %}
+      <option value="{{ v }}" {% if status_filter == v %}selected{% endif %}>{{ l }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="seedRegistry()" title="Import registry.py into DB">
+      <i class="fa-solid fa-file-import"></i> Seed
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="syncGitHub()" id="sync-btn">
+      <i class="fa-brands fa-github"></i> Sync GitHub
+    </button>
+  </div>
+</div>
+
+{# Sync log output #}
+<div class="sync-log" id="sync-log"></div>
+
+{# ── Category tabs ──────────────────────────────────────────────────────────── #}
 <nav class="svc-tabs">
-  <a href="{% url 'modules:index' %}"
+  <a href="{% url 'modules:index' %}{% if status_filter or search %}?{% if status_filter %}status={{ status_filter }}&{% endif %}{% if search %}q={{ search }}{% endif %}{% endif %}"
      class="svc-tab {% if not type_filter %}active{% endif %}">
     <i class="fa-solid fa-layer-group"></i> All
     <span class="svc-count">{{ total }}</span>
   </a>
-  <a href="{% url 'modules:index' %}?type=ai"
-     class="svc-tab {% if type_filter == 'ai' %}active{% endif %}">
-    <i class="fa-solid fa-microchip"></i> AI &amp; Automation
-    <span class="svc-count">{{ type_counts.ai|default:0 }}</span>
+  {% for v, l in type_choices %}
+  <a href="{% url 'modules:index' %}?type={{ v }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
+     class="svc-tab {% if type_filter == v %}active{% endif %}">
+    {% if v == 'ai' %}<i class="fa-solid fa-microchip"></i>
+    {% elif v == 'web' %}<i class="fa-solid fa-globe"></i>
+    {% elif v == 'cp' %}<i class="fa-solid fa-record-vinyl"></i>
+    {% elif v == 'infra' %}<i class="fa-solid fa-server"></i>
+    {% elif v == 'utility' %}<i class="fa-solid fa-robot"></i>
+    {% elif v == 'tool' %}<i class="fa-solid fa-terminal"></i>
+    {% else %}<i class="fa-solid fa-cube"></i>{% endif %}
+    {{ l }}
+    <span class="svc-count">{{ type_counts|default_if_none:0 }}</span>
   </a>
-  <a href="{% url 'modules:index' %}?type=web"
-     class="svc-tab {% if type_filter == 'web' %}active{% endif %}">
-    <i class="fa-solid fa-globe"></i> Web Platforms
-    <span class="svc-count">{{ type_counts.web|default:0 }}</span>
-  </a>
-  <a href="{% url 'modules:index' %}?type=cp"
-     class="svc-tab {% if type_filter == 'cp' %}active{% endif %}">
-    <i class="fa-solid fa-record-vinyl"></i> Community Tech
-    <span class="svc-count">{{ type_counts.cp|default:0 }}</span>
-  </a>
-  <a href="{% url 'modules:index' %}?type=infra"
-     class="svc-tab {% if type_filter == 'infra' %}active{% endif %}">
-    <i class="fa-solid fa-server"></i> Infrastructure
-    <span class="svc-count">{{ type_counts.infra|default:0 }}</span>
-  </a>
-  <a href="{% url 'modules:index' %}?type=utility"
-     class="svc-tab {% if type_filter == 'utility' %}active{% endif %}">
-    <i class="fa-solid fa-robot"></i> Tools
-    <span class="svc-count">{{ type_counts.utility|default:0 }}</span>
-  </a>
+  {% endfor %}
 </nav>
 
-{# ── Module grid ──────────────────────────────────────────────────────────── #}
+{# ── Module grid ────────────────────────────────────────────────────────────── #}
 <div class="mod-grid" id="mod-grid">
   {% for m in modules %}
-  <div class="mod-card {% if m.public %}is-public{% endif %}" style="--mc:{{ m.color }};" data-type="{{ m.type }}" data-slug="{{ m.slug }}">
+  <div class="mod-card {% if m.is_public %}is-public{% endif %}" style="--mc:{{ m.color }};" data-pk="{{ m.pk }}" data-type="{{ m.module_type }}">
+
     <div class="mod-head">
       <div class="mod-icon">
         <i class="{{ m.icon_class|default:'fa-solid' }} {{ m.icon }}"></i>
       </div>
       <div class="mod-title-row">
-        <div class="mod-name">{{ m.name }}</div>
+        <div class="mod-name" title="{{ m.name }}">{{ m.name }}</div>
         <div class="mod-chips">
-          <span class="chip chip-type">{{ m.type }}</span>
-          <span class="chip chip-{{ m.status }}">{{ m.status }}</span>
-          {% if m.platform %}<span class="chip" style="background:var(--bg3);color:var(--text-faint);border:1px solid var(--border);">{{ m.platform }}</span>{% endif %}
+          <span class="chip chip-type">{{ m.get_module_type_display }}</span>
+          <span class="chip chip-{{ m.status }}">{{ m.get_status_display }}</span>
+          {% if m.is_private %}<span class="chip" style="background:var(--bg3);color:var(--text-faint);border:1px solid var(--border);"><i class="fa-solid fa-lock" style="font-size:8px;"></i> private</span>{% endif %}
+          {% if m.featured %}<span class="chip" style="background:color-mix(in srgb,var(--yellow) 12%,transparent);color:var(--yellow);border:1px solid color-mix(in srgb,var(--yellow) 30%,transparent);">★ featured</span>{% endif %}
         </div>
       </div>
     </div>
 
-    {% if m.description %}
+    {% if m.github_url or m.language or m.stars %}
+    <div class="mod-gh-row">
+      {% if m.github_url %}
+      <a href="{{ m.github_url }}" target="_blank" rel="noopener" title="{{ m.github_name }}">
+        <i class="fa-brands fa-github"></i> {{ m.github_name|default:m.slug }}
+      </a>
+      {% endif %}
+      {% if m.language %}
+      <span class="gh-lang"><span class="lang-dot"></span>{{ m.language }}</span>
+      {% endif %}
+      {% if m.stars %}<span title="Stars"><i class="fa-solid fa-star" style="font-size:9px;"></i> {{ m.stars }}</span>{% endif %}
+      {% if m.last_pushed_at %}<span title="Last pushed">{{ m.last_pushed_at|timesince }} ago</span>{% endif %}
+    </div>
+    {% endif %}
+
     <div class="mod-body">
-      <div class="mod-desc">{{ m.description }}</div>
+      {% with desc=m.effective_description %}
+      {% if desc %}
+      <div class="mod-desc">{{ desc }}</div>
+      {% endif %}
+      {% endwith %}
       {% if m.tags %}
       <div class="mod-tags">
         {% for tag in m.tags %}<span class="mod-tag">{{ tag }}</span>{% endfor %}
       </div>
       {% endif %}
+    </div>
+
+    {# Git status — shown only when a managed_repo is linked #}
+    {% if m.managed_repo %}
+    <div class="mod-git-row" id="git-{{ m.pk }}">
+      <i class="fa-solid fa-code-branch" style="font-size:9px;"></i>
+      <span>{{ m.managed_repo.name }}</span>
+      <span style="margin-left:auto;">
+        <button class="btn btn-ghost" style="padding:1px 6px;font-size:9px;" onclick="loadGitStatus({{ m.pk }}, {{ m.managed_repo.pk }})">
+          check
+        </button>
+      </span>
     </div>
     {% endif %}
 
@@ -259,105 +331,126 @@
         <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
       </a>
       {% endif %}
-      {% if m.source_url %}
-      <a href="{{ m.source_url }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
-        <i class="fa-brands fa-github"></i> Source
+      {% with src=m.display_source_url %}
+      {% if src %}
+      <a href="{{ src }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+        <i class="fa-brands fa-github"></i>
       </a>
       {% endif %}
-      <button class="pub-toggle {% if m.public %}is-public{% endif %}"
-              data-slug="{{ m.slug }}"
-              data-public="{% if m.public %}1{% else %}0{% endif %}"
+      {% endwith %}
+      <button class="pub-toggle {% if m.is_public %}is-public{% endif %}"
+              data-pk="{{ m.pk }}"
               onclick="togglePublic(this)"
-              title="{% if m.public %}Live on /works/ — click to hide{% else %}Hidden from /works/ — click to show{% endif %}">
-        <i class="fa-solid {% if m.public %}fa-globe{% else %}fa-lock{% endif %}"></i>
-        <span class="pub-label">{% if m.public %}Public{% else %}Private{% endif %}</span>
+              title="{% if m.is_public %}Live on /works/ — click to hide{% else %}Hidden — click to publish{% endif %}">
+        <i class="fa-solid {% if m.is_public %}fa-globe{% else %}fa-lock{% endif %}"></i>
+        <span>{% if m.is_public %}Public{% else %}Private{% endif %}</span>
       </button>
+      {% if m.platform %}
+      <span style="margin-left:auto;font-size:10px;color:var(--text-faint);">{{ m.platform }}</span>
+      {% endif %}
     </div>
   </div>
   {% empty %}
   <div class="mod-empty">
     <i class="fa-solid fa-cubes" style="font-size:28px;opacity:.3;display:block;margin-bottom:10px;"></i>
-    No projects in this category.
+    No modules yet — click <strong>Sync GitHub</strong> to import from the org,<br>or <strong>Seed</strong> to import from registry.py.
   </div>
   {% endfor %}
-</div>
-
-{# ── Contact ──────────────────────────────────────────────────────────────── #}
-<div class="contact-section">
-  <div class="contact-heading">What are we building?</div>
-  <div class="contact-sub">Tell me what you're working on — AI, custom software, infra, community tools. No sales call required.</div>
-  <form id="contact-form" onsubmit="submitContact(event)">
-    {% csrf_token %}
-    <div class="contact-grid">
-      <input type="text"  class="form-control" id="c-name"    placeholder="Name"  required>
-      <input type="email" class="form-control" id="c-email"   placeholder="Email" required>
-    </div>
-    <select class="form-control" id="c-interest" style="margin-bottom:10px;">
-      <option value="">Area of interest…</option>
-      <option value="ai">AI & Automation</option>
-      <option value="web">Web Application</option>
-      <option value="community">Community Platform</option>
-      <option value="infra">Infrastructure / DevOps</option>
-      <option value="other">Other</option>
-    </select>
-    <textarea class="form-control" id="c-message" placeholder="Describe the project or idea…" required style="margin-bottom:12px;"></textarea>
-    <button type="submit" class="btn btn-primary" id="c-btn">
-      <i class="fa-solid fa-paper-plane"></i> Send
-    </button>
-  </form>
-  <div class="contact-success" id="c-success">
-    <i class="fa-solid fa-circle-check" style="font-size:22px;display:block;margin-bottom:8px;"></i>
-    Received. I'll be in touch.
-  </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}<script>
-async function submitContact(e) {
-  e.preventDefault();
-  const btn = document.getElementById('c-btn');
-  btn.disabled = true; btn.textContent = 'Sending…';
-  try {
-    const r = await fetch('{% url "modules:contact" %}', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
-      body: JSON.stringify({
-        name:     document.getElementById('c-name').value,
-        email:    document.getElementById('c-email').value,
-        interest: document.getElementById('c-interest').value,
-        message:  document.getElementById('c-message').value,
-      }),
-    });
-    if (r.ok) {
-      document.getElementById('contact-form').style.display = 'none';
-      document.getElementById('c-success').style.display = 'block';
-    } else {
-      btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send';
-    }
-  } catch { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send'; }
+var CSRF = (document.cookie.match(/csrftoken=([^;]+)/) || ['',''])[1];
+
+async function post(url) {
+  return fetch(url, {method:'POST', headers:{'X-CSRFToken': CSRF}});
 }
-</script>
-<script>
+
+// ── GitHub sync ────────────────────────────────────────────────────────────────
+async function syncGitHub() {
+  var btn = document.getElementById('sync-btn');
+  var log = document.getElementById('sync-log');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing…';
+  log.textContent = 'Connecting to GitHub API…';
+  log.classList.add('visible');
+  try {
+    var r  = await post('{% url "modules:sync_github" %}');
+    var d  = await r.json();
+    if (d.ok) {
+      log.textContent = '✓ Synced ' + d.total + ' repos — ' + d.created + ' new, ' + d.updated + ' updated. Reloading…';
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      log.textContent = '✗ ' + (d.error || 'Unknown error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-brands fa-github"></i> Sync GitHub';
+    }
+  } catch(e) {
+    log.textContent = '✗ Network error: ' + e.message;
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-brands fa-github"></i> Sync GitHub';
+  }
+}
+
+// ── Seed registry.py ───────────────────────────────────────────────────────────
+async function seedRegistry() {
+  var log = document.getElementById('sync-log');
+  log.textContent = 'Seeding from registry.py…';
+  log.classList.add('visible');
+  try {
+    var r = await post('{% url "modules:seed_registry" %}');
+    var d = await r.json();
+    if (d.ok) {
+      log.textContent = '✓ Seeded ' + d.total + ' modules — ' + d.created + ' new, ' + d.updated + ' updated. Reloading…';
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      log.textContent = '✗ ' + (d.error || 'Unknown error');
+    }
+  } catch(e) {
+    log.textContent = '✗ ' + e.message;
+  }
+}
+
+// ── Toggle public ──────────────────────────────────────────────────────────────
 async function togglePublic(btn) {
-  var slug    = btn.dataset.slug;
-  var isPublic = btn.dataset.public === '1';
-  var newVal   = !isPublic;
+  var pk = btn.dataset.pk;
   btn.disabled = true;
   try {
-    var csrf = document.cookie.match(/csrftoken=([^;]+)/);
-    var r = await fetch('/modules/toggle-public/', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf ? csrf[1] : ''},
-      body: JSON.stringify({slug: slug, public: newVal}),
-    });
+    var r = await post('/modules/' + pk + '/toggle-public/');
     if (!r.ok) { btn.disabled = false; return; }
-    btn.dataset.public = newVal ? '1' : '0';
-    btn.classList.toggle('is-public', newVal);
-    btn.querySelector('i').className = 'fa-solid ' + (newVal ? 'fa-globe' : 'fa-lock');
-    btn.querySelector('.pub-label').textContent = newVal ? 'Public' : 'Private';
-    btn.title = newVal ? 'Live on /works/ — click to hide' : 'Hidden from /works/ — click to show';
-    btn.closest('.mod-card').classList.toggle('is-public', newVal);
+    var d = await r.json();
+    var pub = d.is_public;
+    btn.classList.toggle('is-public', pub);
+    btn.querySelector('i').className = 'fa-solid ' + (pub ? 'fa-globe' : 'fa-lock');
+    btn.querySelector('span').textContent = pub ? 'Public' : 'Private';
+    btn.title = pub ? 'Live on /works/ — click to hide' : 'Hidden — click to publish';
+    btn.closest('.mod-card').classList.toggle('is-public', pub);
   } finally { btn.disabled = false; }
+}
+
+// ── Git status lazy load ───────────────────────────────────────────────────────
+async function loadGitStatus(modulePk, repoPk) {
+  var el = document.getElementById('git-' + modulePk);
+  el.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="font-size:9px;"></i> checking…';
+  try {
+    var r = await fetch('/gitnode/' + repoPk + '/status/');
+    var d = await r.json();
+    var clean = d.clean || (d.status === '' || d.status === '✓ clean');
+    el.className = 'mod-git-row ' + (clean ? 'git-clean' : 'git-dirty');
+    el.innerHTML = '<i class="fa-solid fa-code-branch" style="font-size:9px;"></i>'
+      + '<span>' + (d.branch || '?') + '</span>'
+      + '<span style="margin-left:auto;">' + (clean ? '✓ clean' : (d.status || 'dirty').slice(0, 60)) + '</span>';
+  } catch(e) {
+    el.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> error';
+  }
+}
+
+// ── Status filter select ───────────────────────────────────────────────────────
+function filterStatus(val) {
+  var url = new URL(window.location);
+  if (val) url.searchParams.set('status', val);
+  else url.searchParams.delete('status');
+  window.location = url.toString();
 }
 </script>
 {% endblock %}

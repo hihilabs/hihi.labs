@@ -275,6 +275,18 @@
   <div class="sys-kpi {% if open_tickets %}warn{% else %}dim{% endif %}">
     <div><div class="n">{{ open_tickets|length }}</div><div class="l">Tickets</div></div>
   </div>
+  {% if modules_summary.total %}
+  <div class="sys-kpi ok" style="cursor:pointer;" onclick="location.href='{% url 'modules:index' %}'">
+    <div>
+      <div class="n">{{ modules_summary.total }}</div>
+      <div class="l">Modules</div>
+    </div>
+    <div style="font-size:9px;color:var(--text-faint);line-height:1.4;margin-left:6px;">
+      <div>{{ modules_summary.public }} public</div>
+      <div>{{ modules_summary.live }} live</div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 {# ── Deploy Pipelines (one row per managed repo) ── #}
@@ -518,6 +530,48 @@
   </div>
   {% endif %}
 
+  {# Modules summary #}
+  {% if modules_summary.total %}
+  <div class="sys-card">
+    <h3>
+      <i class="fa-solid fa-cubes"></i> HiHi Modules
+      <a href="{% url 'modules:index' %}">→ Manage</a>
+    </h3>
+    <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="text-align:center;min-width:50px;">
+        <div style="font-size:1.3em;font-weight:700;color:var(--text);">{{ modules_summary.total }}</div>
+        <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">Total</div>
+      </div>
+      <div style="text-align:center;min-width:50px;">
+        <div style="font-size:1.3em;font-weight:700;color:#4ade80;">{{ modules_summary.public }}</div>
+        <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">Public</div>
+      </div>
+      <div style="text-align:center;min-width:50px;">
+        <div style="font-size:1.3em;font-weight:700;color:var(--accent);">{{ modules_summary.live }}</div>
+        <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">Live</div>
+      </div>
+    </div>
+    {% if modules_summary.last_sync %}
+    <div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);margin-bottom:10px;">
+      Last GitHub sync: {{ modules_summary.last_sync|timesince }} ago
+    </div>
+    {% else %}
+    <div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);margin-bottom:10px;">
+      Not yet synced from GitHub
+    </div>
+    {% endif %}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="sw deploy-sw" onclick="syncModulesGitHub()">
+        <i class="fa-brands fa-github" style="font-size:9px;"></i> Sync GitHub
+      </button>
+      <a href="{% url 'modules:works' %}" target="_blank" class="sw ok-sw">
+        <span class="sw-dot"></span> Works page
+      </a>
+    </div>
+    <div id="mod-sync-out" class="pipe-out" style="margin-top:8px;"></div>
+  </div>
+  {% endif %}
+
 </div>{# /sys-grid #}
 
 <script>
@@ -648,6 +702,20 @@ function copySSH(cmd) {
     document.body.appendChild(tmp);
     setTimeout(() => tmp.remove(), 2000);
   });
+}
+
+async function syncModulesGitHub() {
+  const out = document.getElementById('mod-sync-out');
+  out.textContent = 'Connecting to GitHub…'; out.classList.add('show');
+  try {
+    const r = await apiFetch('{% url "modules:sync_github" %}', {method:'POST'});
+    if (r.ok) {
+      out.textContent = '✓ Synced ' + r.total + ' repos — ' + r.created + ' new, ' + r.updated + ' updated.';
+      out.classList.remove('err');
+    } else {
+      out.textContent = '✗ ' + (r.error || 'Error'); out.classList.add('err');
+    }
+  } catch(e) { out.textContent = '✗ ' + e.message; out.classList.add('err'); }
 }
 
 function refreshAll() {

@@ -458,7 +458,7 @@ textarea.wk-input { resize: vertical; min-height: 90px; margin-bottom: 14px; }
 <section class="wk-section">
   <div class="wk-grid" id="wk-grid">
     {% for m in modules %}
-    <article class="wk-card" data-type="{{ m.type }}" style="--mc:{{ m.color }};" aria-label="{{ m.name }}">
+    <article class="wk-card" data-type="{{ m.module_type }}" style="--mc:{{ m.color }};" aria-label="{{ m.name }}">
       <div class="card-head">
         <div class="card-icon">
           <i class="{{ m.icon_class|default:'fa-solid' }} {{ m.icon }}"></i>
@@ -466,13 +466,13 @@ textarea.wk-input { resize: vertical; min-height: 90px; margin-bottom: 14px; }
         <div class="card-meta">
           <div class="card-name">{{ m.name }}</div>
           <div class="card-chips">
-            <span class="chip chip-type">{{ m.type }}</span>
-            <span class="chip chip-{{ m.status }}">{{ m.status }}</span>
+            <span class="chip chip-type">{{ m.get_module_type_display }}</span>
+            <span class="chip chip-{{ m.status }}">{{ m.get_status_display }}</span>
           </div>
         </div>
       </div>
       <div class="card-body">
-        <p class="card-desc">{{ m.description }}</p>
+        <p class="card-desc">{{ m.effective_description }}</p>
         {% if m.tags %}
         <div class="card-tags">
           {% for tag in m.tags %}<span class="card-tag">{{ tag }}</span>{% endfor %}
@@ -480,18 +480,18 @@ textarea.wk-input { resize: vertical; min-height: 90px; margin-bottom: 14px; }
         {% endif %}
       </div>
       <div class="card-foot">
-        {% if m.live_url and not m.live_url|slice:":4" == "http" or m.live_url %}
-          {% if m.live_url %}
-          <a href="{{ m.live_url }}" target="_blank" rel="noopener" class="card-btn card-btn-primary">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
-          </a>
-          {% endif %}
+        {% if m.live_url %}
+        <a href="{{ m.live_url }}" target="_blank" rel="noopener" class="card-btn card-btn-primary">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
+        </a>
         {% endif %}
-        {% if m.source_url %}
-        <a href="{{ m.source_url }}" target="_blank" rel="noopener" class="card-btn card-btn-ghost">
+        {% with src=m.display_source_url %}
+        {% if src %}
+        <a href="{{ src }}" target="_blank" rel="noopener" class="card-btn card-btn-ghost">
           <i class="fa-brands fa-github"></i> Source
         </a>
         {% endif %}
+        {% endwith %}
         <span class="card-platform">{{ m.platform }}</span>
       </div>
     </article>
