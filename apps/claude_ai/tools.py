@@ -128,7 +128,9 @@ DEFINITIONS = [
         "description": (
             "Write content to a source file in the hihilabs project. "
             "Always read the file first. Write the complete file content — not a diff. "
-            "After writing, tell Andrew to rebuild: docker compose up -d --build"
+            "After writing, git_commit then trigger_deploy. "
+            "Use cmd='deploy' for .py/.html (hot reload). "
+            "Use cmd='full' for static (CSS/JS) or requirements.txt — those need collectstatic + rebuild."
         ),
         "input_schema": {
             "type": "object",
@@ -291,6 +293,48 @@ DEFINITIONS = [
                 "command": {"type": "string", "description": "Shell command to run"},
             },
             "required": ["server", "command"],
+        },
+    },
+    {
+        "name": "list_modules",
+        "description": (
+            "List all hihi.labs modules from the registry (apps/modules/registry.py). "
+            "Returns slug, name, type, status, live_url, source_url, platform, fleet_service. "
+            "Use this to discover what other projects exist before answering cross-project questions, "
+            "or before recommending a change that might affect a related module."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "type":   {"type": "string", "description": "Filter: ai|web|cp|infra|utility"},
+                "status": {"type": "string", "description": "Filter: live|beta|wip"},
+            },
+        },
+    },
+    {
+        "name": "module_lookup",
+        "description": "Fetch the full registry entry for one module by slug. Use after list_modules picks a candidate.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"slug": {"type": "string"}},
+            "required": ["slug"],
+        },
+    },
+    {
+        "name": "git_status_all",
+        "description": (
+            "For each registered Server, SSH in and report HEAD sha, dirty-file count, and last commit subject "
+            "at the given repo path. Use this to detect git drift across the fleet — a host with uncommitted "
+            "changes is the classic 'lost work' early warning. Default path is the VPS app root."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Repo path on each host. Default: /var/www/vhosts/communityplaylist.com/tokyo7.communityplaylist.com",
+                },
+            },
         },
     },
 ]
@@ -614,6 +658,15 @@ def args_preview(name, args):
         return args.get('title', '')[:40]
     if name == 'update_task':
         return f'task #{args.get("task_id", "")} → {args.get("status", "")}'
+    if name == 'list_modules':
+        bits = []
+        if args.get('type'):   bits.append(f"type={args['type']}")
+        if args.get('status'): bits.append(f"status={args['status']}")
+        return ' '.join(bits) or 'all'
+    if name == 'module_lookup':
+        return args.get('slug', '')
+    if name == 'git_status_all':
+        return args.get('repo_path', 'default')[-40:]
     return ''
 
 
@@ -661,6 +714,13 @@ def result_preview(name, result):
         if 'text' in result:
             return f'{result.get("backend","?")} · {len(result["text"])} chars'
         return f'error: {result.get("error","?")[:50]}'
+    if name == 'list_modules':
+        return f'{result.get("count", 0)} modules'
+    if name == 'module_lookup':
+        return result.get('slug', '?') if 'slug' in result else f'error: {result.get("error", "")[:40]}'
+    if name == 'git_status_all':
+        n = result.get('hosts', 0)
+        return f'{n} host{"s" if n != 1 else ""}' + (' — DRIFT' if result.get('drifted') else '')
     return 'done'
 
 
@@ -839,6 +899,80 @@ def _loyd(user, prompt, context="", system="", tags=None, model="auto", max_toke
     return {"error": f"Loyd job #{job.pk} timed out after 90s — still {job.status}", "job_id": job.pk}
 
 
+def _list_modules(user, type=None, status=None):
+    try:
+        from apps.modules.registry import MODULES
+    except Exception as e:
+        return {"error": f"Could not load registry: {e}"}
+    rows = MODULES
+    if type:
+        rows = [m for m in rows if m.get('type') == type]
+    if status:
+        rows = [m for m in rows if m.get('status') == status]
+    return {
+        "count": len(rows),
+        "modules": [
+            {k: m.get(k) for k in (
+                'slug', 'name', 'type', 'status', 'platform',
+                'live_url', 'source_url', 'fleet_service',
+            )}
+            for m in rows
+        ],
+    }
+
+
+def _module_lookup(user, slug):
+    try:
+        from apps.modules.registry import MODULES
+    except Exception as e:
+        return {"error": f"Could not load registry: {e}"}
+    for m in MODULES:
+        if m.get('slug') == slug:
+            return m
+    return {"error": f"no module with slug '{slug}'"}
+
+
+def _git_status_all(user, repo_path="/var/www/vhosts/communityplaylist.com/tokyo7.communityplaylist.com"):
+    from apps.servers.models import Server as ServerModel
+    servers = list(ServerModel.objects.filter(owner=user))
+    if not servers:
+        return {"error": "No servers registered for this user. Add one in /servers/."}
+    results = []
+    cmd = (
+        f"cd {repo_path} 2>/dev/null && "
+        "git rev-parse --short HEAD && "
+        "echo --- && "
+        "git status --short && "
+        "echo --- && "
+        "git log -1 --format='%s (%cr)'"
+    )
+    for srv in servers:
+        out = _ssh_run(user, srv.name, cmd)
+        if 'error' in out:
+            results.append({"server": srv.name, "host": srv.host, "error": out['error']})
+            continue
+        body = (out.get('stdout') or '').strip()
+        parts = [p.strip() for p in body.split('---')]
+        head = parts[0] if len(parts) > 0 else ''
+        dirty = parts[1] if len(parts) > 1 else ''
+        last = parts[2] if len(parts) > 2 else ''
+        results.append({
+            "server": srv.name,
+            "host": srv.host,
+            "head": head,
+            "dirty_files": len([l for l in dirty.splitlines() if l.strip()]) if dirty else 0,
+            "dirty_preview": dirty[:400],
+            "last_commit": last,
+            "exit_code": out.get('exit_code', -1),
+        })
+    distinct_heads = {r.get('head') for r in results if r.get('head')}
+    return {
+        "hosts": len(results),
+        "drifted": len(distinct_heads) > 1,
+        "results": results,
+    }
+
+
 _HANDLERS = {
     "list_projects": _list_projects,
     "get_project": _get_project,
@@ -863,4 +997,7 @@ _HANDLERS = {
     "write_memory": _write_memory,
     "delete_memory": _delete_memory,
     "loyd": _loyd,
+    "list_modules": _list_modules,
+    "module_lookup": _module_lookup,
+    "git_status_all": _git_status_all,
 }

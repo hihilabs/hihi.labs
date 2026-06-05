@@ -2763,3 +2763,86 @@ body.nav-collapsed .sidenav-links li.has-subnav > .subnav-toggle { overflow: hid
 
 /* footer must sit above the scrollable links layer so buttons are clickable */
 .sidenav-footer { position: relative; z-index: 2; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FLUIDITY POLISH — global, additive
+   Targets: S24 Ultra, iPhone (notch + dynamic island), all desktops.
+   Pure augmentations. Touch nothing above this line.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* dynamic viewport height — fixes layout shift when mobile browser chrome shows/hides */
+@supports (height: 100dvh) {
+  body                                  { min-height: 100dvh; }
+  .login-card-wrap, .chat-layout,
+  .full-height, .dashboard-wrap        { min-height: 100dvh; }
+}
+
+/* iOS / iPad font-size auto-inflation in landscape */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-behavior: smooth; }
+
+/* tell the UA we're dark — paints form controls, scrollbars, etc. correctly */
+html, body { color-scheme: dark; }
+
+/* sidenav: respect the top safe area so the notch doesn't crowd the logo */
+.sidenav        { padding-top: env(safe-area-inset-top); }
+.sidenav-logo   { padding-top: max(20px, calc(20px + env(safe-area-inset-top) - 8px)); }
+
+/* mobile bottom tabs already handle inset-bottom — make sure drawer + main don't bleed */
+.mob-drawer            { padding-bottom: env(safe-area-inset-bottom); }
+.content               { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+
+/* no 300ms tap delay, no blue tap-flash — applies to every interactive element */
+a, button, [role="button"], input, select, textarea, .mob-nav-link, .subnav-toggle,
+.btn, .btn-icon, .sidenav-links li a, .nav-toggle-btn, .logout-btn {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* stop bounce-bleed when scrolling inside panels, drawers, kanban columns */
+.mob-drawer-body, .sidenav-links, .kb-grid, .exp-table-wrap,
+.chat-list, .chat-thread, .form-wrap, pre, .client-tabs {
+  overscroll-behavior: contain;
+}
+
+/* honor reduced-motion preference (animations + transitions snap) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* hover-only styling — skip on touch devices so taps don't stick in :hover */
+@media (hover: none) {
+  .card.interactive:hover,
+  .dash-module-link:hover,
+  .invoice-row:hover,
+  .nav-toggle-btn:hover { background: inherit; border-color: inherit; color: inherit; opacity: 1; }
+}
+
+/* power-search overlay: lift above safe area on iPhone */
+#psr-overlay { padding-top: max(80px, calc(60px + env(safe-area-inset-top))) !important; }
+
+/* mobile tab bar — a touch taller for thumb-comfort on big phones (S24 Ultra) */
+@media (max-width: 900px) and (min-height: 800px) {
+  .mobile-tab i { font-size: 22px; }
+  .mobile-tab   { padding: 11px 4px 9px; }
+}
+
+/* small-phone (≤ 360px) safety net so labels never get clipped */
+@media (max-width: 360px) {
+  .mobile-tab     { font-size: 9px; }
+  .page-title     { font-size: 13px; }
+  .kpi-value      { font-size: 17px !important; }
+  .stat-chip      { font-size: 10px !important; padding: 2px 7px !important; }
+}
+
+/* print — kill nav chrome cleanly */
+@media print {
+  .sidenav, .mobile-tabs, .mob-drawer, #mob-overlay, #psr-overlay { display: none !important; }
+  .content { margin-left: 0 !important; padding: 0 !important; }
+  body { background: #fff !important; color: #000 !important; }
+}
+
