@@ -119,7 +119,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/ai/'
 
-GITNODE_SSH_KEY = os.environ.get('GITNODE_SSH_KEY', '/root/.ssh/id_ed25519_unraid')
+GITNODE_SSH_KEY  = os.environ.get('GITNODE_SSH_KEY', '/root/.ssh/id_ed25519_unraid')
+GITHUB_TOKEN     = os.environ.get('GITHUB_TOKEN', '')   # PAT with read:org for private repo sync
+GITHUB_ORG       = os.environ.get('GITHUB_ORG', 'hihilabs')
 DEPLOY_WEBHOOK_SECRET = os.environ.get('DEPLOY_WEBHOOK_SECRET', '')
 DEPLOY_WEBHOOK_URL    = os.environ.get('DEPLOY_WEBHOOK_URL', 'http://localhost:8000/ops/deploy/')
 SSH_PRIVATE_KEY_B64   = os.environ.get('SSH_PRIVATE_KEY_B64', '')

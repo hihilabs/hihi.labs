@@ -248,20 +248,36 @@
     <i class="fa-solid fa-layer-group"></i> All
     <span class="svc-count">{{ total }}</span>
   </a>
-  {% for v, l in type_choices %}
-  <a href="{% url 'modules:index' %}?type={{ v }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
-     class="svc-tab {% if type_filter == v %}active{% endif %}">
-    {% if v == 'ai' %}<i class="fa-solid fa-microchip"></i>
-    {% elif v == 'web' %}<i class="fa-solid fa-globe"></i>
-    {% elif v == 'cp' %}<i class="fa-solid fa-record-vinyl"></i>
-    {% elif v == 'infra' %}<i class="fa-solid fa-server"></i>
-    {% elif v == 'utility' %}<i class="fa-solid fa-robot"></i>
-    {% elif v == 'tool' %}<i class="fa-solid fa-terminal"></i>
-    {% else %}<i class="fa-solid fa-cube"></i>{% endif %}
-    {{ l }}
-    <span class="svc-count">{{ type_counts|default_if_none:0 }}</span>
+  <a href="{% url 'modules:index' %}?type=ai{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
+     class="svc-tab {% if type_filter == 'ai' %}active{% endif %}">
+    <i class="fa-solid fa-microchip"></i> AI / ML
+    <span class="svc-count">{{ type_counts.ai|default:0 }}</span>
   </a>
-  {% endfor %}
+  <a href="{% url 'modules:index' %}?type=web{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
+     class="svc-tab {% if type_filter == 'web' %}active{% endif %}">
+    <i class="fa-solid fa-globe"></i> Web App
+    <span class="svc-count">{{ type_counts.web|default:0 }}</span>
+  </a>
+  <a href="{% url 'modules:index' %}?type=cp{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
+     class="svc-tab {% if type_filter == 'cp' %}active{% endif %}">
+    <i class="fa-solid fa-record-vinyl"></i> Community
+    <span class="svc-count">{{ type_counts.cp|default:0 }}</span>
+  </a>
+  <a href="{% url 'modules:index' %}?type=infra{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
+     class="svc-tab {% if type_filter == 'infra' %}active{% endif %}">
+    <i class="fa-solid fa-server"></i> Infra
+    <span class="svc-count">{{ type_counts.infra|default:0 }}</span>
+  </a>
+  <a href="{% url 'modules:index' %}?type=utility{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
+     class="svc-tab {% if type_filter == 'utility' %}active{% endif %}">
+    <i class="fa-solid fa-robot"></i> Utility
+    <span class="svc-count">{{ type_counts.utility|default:0 }}</span>
+  </a>
+  <a href="{% url 'modules:index' %}?type=tool{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}"
+     class="svc-tab {% if type_filter == 'tool' %}active{% endif %}">
+    <i class="fa-solid fa-terminal"></i> Tool / CLI
+    <span class="svc-count">{{ type_counts.tool|default:0 }}</span>
+  </a>
 </nav>
 
 {# ── Module grid ────────────────────────────────────────────────────────────── #}
@@ -334,7 +350,7 @@
       {% with src=m.display_source_url %}
       {% if src %}
       <a href="{{ src }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
-        <i class="fa-brands fa-github"></i>
+        <i class="fa-brands fa-github"></i> Source
       </a>
       {% endif %}
       {% endwith %}
