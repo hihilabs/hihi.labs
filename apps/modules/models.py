@@ -60,6 +60,11 @@ class HihiModule(models.Model):
         on_delete=models.SET_NULL, related_name='module',
         help_text='Linked deploy repo — enables git status / scoop / deploy',
     )
+    project = models.ForeignKey(
+        'projects.Project', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='modules',
+        help_text='Linked project — wiki, time log, tasks, history',
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

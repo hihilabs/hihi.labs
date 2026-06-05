@@ -68,7 +68,7 @@ def _fetch_org_repos():
 
 @staff_member_required
 def index(request):
-    qs = HihiModule.objects.filter(is_active=True).select_related('managed_repo__server')
+    qs = HihiModule.objects.filter(is_active=True).select_related('managed_repo__server', 'project')
 
     type_filter   = request.GET.get('type', '')
     status_filter = request.GET.get('status', '')
@@ -190,6 +190,56 @@ def toggle_public(request, pk):
     m.is_public = not m.is_public
     m.save(update_fields=['is_public', 'updated_at'])
     return JsonResponse({'ok': True, 'is_public': m.is_public})
+
+
+@staff_member_required
+@require_POST
+def link_project(request, pk):
+    """Create (or link) a Project for this module. POST with project_id to link existing."""
+    m = get_object_or_404(HihiModule, pk=pk)
+
+    project_id = request.POST.get('project_id', '').strip()
+    if project_id:
+        # Link to an existing project
+        try:
+            from apps.projects.models import Project
+            proj = Project.objects.get(pk=project_id)
+            m.project = proj
+            m.save(update_fields=['project', 'updated_at'])
+            return JsonResponse({'ok': True, 'created': False, 'project_id': proj.pk,
+                                 'project_name': proj.name})
+        except Exception as e:
+            return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+
+    # Auto-create a new project from module metadata
+    try:
+        from apps.projects.models import Project
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        owner = request.user if request.user.is_authenticated else User.objects.filter(is_superuser=True).first()
+        proj = Project.objects.create(
+            name=m.name,
+            description=m.effective_description[:500] if m.effective_description else '',
+            color=m.color,
+            url=m.live_url or m.display_source_url or '',
+            status='active',
+            owner=owner,
+        )
+        m.project = proj
+        m.save(update_fields=['project', 'updated_at'])
+        return JsonResponse({'ok': True, 'created': True, 'project_id': proj.pk,
+                             'project_name': proj.name})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+
+
+@staff_member_required
+@require_POST
+def unlink_project(request, pk):
+    m = get_object_or_404(HihiModule, pk=pk)
+    m.project = None
+    m.save(update_fields=['project', 'updated_at'])
+    return JsonResponse({'ok': True})
 
 
 @staff_member_required

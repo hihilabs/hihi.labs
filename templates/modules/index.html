@@ -154,6 +154,38 @@
   border-top: 1px solid var(--border);
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
 }
+/* Project pill */
+.proj-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: var(--r-full);
+  font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent); text-decoration: none; line-height: 1;
+  transition: background var(--dur-base);
+}
+.proj-pill:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.proj-pill i { font-size: 9px; }
+.proj-unlink {
+  display: inline-flex; align-items: center;
+  padding: 3px 5px; border-radius: var(--r-full);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  background: transparent; color: var(--text-faint);
+  cursor: pointer; font-size: 9px; line-height: 1;
+  transition: all var(--dur-fast);
+}
+.proj-unlink:hover { border-color: var(--red); color: var(--red); }
+.proj-create {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: var(--r-full);
+  font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-faint); cursor: pointer; line-height: 1;
+  transition: all var(--dur-base);
+}
+.proj-create:hover { border-color: var(--accent); color: var(--accent); border-style: solid; }
+
 .pub-toggle {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 10px; border-radius: var(--r-full);
@@ -361,6 +393,21 @@
         <i class="fa-solid {% if m.is_public %}fa-globe{% else %}fa-lock{% endif %}"></i>
         <span>{% if m.is_public %}Public{% else %}Private{% endif %}</span>
       </button>
+      {# ── Project link ── #}
+      <div id="proj-{{ m.pk }}" style="display:contents;">
+      {% if m.project %}
+        <a href="{% url 'projects:detail' m.project.pk %}" class="proj-pill" title="{{ m.project.name }}">
+          <i class="fa-solid fa-diagram-project"></i> {{ m.project.name|truncatechars:22 }}
+        </a>
+        <button class="proj-unlink" onclick="unlinkProject({{ m.pk }})" title="Unlink project">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      {% else %}
+        <button class="proj-create" onclick="linkProject({{ m.pk }})">
+          <i class="fa-solid fa-plus" style="font-size:8px;"></i> Project
+        </button>
+      {% endif %}
+      </div>
       {% if m.platform %}
       <span style="margin-left:auto;font-size:10px;color:var(--text-faint);">{{ m.platform }}</span>
       {% endif %}
@@ -459,6 +506,42 @@ async function loadGitStatus(modulePk, repoPk) {
   } catch(e) {
     el.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> error';
   }
+}
+
+// ── Project link / unlink ──────────────────────────────────────────────────────
+async function linkProject(pk) {
+  var el = document.getElementById('proj-' + pk);
+  var btn = el.querySelector('.proj-create');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="font-size:8px;"></i> Creating…'; }
+  try {
+    var r = await post('/modules/' + pk + '/link-project/');
+    var d = await r.json();
+    if (d.ok) {
+      el.innerHTML = '<a href="/projects/' + d.project_id + '/" class="proj-pill">'
+        + '<i class="fa-solid fa-diagram-project"></i> ' + d.project_name.slice(0, 22)
+        + '</a>'
+        + '<button class="proj-unlink" onclick="unlinkProject(' + pk + ')" title="Unlink project">'
+        + '<i class="fa-solid fa-xmark"></i></button>';
+    } else {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus" style="font-size:8px;"></i> Project'; }
+      alert('Error: ' + d.error);
+    }
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus" style="font-size:8px;"></i> Project'; }
+  }
+}
+
+async function unlinkProject(pk) {
+  if (!confirm('Unlink project from this module? The project itself is not deleted.')) return;
+  var el = document.getElementById('proj-' + pk);
+  try {
+    var r = await post('/modules/' + pk + '/unlink-project/');
+    var d = await r.json();
+    if (d.ok) {
+      el.innerHTML = '<button class="proj-create" onclick="linkProject(' + pk + ')">'
+        + '<i class="fa-solid fa-plus" style="font-size:8px;"></i> Project</button>';
+    }
+  } catch(e) {}
 }
 
 // ── Status filter select ───────────────────────────────────────────────────────
