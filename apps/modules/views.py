@@ -28,18 +28,39 @@ def _github_get(url):
 
 
 def _fetch_org_repos():
-    repos, page = [], 1
-    while True:
-        batch = _github_get(
-            f'https://api.github.com/orgs/{GITHUB_ORG}/repos'
-            f'?per_page=100&page={page}&type=all'
-        )
-        if not batch:
-            break
-        repos.extend(batch)
-        page += 1
-        if len(batch) < 100:
-            break
+    """Fetch all repos the token has access to: org repos + personal repos."""
+    repos, page, seen = [], 1, set()
+
+    # /user/repos covers personal + all orgs the token belongs to
+    if GITHUB_TOKEN:
+        while True:
+            batch = _github_get(
+                f'https://api.github.com/user/repos'
+                f'?per_page=100&page={page}&type=all&sort=pushed'
+            )
+            if not batch or not isinstance(batch, list):
+                break
+            for r in batch:
+                if r['id'] not in seen:
+                    seen.add(r['id'])
+                    repos.append(r)
+            page += 1
+            if len(batch) < 100:
+                break
+    else:
+        # No token — fall back to public org repos only
+        while True:
+            batch = _github_get(
+                f'https://api.github.com/orgs/{GITHUB_ORG}/repos'
+                f'?per_page=100&page={page}&type=public'
+            )
+            if not batch or not isinstance(batch, list):
+                break
+            repos.extend(batch)
+            page += 1
+            if len(batch) < 100:
+                break
+
     return repos
 
 
