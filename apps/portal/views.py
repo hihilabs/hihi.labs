@@ -78,14 +78,20 @@ def ticket_submit(request):
         return JsonResponse({'error': 'POST required'}, status=405)
     from apps.tickets.models import Ticket
     data = json.loads(request.body)
-    title = data.get('title', '').strip()
+
+    # Honeypot — bots fill this in, real users never see it
+    if data.get('_hp', '').strip():
+        return JsonResponse({'ok': True})  # silently discard
+
+    title = data.get('title', '').strip()[:300]
     if not title:
         return JsonResponse({'error': 'Title required'}, status=400)
+
     ticket = Ticket.objects.create(
         title=title,
-        body=data.get('body', '').strip(),
-        submitter_name=data.get('name', '').strip(),
-        submitter_email=data.get('email', '').strip(),
+        body=data.get('body', '').strip()[:4000],
+        submitter_name=data.get('name', '').strip()[:100],
+        submitter_email=data.get('email', '').strip()[:200],
         reporter=request.user if request.user.is_authenticated else None,
         type=data.get('type', 'request'),
         priority='normal',
@@ -150,12 +156,38 @@ def _portal_context(client, is_preview=False):
     }
 
 
+_SAFE_THEMES = {t[0] for t in ClientPortalConfig.THEMES}
+
+_PORTAL_HEADERS = {
+    # Prevent the token in the URL from leaking via Referer to external sites
+    'Referrer-Policy':        'no-referrer',
+    # Don't allow the portal to be embedded in an iframe (clickjacking)
+    'X-Frame-Options':        'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    # Allow inline styles/scripts (we use them) but block external script sources
+    'Content-Security-Policy': (
+        "default-src 'self'; "
+        "script-src 'unsafe-inline' https://cdnjs.cloudflare.com; "
+        "style-src 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+        "font-src https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self';"
+    ),
+}
+
+
+def _apply_portal_headers(response):
+    for k, v in _PORTAL_HEADERS.items():
+        response[k] = v
+    return response
+
+
 def client_portal(request, token):
     """Public client portal — no login required, accessed via token URL."""
     client = get_object_or_404(Client, portal_token=token)
     ctx = _portal_context(client, is_preview=False)
-    template = f'portal/themes/{ctx["theme"]}.html'
-    return render(request, template, ctx)
+    theme = ctx['theme'] if ctx['theme'] in _SAFE_THEMES else 'default'
+    return _apply_portal_headers(render(request, f'portal/themes/{theme}.html', ctx))
 
 
 @staff_member_required
@@ -163,5 +195,5 @@ def portal_preview(request, client_pk):
     """Staff preview — same render as client, plus preview banner."""
     client = get_object_or_404(Client, pk=client_pk)
     ctx = _portal_context(client, is_preview=True)
-    template = f'portal/themes/{ctx["theme"]}.html'
-    return render(request, template, ctx)
+    theme = ctx['theme'] if ctx['theme'] in _SAFE_THEMES else 'default'
+    return _apply_portal_headers(render(request, f'portal/themes/{theme}.html', ctx))
