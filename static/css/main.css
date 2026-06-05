@@ -2683,28 +2683,28 @@ body.nav-collapsed #sidenav-logo-wrap { cursor: default !important; }
 .nav-expand-hint { display: none; }  /* removed — replaced by rail toggle */
 @keyframes hint-pulse { 0%,100% { opacity:.35; } 60% { opacity:1; } }
 
-/* ── collapsed: fly-out panels for sub-menu groups ──────────────── */
-body.nav-collapsed .has-subnav { position: relative; }
-body.nav-collapsed .has-subnav:hover > .subnav-flyout { display: block; }
-.subnav-flyout {
+/* ── collapsed: fly-outs are JS-positioned fixed panels ─────────── */
+/* No overflow:visible needed — fixed positioning escapes all clips  */
+#nav-flyout-panel {
   display: none;
-  position: absolute;
-  left: 52px; top: 0;
+  position: fixed;
+  left: 52px;
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: 0 var(--r-md) var(--r-md) 0;
   min-width: 168px;
-  z-index: 500;
+  z-index: 600;
   padding: 4px 0;
   box-shadow: 6px 4px 20px rgba(0,0,0,.45);
 }
-.subnav-flyout .flyout-label {
+#nav-flyout-panel.visible { display: block; }
+#nav-flyout-panel .flyout-label {
   padding: 7px 16px 3px;
   font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .08em;
   color: var(--text-faint);
 }
-.subnav-flyout a {
+#nav-flyout-panel a {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 16px;
   color: var(--text-muted);
@@ -2712,8 +2712,11 @@ body.nav-collapsed .has-subnav:hover > .subnav-flyout { display: block; }
   text-decoration: none; white-space: nowrap;
   transition: background var(--dur-fast), color .1s;
 }
-.subnav-flyout a:hover { background: var(--bg4); color: var(--text); }
-.subnav-flyout a i { width: 16px; text-align: center; font-size: 12px; }
+#nav-flyout-panel a:hover { background: var(--bg4); color: var(--text); }
+#nav-flyout-panel a i { width: 16px; text-align: center; font-size: 12px; }
+
+/* .subnav-flyout kept in HTML for data but never shown via CSS */
+.subnav-flyout { display: none !important; }
 
 /* ── collapsed: tooltip labels on single nav links ──────────────── */
 body.nav-collapsed .sidenav-links li:not(.has-subnav) > a {
@@ -2751,15 +2754,13 @@ body.nav-collapsed .sidenav-links li:not(.has-subnav) > a:hover::after {
 }
 .nav-toggle-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 
-/* smooth sidenav transition */
-/* sidenav clips its own content but individual has-subnav items
-   use overflow:visible so fly-out panels can escape the rail */
+/* smooth sidenav transition — overflow:hidden clips text in compact mode */
 .sidenav  { transition: width var(--dur-slow) var(--ease); overflow: hidden; }
 .sidenav-links { overflow-y: auto; overflow-x: hidden; }
-/* fly-outs escape the clip via individual item overflow */
-body.nav-collapsed .sidenav-links li.has-subnav { overflow: visible; }
-body.nav-collapsed .sidenav-links li.has-subnav > .subnav-toggle { overflow: hidden; }
 .content  { transition: margin-left var(--dur-slow) var(--ease); }
+
+/* nav-toggle-btn is always visible — pin it inside the footer */
+body.nav-collapsed .nav-toggle-btn { display: flex; align-items: center; justify-content: center; }
 
 /* footer must sit above the scrollable links layer so buttons are clickable */
 .sidenav-footer { position: relative; z-index: 2; }
