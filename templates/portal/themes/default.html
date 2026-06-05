@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if client.company %}{{ client.company }}{% else %}{{ client.name }}{% endif %} — Client Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: {{ accent }};
+      --accent-dim: {{ accent }}22;
+      --bg: #0e0e11;
+      --bg2: #16161a;
+      --bg3: #1e1e24;
+      --border: #2a2a35;
+      --text: #e8e8f0;
+      --text-muted: #7a7a90;
+      --r: 10px;
+      --r-sm: 6px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Preview banner ── */
+    .preview-banner {
+      background: #f59e0b;
+      color: #1a1000;
+      text-align: center;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .preview-banner a { color: inherit; text-decoration: underline; }
+
+    /* ── Header ── */
+    .portal-header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 60px;
+    }
+    .portal-header-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--accent); flex-shrink: 0;
+    }
+    .portal-header-name {
+      font-size: 15px; font-weight: 700; color: var(--text);
+    }
+    .portal-header-label {
+      font-size: 11px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .08em;
+      margin-left: auto;
+    }
+
+    /* ── Layout ── */
+    .portal-body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    /* ── Welcome ── */
+    .welcome-box {
+      background: var(--accent-dim);
+      border: 1px solid var(--accent)44;
+      border-radius: var(--r);
+      padding: 18px 22px;
+      margin-bottom: 32px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    /* ── Section ── */
+    .section { margin-bottom: 36px; }
+    .section-head {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-icon { color: var(--accent); font-size: 15px; width: 20px; text-align: center; }
+    .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+    .section-count {
+      margin-left: auto;
+      font-size: 11px; font-weight: 600;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2px 10px; color: var(--text-muted);
+    }
+
+    /* ── Project cards ── */
+    .proj-grid { display: grid; gap: 12px; }
+    .proj-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px 18px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .proj-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 6px;
+    }
+    .proj-main { flex: 1; min-width: 0; }
+    .proj-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    .proj-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+    .proj-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .proj-badge {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 20px;
+      border: 1px solid var(--border); color: var(--text-muted);
+    }
+    .proj-badge.active { border-color: #22c55e44; color: #22c55e; background: #22c55e11; }
+    .proj-badge.paused { border-color: #f59e0b44; color: #f59e0b; background: #f59e0b11; }
+    .proj-badge.done   { border-color: #6366f144; color: #818cf8; background: #6366f111; }
+
+    /* Progress bar */
+    .proj-progress { margin-top: 10px; }
+    .proj-progress-bar-wrap {
+      height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden;
+    }
+    .proj-progress-bar {
+      height: 100%; border-radius: 2px;
+      background: var(--accent);
+      transition: width .4s;
+    }
+    .proj-progress-label {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: var(--text-muted); margin-top: 4px;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      background: var(--bg2); border: 1px dashed var(--border);
+      border-radius: var(--r); padding: 28px;
+      text-align: center; color: var(--text-muted); font-size: 13px;
+    }
+    .empty-state i { font-size: 22px; margin-bottom: 8px; display: block; }
+
+    /* ── Coming-soon section ── */
+    .coming-soon {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 16px 18px;
+      display: flex; align-items: center; gap: 10px;
+      color: var(--text-muted); font-size: 12px;
+    }
+    .coming-soon i { color: var(--accent); }
+
+    /* ── Footer ── */
+    .portal-footer {
+      border-top: 1px solid var(--border);
+      padding: 20px 32px;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .portal-header { padding: 0 16px; }
+      .portal-body   { padding: 20px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+{% if is_preview %}
+<div class="preview-banner">
+  <i class="fa-solid fa-eye" style="margin-right:6px;"></i>
+  Staff Preview — this is exactly what <strong>{{ client.display_name }}</strong> sees at their portal link.
+  &nbsp;·&nbsp; <a href="/portal/">Back to Portal Admin</a>
+</div>
+{% endif %}
+
+<header class="portal-header">
+  <div class="portal-header-dot"></div>
+  <div class="portal-header-name">
+    {% if client.company %}{{ client.company }}{% else %}{{ client.name }}{% endif %}
+  </div>
+  <div class="portal-header-label">Client Portal</div>
+</header>
+
+<div class="portal-body">
+
+  {% if welcome %}
+  <div class="welcome-box">{{ welcome }}</div>
+  {% endif %}
+
+  {# ── Projects ── #}
+  {% if show_projects %}
+  <section class="section">
+    <div class="section-head">
+      <i class="fa-solid fa-diagram-project section-icon"></i>
+      <span class="section-title">Projects</span>
+      <span class="section-count">{{ projects|length }}</span>
+    </div>
+    {% if projects %}
+    <div class="proj-grid">
+      {% for p in projects %}
+      <div class="proj-card">
+        <div class="proj-dot" style="background:{{ p.color }};"></div>
+        <div class="proj-main">
+          <div class="proj-name">{{ p.name }}</div>
+          {% if p.description %}
+          <div class="proj-desc">{{ p.description|truncatechars:120 }}</div>
+          {% endif %}
+          <div class="proj-meta">
+            <span class="proj-badge {{ p.status }}">{{ p.status|capfirst }}</span>
+            {% if p.stage %}
+            <span class="proj-badge">{{ p.stage|capfirst }}</span>
+            {% endif %}
+            {% if p.open_tasks %}
+            <span class="proj-badge">{{ p.open_tasks }} open task{{ p.open_tasks|pluralize }}</span>
+            {% endif %}
+          </div>
+          {% if p.task_total %}
+          <div class="proj-progress">
+            <div class="proj-progress-bar-wrap">
+              <div class="proj-progress-bar" style="width:{{ p.task_pct }}%;"></div>
+            </div>
+            <div class="proj-progress-label">
+              <span>{{ p.task_done }}/{{ p.task_total }} tasks complete</span>
+              <span>{{ p.task_pct }}%</span>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="fa-regular fa-folder-open"></i>
+      No active projects yet.
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {# ── Invoices ── #}
+  {% if show_invoices %}
+  <section class="section">
+    <div class="section-head">
+      <i class="fa-solid fa-file-invoice-dollar section-icon"></i>
+      <span class="section-title">Invoices</span>
+    </div>
+    <div class="coming-soon">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      Invoice history coming soon — your billing records will appear here.
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Files ── #}
+  {% if show_files %}
+  <section class="section">
+    <div class="section-head">
+      <i class="fa-solid fa-folder-open section-icon"></i>
+      <span class="section-title">Files</span>
+    </div>
+    <div class="coming-soon">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      Shared files coming soon — deliverables and assets will appear here.
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Tickets ── #}
+  {% if show_tickets %}
+  <section class="section">
+    <div class="section-head">
+      <i class="fa-solid fa-ticket section-icon"></i>
+      <span class="section-title">Support Tickets</span>
+    </div>
+    <div class="coming-soon">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      Ticket history coming soon — open and resolved requests will appear here.
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Messages ── #}
+  {% if show_messages %}
+  <section class="section">
+    <div class="section-head">
+      <i class="fa-solid fa-comments section-icon"></i>
+      <span class="section-title">Messages</span>
+    </div>
+    <div class="coming-soon">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      Messaging coming soon.
+    </div>
+  </section>
+  {% endif %}
+
+</div>
+
+<footer class="portal-footer">
+  {% if portal_footer.html_content %}
+    {{ portal_footer.html_content|safe }}
+  {% else %}
+    Powered by HiHi Labs
+  {% endif %}
+  {% if portal_footer.show_ticket_form %}
+  <div style="margin-top:12px;">
+    <button onclick="document.getElementById('tix-form').style.display='block';this.style.display='none';"
+            style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;">
+      {{ portal_footer.ticket_form_title }}
+    </button>
+    <div id="tix-form" style="display:none;margin-top:12px;max-width:440px;margin-left:auto;margin-right:auto;text-align:left;">
+      <input id="tix-name"  type="text"  placeholder="Your name"  style="width:100%;margin-bottom:6px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+      <input id="tix-email" type="email" placeholder="Email"      style="width:100%;margin-bottom:6px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+      <input id="tix-title" type="text"  placeholder="Subject"    style="width:100%;margin-bottom:6px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+      <textarea id="tix-body" rows="3"   placeholder="Details…"   style="width:100%;margin-bottom:8px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;resize:vertical;"></textarea>
+      <button onclick="submitTix()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:7px 18px;font-size:12px;font-weight:600;cursor:pointer;">Send</button>
+      <span id="tix-ok" style="display:none;margin-left:10px;color:#22c55e;font-size:12px;">Sent!</span>
+    </div>
+  </div>
+  <script>
+  async function submitTix() {
+    const body = {
+      name:  document.getElementById('tix-name').value,
+      email: document.getElementById('tix-email').value,
+      title: document.getElementById('tix-title').value,
+      body:  document.getElementById('tix-body').value,
+    };
+    const r = await fetch('/portal/submit/', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (r.ok) document.getElementById('tix-ok').style.display='inline';
+  }
+  </script>
+  {% endif %}
+</footer>
+
+</body>
+</html>

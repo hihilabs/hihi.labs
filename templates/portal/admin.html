@@ -44,10 +44,28 @@
   border:1px solid var(--border);border-radius:var(--r-md);padding:14px;
   background:var(--bg3);font-size:12px;min-height:60px;margin-top:10px;
 }
+/* Portal link box */
+.portal-link-box {
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:12px 14px;margin:14px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.portal-link-url {
+  font-family:var(--font-mono);font-size:11px;color:var(--text-muted);
+  flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.theme-picker { display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px; }
+.theme-opt {
+  border:2px solid var(--border);border-radius:var(--r-md);
+  padding:8px 14px;font-size:12px;font-weight:500;cursor:pointer;
+  background:var(--bg2);color:var(--text-muted);transition:all .15s;
+}
+.theme-opt:hover { border-color:var(--brand);color:var(--text); }
+.theme-opt.selected { border-color:var(--brand);color:var(--brand);background:var(--brand)11; }
 @media(max-width:680px){
   .portal-tabs{padding:0 12px;overflow-x:auto;flex-wrap:nowrap;}
   .portal-tab{flex-shrink:0;}
   .cfg-toggles{grid-template-columns:1fr 1fr;}
+  .portal-link-box{flex-direction:column;align-items:flex-start;}
 }
 </style>
 {% endblock %}
@@ -88,7 +106,27 @@
         <span style="font-size:11px;color:var(--text-muted);margin-left:auto;">Portal configuration</span>
       </div>
 
-      <div style="margin-bottom:14px;">
+      {# Portal link + preview #}
+      <div style="margin-bottom:6px;">
+        <label class="label" style="display:block;margin-bottom:4px;">Client Portal Link</label>
+        <div class="portal-link-box">
+          <span class="portal-link-url" id="cfg-portal-url" title=""></span>
+          <button class="btn btn-ghost btn-sm" onclick="copyPortalLink()" title="Copy link">
+            <i class="fa-regular fa-copy"></i>
+          </button>
+          <a id="cfg-preview-btn" class="btn btn-ghost btn-sm" href="#" target="_blank" title="Preview as client">
+            <i class="fa-solid fa-eye"></i> Preview
+          </a>
+          <button class="btn btn-ghost btn-sm" onclick="regenToken()" title="Rotate token — old URL stops working">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);">
+          Send this URL directly to the client — no login required. Rotating the token invalidates the old URL.
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;margin-top:16px;">
         <label class="label" style="display:block;margin-bottom:4px;">Welcome Message</label>
         <textarea id="cfg-welcome" rows="2" class="form-control" placeholder="Hi there! Here's your project overview…" style="width:100%;box-sizing:border-box;resize:vertical;"></textarea>
       </div>
@@ -123,6 +161,18 @@
                  style="width:44px;height:36px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg2);cursor:pointer;padding:2px;">
           <input type="text" id="cfg-accent-hex" class="form-control" value="#7c6af7"
                  style="width:100px;" oninput="syncAccentHex(this.value)">
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label class="label" style="display:block;margin-bottom:6px;">Portal Theme</label>
+        <div class="theme-picker" id="theme-picker">
+          {% for val, label in theme_choices %}
+          <button class="theme-opt" data-theme="{{ val }}" onclick="selectTheme('{{ val }}',this)">{{ label }}</button>
+          {% endfor %}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);">
+          Default — dark card layout &nbsp;·&nbsp; Infinity — sidebar dashboard (great for Perez) &nbsp;·&nbsp; Minimal — clean light layout
         </div>
       </div>
 
@@ -236,16 +286,6 @@ if (savedTab) {
   if (btn) switchPortalTab(savedTab, btn);
 }
 
-// ── Client config lookup ─────────────────────────────
-const ALL_CONFIGS = {
-{% for c in clients %}
-  {{ c.pk }}: {
-    show_projects: {{ configs|default:'{}' }}{% if c.pk in configs %}{{ configs|dictsort:"pk" }}{% endif %},
-    {% with cfg=configs|default:None %}{% endwith %}
-  },
-{% endfor %}
-};
-
 // Preload configs from server-side data
 const CLIENT_CONFIGS = {};
 {% for cid, cfg in configs.items %}
@@ -255,19 +295,21 @@ CLIENT_CONFIGS[{{ cid }}] = {
   show_files:     {{ cfg.show_files|yesno:"true,false" }},
   show_tickets:   {{ cfg.show_tickets|yesno:"true,false" }},
   show_messages:  {{ cfg.show_messages|yesno:"true,false" }},
-  welcome_message: {{ cfg.welcome_message|default:''|escapejs|safe }},
+  welcome_message:'{{ cfg.welcome_message|escapejs }}',
   accent_color:   '{{ cfg.accent_color }}',
+  portal_theme:   '{{ cfg.portal_theme }}',
 };
 {% endfor %}
 
-// Client name + color lookup
+// Client name, color, token lookup
 const CLIENT_META = {
 {% for c in clients %}
-  {{ c.pk }}: {name: '{{ c.display_name|escapejs }}', color: '{{ c.color }}'},
+  {{ c.pk }}: {name: '{{ c.display_name|escapejs }}', color: '{{ c.color }}', token: '{{ c.portal_token }}'},
 {% endfor %}
 };
 
-let activeCid = null;
+let activeCid   = null;
+let activeTheme = 'default';
 
 function loadClientConfig(cid) {
   if (!cid) { document.getElementById('client-config-panel').style.display = 'none'; return; }
@@ -285,7 +327,57 @@ function loadClientConfig(cid) {
   const color = cfg.accent_color || meta.color || '#7c6af7';
   document.getElementById('cfg-accent').value = color;
   document.getElementById('cfg-accent-hex').value = color;
+
+  // Portal URL
+  const portalUrl = `${location.origin}/portal/view/${meta.token}/`;
+  const urlEl = document.getElementById('cfg-portal-url');
+  urlEl.textContent = portalUrl;
+  urlEl.title = portalUrl;
+  document.getElementById('cfg-preview-btn').href = `/portal/client/${activeCid}/preview/`;
+
+  // Theme picker
+  activeTheme = cfg.portal_theme || 'default';
+  document.querySelectorAll('.theme-opt').forEach(b => {
+    b.classList.toggle('selected', b.dataset.theme === activeTheme);
+  });
+
   document.getElementById('client-config-panel').style.display = '';
+}
+
+function selectTheme(val, btn) {
+  activeTheme = val;
+  document.querySelectorAll('.theme-opt').forEach(b => b.classList.toggle('selected', b === btn));
+}
+
+function copyPortalLink() {
+  const meta = CLIENT_META[activeCid];
+  if (!meta) return;
+  const url = `${location.origin}/portal/view/${meta.token}/`;
+  navigator.clipboard.writeText(url).then(() => {
+    const msg = document.getElementById('cfg-saved-msg');
+    msg.textContent = 'Link copied!';
+    msg.style.display = 'inline';
+    setTimeout(() => { msg.style.display = 'none'; msg.textContent = 'Saved'; }, 2000);
+  });
+}
+
+async function regenToken() {
+  if (!activeCid) return;
+  if (!confirm('Rotate the portal token? The current link will stop working immediately.')) return;
+  const res = await fetch(`/portal/client/${activeCid}/regen-token/`, {
+    method:'POST', headers:{'X-CSRFToken':CSRF},
+  });
+  if (res.ok) {
+    const data = await res.json();
+    CLIENT_META[activeCid].token = data.token;
+    const portalUrl = `${location.origin}/portal/view/${data.token}/`;
+    document.getElementById('cfg-portal-url').textContent = portalUrl;
+    document.getElementById('cfg-preview-btn').href = `/portal/client/${activeCid}/preview/`;
+    const msg = document.getElementById('cfg-saved-msg');
+    msg.textContent = 'Token rotated!';
+    msg.style.display = 'inline';
+    setTimeout(() => { msg.style.display = 'none'; msg.textContent = 'Saved'; }, 3000);
+  }
 }
 
 function syncAccentHex(val) {
@@ -307,14 +399,17 @@ async function saveClientConfig() {
     show_messages:  document.getElementById('cfg-messages').checked,
     welcome_message:document.getElementById('cfg-welcome').value.trim(),
     accent_color:   document.getElementById('cfg-accent').value,
+    portal_theme:   activeTheme,
   };
-  CLIENT_CONFIGS[activeCid] = payload;
+  if (CLIENT_CONFIGS[activeCid]) Object.assign(CLIENT_CONFIGS[activeCid], payload);
+  else CLIENT_CONFIGS[activeCid] = payload;
   const res = await fetch(`/portal/client/${activeCid}/save/`, {
     method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
     body:JSON.stringify(payload),
   });
   if (res.ok) {
     const msg = document.getElementById('cfg-saved-msg');
+    msg.textContent = 'Saved';
     msg.style.display = 'inline';
     setTimeout(() => msg.style.display = 'none', 2500);
   }

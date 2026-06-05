@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -24,6 +26,8 @@ class Client(models.Model):
     status        = models.CharField(max_length=20, choices=STATUS, default='active')
     hosted_domain = models.CharField(max_length=200, blank=True,
                         help_text='Domain hosted on this server — enables in-CRM email management.')
+    portal_token  = models.UUIDField(default=uuid.uuid4, unique=True, editable=False,
+                        help_text='Token for tokenized client portal access URL.')
     created_at    = models.DateTimeField(auto_now_add=True)
     updated_at    = models.DateTimeField(auto_now=True)
 

@@ -2,6 +2,12 @@ from django.db import models
 
 
 class ClientPortalConfig(models.Model):
+    THEMES = [
+        ('default',  'Default'),
+        ('infinity', 'Infinity'),
+        ('minimal',  'Minimal'),
+    ]
+
     client          = models.OneToOneField('clients.Client', on_delete=models.CASCADE, related_name='portal_config')
     show_projects   = models.BooleanField(default=True)
     show_invoices   = models.BooleanField(default=True)
@@ -10,6 +16,7 @@ class ClientPortalConfig(models.Model):
     show_messages   = models.BooleanField(default=False)
     welcome_message = models.TextField(blank=True)
     accent_color    = models.CharField(max_length=7, default='#7c6af7')
+    portal_theme    = models.CharField(max_length=20, choices=THEMES, default='default')
     updated_at      = models.DateTimeField(auto_now=True)
 
     def __str__(self):
