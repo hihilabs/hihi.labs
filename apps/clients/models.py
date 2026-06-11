@@ -28,6 +28,10 @@ class Client(models.Model):
                         help_text='Domain hosted on this server — enables in-CRM email management.')
     portal_token  = models.UUIDField(default=uuid.uuid4, unique=True, editable=False,
                         help_text='Token for tokenized client portal access URL.')
+    portal_linked_clients = models.ManyToManyField(
+        'self', blank=True, symmetrical=False, related_name='portal_linked_by',
+        help_text='Other client records whose projects/invoices/etc. should also appear in this client\'s portal (e.g. one person who owns multiple companies).',
+    )
     created_at    = models.DateTimeField(auto_now_add=True)
     updated_at    = models.DateTimeField(auto_now=True)
 
@@ -57,6 +61,11 @@ class Contact(models.Model):
     is_primary = models.BooleanField(default=False)
     notes      = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    portal_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False,
+                        help_text='Token for this contact\'s individual portal access URL.')
+    portal_active = models.BooleanField(default=False,
+                        help_text='Enable individual portal access for this contact. '
+                                   'Automatically unusable if the parent client\'s portal access is revoked.')
 
     class Meta:
         ordering = ['-is_primary', 'first_name']

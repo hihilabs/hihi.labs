@@ -749,6 +749,21 @@ select.input { cursor: pointer; }
 }
 .btn-icon:hover { color: var(--accent); }
 .btn-icon.danger:hover { color: var(--red); }
+.btn-icon.active { color: var(--accent); }
+
+.task-assignee, .task-due-input {
+  font-size: 10px;
+  font-family: inherit;
+  background: var(--bg3);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 2px 6px;
+  max-width: 96px;
+}
+.task-assignee:focus, .task-due-input:focus { outline: none; border-color: var(--accent); color: var(--text); }
+.task-due-input { max-width: 110px; color-scheme: dark; }
+
 
 /* ── Sidebar Sections ── */
 .sidebar-section {

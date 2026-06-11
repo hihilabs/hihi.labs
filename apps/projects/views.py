@@ -61,6 +61,18 @@ def project_detail(request, pk):
     from apps.dashboard.models import ProjectSubscription
     proj_tickets = Ticket.objects.filter(project=project).order_by('-created_at')
     is_grabbed = ProjectSubscription.objects.filter(user=request.user, project=project).exists()
+
+    from django.contrib.auth.models import User
+    staff_users = User.objects.filter(is_staff=True, is_active=True).order_by('first_name', 'username')
+
+    client_contacts = []
+    if project.client_fk_id:
+        from apps.clients.models import Contact
+        client_ids = [project.client_fk_id] + list(
+            project.client_fk.portal_linked_clients.values_list('pk', flat=True)
+        )
+        client_contacts = Contact.objects.filter(client_id__in=client_ids)
+
     return render(request, 'projects/detail.html', {
         'project':    project,
         'tasks':      tasks,
@@ -72,6 +84,8 @@ def project_detail(request, pk):
         'notes':      notes,
         'proj_tickets': proj_tickets,
         'is_grabbed': is_grabbed,
+        'staff_users': staff_users,
+        'client_contacts': client_contacts,
     })
 
 
@@ -125,6 +139,14 @@ def task_update(request, pk):
     for field in ['title', 'notes', 'status', 'priority', 'order']:
         if field in data:
             setattr(task, field, data[field])
+    if 'due_date' in data:
+        task.due_date = data['due_date'] or None
+    if 'client_visible' in data:
+        task.client_visible = bool(data['client_visible'])
+    if 'assigned_to_user_id' in data:
+        task.assigned_to_user_id = data['assigned_to_user_id'] or None
+    if 'assigned_to_contact_id' in data:
+        task.assigned_to_contact_id = data['assigned_to_contact_id'] or None
     if data.get('status') == 'done' and not task.completed_at:
         task.completed_at = timezone.now()
     elif data.get('status') != 'done':

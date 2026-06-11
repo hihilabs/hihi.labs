@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 from .models import Thread, Message, Notification, EmailAccount
 from .utils import notify
 from apps.core.superuser import su_qs, su_get
+from apps.clients.models import Client, Contact
 
 
 @login_required
@@ -26,6 +27,9 @@ def inbox(request):
     unread_email = sum(t.unread_count(request.user) for t in email_threads)
     email_accounts = EmailAccount.objects.filter(owner=request.user, is_active=True)
     active_tab = request.GET.get('tab', 'internal')
+    staff_users = User.objects.filter(is_staff=True, is_active=True).exclude(pk=request.user.pk).order_by('first_name', 'username')
+    clients = Client.objects.order_by('name')
+    client_contacts = Contact.objects.select_related('client').order_by('client__name', '-is_primary', 'first_name')
     return render(request, 'messaging/inbox.html', {
         'internal_threads': internal_threads,
         'email_threads': email_threads,
@@ -35,7 +39,41 @@ def inbox(request):
         'unread_email': unread_email,
         'email_accounts': email_accounts,
         'active_tab': active_tab,
+        'staff_users': staff_users,
+        'clients': clients,
+        'client_contacts': client_contacts,
     })
+
+
+def _tag_contacts(contact_ids, thread, msg, sender):
+    """Email-notify tagged client Contacts and record the tag on the message."""
+    from django.core.mail import send_mail
+    from django.conf import settings as _s
+
+    contacts = Contact.objects.filter(pk__in=contact_ids)
+    tagged = [{'id': c.pk, 'name': c.full_name} for c in contacts]
+    if not tagged:
+        return
+
+    site_name = getattr(_s, 'SITE_NAME', 'HiHi Labs')
+    sender_name = sender.get_short_name() or sender.username
+    sep = chr(10) + chr(10)
+    for c in contacts:
+        if not c.email:
+            continue
+        try:
+            send_mail(
+                subject=sender_name + ' mentioned you: ' + (thread.subject or 'New message'),
+                message=msg.body + sep + '— via ' + site_name,
+                from_email=None,
+                recipient_list=[c.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+    msg.command_meta = {**(msg.command_meta or {}), 'tagged_contacts': tagged}
+    msg.save(update_fields=['command_meta'])
 
 
 @login_required
@@ -47,7 +85,17 @@ def thread_detail(request, pk):
     # mark all as read
     for msg in messages:
         msg.read_by.add(request.user)
-    return render(request, 'messaging/thread.html', {'thread': thread, 'messages': messages})
+
+    client_contacts = []
+    if thread.client_id:
+        client_ids = [thread.client_id] + list(thread.client.portal_linked_clients.values_list('pk', flat=True))
+        client_contacts = Contact.objects.filter(client_id__in=client_ids)
+
+    return render(request, 'messaging/thread.html', {
+        'thread': thread,
+        'messages': messages,
+        'client_contacts': client_contacts,
+    })
 
 
 @login_required
@@ -57,6 +105,7 @@ def thread_new(request):
     subject = data.get('subject', '').strip()
     body = data.get('body', '').strip()
     recipient_ids = data.get('recipients', [])
+    client_id = data.get('client_id')
 
     if not body:
         return JsonResponse({'error': 'Body required'}, status=400)
@@ -68,7 +117,17 @@ def thread_new(request):
     for r in recipients:
         thread.participants.add(r)
 
-    Message.objects.create(thread=thread, sender=request.user, body=body)
+    if client_id:
+        client = Client.objects.filter(pk=client_id).first()
+        if client:
+            thread.client = client
+            thread.save(update_fields=['client'])
+
+    msg = Message.objects.create(thread=thread, sender=request.user, body=body)
+
+    contact_ids = data.get('contact_ids', [])
+    if contact_ids:
+        _tag_contacts(contact_ids, thread, msg, request.user)
 
     for r in recipients:
         notify(r, 'message', f'New message: {subject or "No subject"}',
@@ -94,6 +153,10 @@ def thread_reply(request, pk):
 
     # Process slash commands
     command_result = _process_slash_command(msg, thread, request.user)
+
+    contact_ids = data.get('contact_ids', [])
+    if contact_ids:
+        _tag_contacts(contact_ids, thread, msg, request.user)
 
     for p in thread.participants.exclude(pk=request.user.pk):
         notify(p, 'message', f'Re: {thread.subject or "message"}',
@@ -160,10 +223,11 @@ def _process_slash_command(msg, thread, user):
             from apps.projects.models import Task
             task = Task.objects.create(
                 project=project, title=title,
-                created_by=user, status='todo',
+                status='todo',
             )
             result['task_id'] = task.pk
             result['project'] = project.name
+            result['project_id'] = project.pk
         else:
             result['warn'] = 'No project linked — use /project first'
         msg.command = 'task'

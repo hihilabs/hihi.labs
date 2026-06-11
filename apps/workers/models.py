@@ -32,7 +32,7 @@ class WorkerNode(models.Model):
     worker_type  = models.CharField(max_length=20, choices=TYPES, default='pull')
     ip           = models.GenericIPAddressField(null=True, blank=True)
     gpu          = models.CharField(max_length=100, blank=True)
-    capabilities = models.JSONField(default=list)   # ['gpu_ocr', 'claude_vision', 'cpu']
+    capabilities = models.JSONField(default=list, blank=True)   # ['gpu_ocr', 'claude_vision', 'cpu']
     last_seen    = models.DateTimeField(null=True, blank=True)
     cpu_pct      = models.FloatField(null=True, blank=True)
     mem_pct      = models.FloatField(null=True, blank=True)

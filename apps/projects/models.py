@@ -80,6 +80,14 @@ class Task(models.Model):
     client_visible = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    assigned_to_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks',
+        help_text='Staff/contractor this task is assigned to.',
+    )
+    assigned_to_contact = models.ForeignKey(
+        'clients.Contact', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks',
+        help_text='Client-side contact this task is assigned to.',
+    )
 
     class Meta:
         ordering = ['order', 'created_at']

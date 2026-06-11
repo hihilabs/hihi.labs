@@ -250,6 +250,176 @@
     .proj-badge.active { border-color: #22c55e44; color: #22c55e; background: #22c55e0a; }
     .proj-badge.paused { border-color: #f59e0b44; color: #f59e0b; background: #f59e0b0a; }
     .proj-badge.done   { border-color: #818cf844; color: #818cf8; background: #818cf80a; }
+
+    /* Project task list */
+    .proj-tasks {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .proj-task-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .proj-task-status {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .proj-task-status.status-todo    { background: transparent; }
+    .proj-task-status.status-doing   { background: #3b82f6; border-color: #3b82f644; }
+    .proj-task-status.status-blocked { background: #f85149; border-color: #f8514944; }
+    .proj-task-status.status-done    { background: #22c55e; border-color: #22c55e44; }
+    .proj-task-title {
+      flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: var(--text);
+    }
+    .proj-task-due {
+      font-size: 10px; color: var(--muted); flex-shrink: 0;
+    }
+    .proj-task-assignee, .proj-task-assignee-label {
+      font-size: 10px; color: var(--muted); flex-shrink: 0;
+      max-width: 110px;
+    }
+    .proj-task-assignee {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2px 8px; color: var(--muted);
+      font-family: inherit; cursor: pointer;
+    }
+    .proj-task-assignee:focus { outline: none; border-color: var(--accent); }
+
+    /* Invoice list */
+    .inv-list { display: flex; flex-direction: column; gap: 10px; }
+    .inv-row {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color .18s;
+    }
+    .inv-row:hover { border-color: var(--accent)55; }
+    .inv-main { flex: 1; min-width: 0; }
+    .inv-num { font-weight: 600; font-size: 13px; }
+    .inv-org {
+      font-size: 10px; color: var(--muted); margin-top: 2px;
+    }
+    .inv-org i { margin-right: 3px; }
+    .inv-dates { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .inv-total { font-weight: 700; font-size: 15px; flex-shrink: 0; }
+    .inv-badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 20px;
+      border: 1px solid var(--border); color: var(--muted);
+      flex-shrink: 0;
+    }
+    .inv-badge.sent  { border-color: #f59e0b44; color: #f59e0b; background: #f59e0b0a; }
+    .inv-badge.paid  { border-color: #22c55e44; color: #22c55e; background: #22c55e0a; }
+    .inv-badge.void  { border-color: #ef444444; color: #ef4444; background: #ef44440a; }
+    .inv-badge.draft { border-color: var(--border); color: var(--muted); }
+
+    /* File grid */
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .file-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .18s;
+    }
+    .file-card:hover { border-color: var(--accent)55; }
+    .file-icon {
+      width: 36px; height: 36px; border-radius: var(--r-sm);
+      background: var(--bg3); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent); font-size: 15px; flex-shrink: 0;
+    }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name {
+      font-weight: 600; font-size: 12px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .file-meta i { margin-right: 3px; }
+    .file-open { color: var(--muted); font-size: 13px; flex-shrink: 0; }
+
+    /* Messages */
+    .msg-new-btn {
+      width: 100%;
+      background: var(--accent); color: #fff; border: none;
+      border-radius: var(--r-lg); padding: 10px; font-size: 13px; font-weight: 600;
+      cursor: pointer; margin-bottom: 14px;
+      font-family: inherit;
+    }
+    .thread-list { display: flex; flex-direction: column; gap: 10px; }
+    .thread-row {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      cursor: pointer; transition: border-color .18s;
+    }
+    .thread-row:hover { border-color: var(--accent)55; }
+    .thread-main { flex: 1; min-width: 0; }
+    .thread-subject { font-weight: 600; font-size: 13px; }
+    .thread-org { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .thread-org i { margin-right: 3px; }
+    .thread-preview {
+      font-size: 11px; color: var(--muted); margin-top: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .thread-meta { text-align: right; flex-shrink: 0; }
+    .thread-date { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+    .msg-thread-head {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .msg-back {
+      background: var(--bg2); border: 1px solid var(--border); color: var(--muted);
+      border-radius: var(--r-sm); padding: 6px 10px; font-size: 12px;
+      cursor: pointer; font-family: inherit;
+    }
+    .msg-back:hover { border-color: var(--accent); color: var(--accent); }
+    .msg-thread-title { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; }
+    .msg-bubbles {
+      display: flex; flex-direction: column; gap: 10px;
+      max-height: 320px; overflow-y: auto; padding-right: 4px; margin-bottom: 12px;
+    }
+    .msg-bubble {
+      max-width: 80%; padding: 8px 12px; border-radius: var(--r-lg);
+      font-size: 12px; line-height: 1.5;
+      background: var(--bg2); border: 1px solid var(--border);
+      align-self: flex-start;
+    }
+    .msg-bubble.mine {
+      background: var(--accent); color: #fff; border-color: transparent;
+      align-self: flex-end;
+    }
+    .msg-bubble-meta {
+      font-size: 9px; opacity: .65; margin-bottom: 3px;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .msg-reply-row { display: flex; gap: 8px; align-items: flex-end; }
+    .msg-reply-row textarea { flex: 1; }
+    .msg-send-btn {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: var(--r-sm); width: 40px; height: 40px; flex-shrink: 0;
+      font-size: 14px; cursor: pointer;
+    }
     .proj-desc {
       font-size: 12px; color: var(--muted);
       margin-bottom: 12px; line-height: 1.55;
@@ -427,6 +597,7 @@
   </style>
 </head>
 <body>
+{% csrf_token %}
 
 {% if is_preview %}
 <div class="preview-banner">
@@ -491,6 +662,11 @@
             <div class="proj-name">{{ p.name }}</div>
             <span class="proj-badge {{ p.status }}">{{ p.status }}</span>
           </div>
+          {% if p.org %}
+          <div style="font-size:10px;color:var(--muted);margin-top:-4px;margin-bottom:6px;">
+            <i class="fa-solid fa-building" style="margin-right:3px;"></i>{{ p.org }}
+          </div>
+          {% endif %}
           {% if p.description %}
           <div class="proj-desc">{{ p.description|truncatechars:110 }}</div>
           {% endif %}
@@ -501,6 +677,27 @@
           <div class="proj-bar-label">
             <span>{{ p.task_done }}/{{ p.task_total }} tasks</span>
             <span>{{ p.task_pct }}%</span>
+          </div>
+          {% endif %}
+          {% if p.tasks %}
+          <div class="proj-tasks">
+            {% for t in p.tasks %}
+            <div class="proj-task-row">
+              <span class="proj-task-status status-{{ t.status }}" title="{{ t.status_label }}"></span>
+              <span class="proj-task-title">{{ t.title }}</span>
+              {% if t.due_date %}<span class="proj-task-due">{{ t.due_date|date:"M j" }}</span>{% endif %}
+              {% if client_contacts %}
+              <select class="proj-task-assignee" onchange="assignTask({{ t.pk }}, this.value)">
+                <option value="">{% if t.assignee_type == 'team' %}{{ t.assignee_name }} (team){% else %}Unassigned{% endif %}</option>
+                {% for c in client_contacts %}
+                <option value="{{ c.pk }}" {% if t.assignee_contact_id == c.pk %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+              </select>
+              {% elif t.assignee_name %}
+              <span class="proj-task-assignee-label">{{ t.assignee_name }}</span>
+              {% endif %}
+            </div>
+            {% endfor %}
           </div>
           {% endif %}
         </div>
@@ -523,12 +720,33 @@
       <div class="panel-head">
         <i class="fa-solid fa-file-invoice-dollar panel-icon"></i>
         <span class="panel-title">Invoices</span>
+        {% if invoices %}<span class="panel-count">{{ invoices|length }}</span>{% endif %}
         <button class="panel-close" onclick="closeModule()"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="coming-card">
-        <i class="fa-solid fa-hourglass-half"></i>
-        Invoice history is on the way — your billing records will appear here.
+      {% if invoices %}
+      <div class="inv-list">
+        {% for inv in invoices %}
+        <div class="inv-row">
+          <div class="inv-main">
+            <div class="inv-num">{{ inv.number }}</div>
+            {% if inv.org %}
+            <div class="inv-org"><i class="fa-solid fa-building"></i>{{ inv.org }}</div>
+            {% endif %}
+            <div class="inv-dates">
+              Issued {{ inv.issued_date|date:"M j, Y" }}{% if inv.due_date %} &middot; Due {{ inv.due_date|date:"M j, Y" }}{% endif %}
+            </div>
+          </div>
+          <div class="inv-total">${{ inv.total|floatformat:2 }}</div>
+          <span class="inv-badge {{ inv.status }}">{{ inv.status_label }}</span>
+        </div>
+        {% endfor %}
       </div>
+      {% else %}
+      <div class="empty-center">
+        <i class="fa-regular fa-file-lines"></i>
+        No invoices yet.
+      </div>
+      {% endif %}
     </div>
   </div>
   {% endif %}
@@ -540,12 +758,34 @@
       <div class="panel-head">
         <i class="fa-solid fa-folder-open panel-icon"></i>
         <span class="panel-title">Files</span>
+        {% if files %}<span class="panel-count">{{ files|length }}</span>{% endif %}
         <button class="panel-close" onclick="closeModule()"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="coming-card">
-        <i class="fa-solid fa-hourglass-half"></i>
-        Shared files coming soon — deliverables and assets will appear here.
+      {% if files %}
+      <div class="file-grid">
+        {% for f in files %}
+        <a class="file-card" href="{{ f.url }}" target="_blank" rel="noopener">
+          <div class="file-icon">
+            {% if f.is_image %}<i class="fa-regular fa-image"></i>
+            {% elif f.ext == 'pdf' %}<i class="fa-regular fa-file-pdf"></i>
+            {% else %}<i class="fa-regular fa-file"></i>{% endif %}
+          </div>
+          <div class="file-info">
+            <div class="file-name">{{ f.name }}</div>
+            <div class="file-meta">
+              {% if f.org %}<i class="fa-solid fa-building"></i>{{ f.org }}{% endif %}
+            </div>
+          </div>
+          <div class="file-open"><i class="fa-solid fa-arrow-up-right-from-square"></i></div>
+        </a>
+        {% endfor %}
       </div>
+      {% else %}
+      <div class="empty-center">
+        <i class="fa-regular fa-folder-open"></i>
+        No shared files yet.
+      </div>
+      {% endif %}
     </div>
   </div>
   {% endif %}
@@ -559,9 +799,25 @@
         <span class="panel-title">Support</span>
         <button class="panel-close" onclick="closeModule()"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="coming-card">
-        <i class="fa-solid fa-hourglass-half"></i>
-        Ticket history coming soon — open and resolved requests will appear here.
+      <div id="ticket-form-wrap" style="padding:4px 0 8px;">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+          Describe your request below. You can type or <strong style="color:var(--text);">record a voice note</strong> and we'll transcribe it.
+        </p>
+        <div id="voice-recorder" style="margin-bottom:14px;">
+          <button id="rec-btn" onclick="toggleRecording()" style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:var(--text);cursor:pointer;font-size:13px;width:100%;justify-content:center;transition:border-color .2s;">
+            <i class="fa-solid fa-microphone" id="rec-icon"></i>
+            <span id="rec-label">Record voice note</span>
+          </button>
+          <div id="rec-status" style="display:none;font-size:11px;color:var(--muted);margin-top:6px;text-align:center;"></div>
+        </div>
+        <input id="tk-name"  type="text"  placeholder="Your name" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box;" />
+        <input id="tk-email" type="email" placeholder="Your email (for follow-up)" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box;" />
+        <input id="tk-title" type="text"  placeholder="Subject * (required)" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box;" />
+        <textarea id="tk-body" rows="4" placeholder="Details (or paste transcription here)" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:12px;"></textarea>
+        <button onclick="submitTicket()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">
+          <i class="fa-solid fa-paper-plane"></i> Submit Request
+        </button>
+        <div id="tk-msg" style="display:none;margin-top:10px;font-size:12px;text-align:center;color:#3fb950;"></div>
       </div>
     </div>
   </div>
@@ -574,11 +830,56 @@
       <div class="panel-head">
         <i class="fa-solid fa-comments panel-icon"></i>
         <span class="panel-title">Messages</span>
+        {% if threads %}<span class="panel-count">{{ threads|length }}</span>{% endif %}
         <button class="panel-close" onclick="closeModule()"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="coming-card">
-        <i class="fa-solid fa-hourglass-half"></i>
-        Messaging coming soon.
+
+      <div id="msg-list-view">
+        <button class="msg-new-btn" onclick="openNewThread()"><i class="fa-solid fa-pen"></i> New Message</button>
+        {% if threads %}
+        <div class="thread-list">
+          {% for t in threads %}
+          <div class="thread-row" onclick="openThread({{ t.pk }}, {{ t.subject|escapejs }})">
+            <div class="thread-main">
+              <div class="thread-subject">{{ t.subject }}</div>
+              {% if t.org %}<div class="thread-org"><i class="fa-solid fa-building"></i>{{ t.org }}</div>{% endif %}
+              {% if t.last_body %}<div class="thread-preview">{{ t.last_body }}</div>{% endif %}
+            </div>
+            <div class="thread-meta">
+              <div class="thread-date">{{ t.last_at|date:"M j" }}</div>
+              <span class="panel-count">{{ t.count }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-center">
+          <i class="fa-regular fa-comment-dots"></i>
+          No conversations yet — send us a message anytime.
+        </div>
+        {% endif %}
+      </div>
+
+      <div id="msg-new-view" style="display:none;">
+        <div class="msg-thread-head">
+          <button class="msg-back" onclick="closeNewThread()"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="msg-thread-title">New Message</div>
+        </div>
+        <input id="msg-new-subject" class="modal-input" placeholder="Subject (optional)" style="margin-bottom:8px;">
+        <textarea id="msg-new-body" class="modal-input" rows="5" placeholder="Type your message..." style="resize:vertical;margin-bottom:10px;"></textarea>
+        <button class="msg-new-btn" onclick="sendNewThread()"><i class="fa-solid fa-paper-plane"></i> Send</button>
+      </div>
+
+      <div id="msg-thread-view" style="display:none;">
+        <div class="msg-thread-head">
+          <button class="msg-back" onclick="closeThread()"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="msg-thread-title" id="msg-thread-title"></div>
+        </div>
+        <div class="msg-bubbles" id="msg-bubbles"></div>
+        <div class="msg-reply-row">
+          <textarea id="msg-reply-body" rows="2" placeholder="Reply..."></textarea>
+          <button class="msg-send-btn" onclick="sendReply()"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
       </div>
     </div>
   </div>
@@ -714,5 +1015,207 @@
 })();
 </script>
 
+
+<script>
+// ── Voice recorder ────────────────────────────────────────────────────────────
+const PORTAL_TOKEN = '{{ client.portal_token }}';
+
+function getCookie(name) {
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? decodeURIComponent(m.pop()) : '';
+}
+const CSRF_TOKEN = getCookie('csrftoken');
+let _mediaRec = null, _recChunks = [], _recActive = false;
+
+async function toggleRecording() {
+  if (_recActive) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    _recChunks = [];
+    _mediaRec = new MediaRecorder(stream);
+    _mediaRec.ondataavailable = e => { if (e.data.size > 0) _recChunks.push(e.data); };
+    _mediaRec.onstop = handleRecordingStop;
+    _mediaRec.start();
+    _recActive = true;
+    document.getElementById('rec-btn').style.borderColor = '#f85149';
+    document.getElementById('rec-btn').style.color = '#f85149';
+    document.getElementById('rec-icon').className = 'fa-solid fa-stop';
+    document.getElementById('rec-label').textContent = 'Stop recording';
+    document.getElementById('rec-status').style.display = 'block';
+    document.getElementById('rec-status').textContent = 'Recording… tap Stop when done.';
+  } catch(e) {
+    alert('Microphone access denied: ' + e.message);
+  }
+}
+
+function stopRecording() {
+  if (_mediaRec && _mediaRec.state !== 'inactive') {
+    _mediaRec.stop();
+    _mediaRec.stream.getTracks().forEach(t => t.stop());
+  }
+  _recActive = false;
+  document.getElementById('rec-btn').style.borderColor = '';
+  document.getElementById('rec-btn').style.color = '';
+  document.getElementById('rec-icon').className = 'fa-solid fa-microphone';
+  document.getElementById('rec-label').textContent = 'Record voice note';
+}
+
+async function handleRecordingStop() {
+  const blob = new Blob(_recChunks, {type: 'audio/webm'});
+  const status = document.getElementById('rec-status');
+  status.textContent = 'Transcribing…';
+
+  const fd = new FormData();
+  fd.append('audio', blob, 'voice.webm');
+
+  try {
+    const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/voice/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF_TOKEN},
+      body: fd,
+    });
+    const data = await res.json();
+    if (data.ok && data.transcript) {
+      const body = document.getElementById('tk-body');
+      body.value = (body.value ? body.value + '\n\n' : '') + data.transcript;
+      status.textContent = 'Transcribed — review and edit above, then submit.';
+    } else {
+      status.textContent = 'Transcription failed: ' + (data.error || 'unknown');
+    }
+  } catch(e) {
+    status.textContent = 'Network error during transcription.';
+  }
+}
+
+// ── Ticket submit ─────────────────────────────────────────────────────────────
+async function submitTicket() {
+  const title = document.getElementById('tk-title').value.trim();
+  if (!title) { alert('Please enter a subject.'); return; }
+
+  const res = await fetch('/portal/submit/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+    body: JSON.stringify({
+      title,
+      body:  document.getElementById('tk-body').value.trim(),
+      name:  document.getElementById('tk-name').value.trim(),
+      email: document.getElementById('tk-email').value.trim(),
+      type:  'request',
+      _hp:   '',
+    }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    document.getElementById('ticket-form-wrap').innerHTML =
+      '<div style="text-align:center;padding:30px 0;"><i class="fa-solid fa-circle-check" style="font-size:2rem;color:#3fb950;"></i><p style="margin-top:12px;color:var(--text);">Request submitted!</p><p style="color:var(--muted);font-size:12px;margin-top:6px;">We\'ll be in touch soon.</p></div>';
+  } else {
+    alert(data.error || 'Submission failed');
+  }
+}
+
+// ── Messaging ────────────────────────────────────────────────────────────────
+let _activeThread = null;
+
+function openNewThread() {
+  document.getElementById('msg-list-view').style.display = 'none';
+  document.getElementById('msg-thread-view').style.display = 'none';
+  document.getElementById('msg-new-view').style.display = 'block';
+  document.getElementById('msg-new-subject').value = '';
+  document.getElementById('msg-new-body').value = '';
+}
+function closeNewThread() {
+  document.getElementById('msg-new-view').style.display = 'none';
+  document.getElementById('msg-list-view').style.display = 'block';
+}
+
+async function sendNewThread() {
+  const subject = document.getElementById('msg-new-subject').value.trim();
+  const body = document.getElementById('msg-new-body').value.trim();
+  if (!body) return;
+  const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/threads/new/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+    body: JSON.stringify({subject, body}),
+  });
+  const data = await res.json();
+  if (data.thread_pk) {
+    document.getElementById('msg-new-view').style.display = 'none';
+    openThread(data.thread_pk, data.subject);
+  } else {
+    alert(data.error || 'Could not send message');
+  }
+}
+
+async function openThread(pk, subject) {
+  _activeThread = pk;
+  document.getElementById('msg-list-view').style.display = 'none';
+  document.getElementById('msg-new-view').style.display = 'none';
+  document.getElementById('msg-thread-view').style.display = 'block';
+  document.getElementById('msg-thread-title').textContent = subject;
+  document.getElementById('msg-bubbles').innerHTML = '';
+
+  const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/threads/' + pk + '/');
+  const data = await res.json();
+  if (data.messages) renderMessages(data.messages);
+}
+
+function closeThread() {
+  _activeThread = null;
+  document.getElementById('msg-thread-view').style.display = 'none';
+  document.getElementById('msg-list-view').style.display = 'block';
+}
+
+function renderMessages(msgs) {
+  const wrap = document.getElementById('msg-bubbles');
+  wrap.innerHTML = '';
+  msgs.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'msg-bubble' + (m.mine ? ' mine' : '');
+    div.innerHTML = `<div class="msg-bubble-meta">${m.mine ? 'You' : m.sender} &middot; ${m.sent_at}</div>${m.body.replace(/</g,'&lt;')}`;
+    wrap.appendChild(div);
+  });
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function sendReply() {
+  const input = document.getElementById('msg-reply-body');
+  const body = input.value.trim();
+  if (!body || !_activeThread) return;
+  const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/threads/' + _activeThread + '/reply/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+    body: JSON.stringify({body}),
+  });
+  const data = await res.json();
+  if (data.id) {
+    input.value = '';
+    const wrap = document.getElementById('msg-bubbles');
+    const div = document.createElement('div');
+    div.className = 'msg-bubble mine';
+    div.innerHTML = `<div class="msg-bubble-meta">You &middot; ${data.sent_at}</div>${data.body.replace(/</g,'&lt;')}`;
+    wrap.appendChild(div);
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+}
+
+async function assignTask(taskPk, contactId) {
+  const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/tasks/' + taskPk + '/assign/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+    body: JSON.stringify({contact_id: contactId || null}),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || 'Could not update assignment.');
+  }
+}
+</script>
 </body>
 </html>
