@@ -23,6 +23,12 @@ class Server(models.Model):
     notes = models.TextField(blank=True)
     icon = models.CharField(max_length=40, choices=ICONS, default='fa-server')
     color = models.CharField(max_length=7, default='#7c6af7')
+    monthly_cost = models.DecimalField(
+        max_digits=8, decimal_places=2, default=0,
+        help_text='What this server costs per month (hosting bill, amortized hardware + power).')
+    projects = models.ManyToManyField(
+        'projects.Project', blank=True, related_name='servers',
+        help_text='Projects this server supports — its monthly cost is split evenly across them.')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

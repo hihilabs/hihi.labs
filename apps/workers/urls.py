@@ -15,6 +15,7 @@ urlpatterns = [
 
     # Worker node management
     path('nodes/<int:pk>/delete/', views.worker_delete, name='worker_delete'),
+    path('nodes/<int:pk>/cmd/',    views.worker_cmd,    name='worker_cmd'),
 
     # Job management (UI)
     path('jobs/submit/',           views.job_submit, name='job_submit'),

@@ -53,6 +53,11 @@
 .cmd-card.cmd-project { border-color:color-mix(in srgb,var(--accent) 40%,transparent); }
 .cmd-card.cmd-flag    { border-color:color-mix(in srgb,var(--yellow) 40%,transparent); }
 .cmd-card.cmd-note    { border-color:color-mix(in srgb,var(--teal) 40%,transparent); }
+.msg-tag-row { margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; }
+.msg-tag-badge { font-size:10px; font-weight:600; padding:2px 8px; border-radius:var(--r-sm); background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent); }
+.reply-tag-row { margin-bottom:6px; }
+.reply-tag-row label { font-size:11px; color:var(--text-muted); display:block; margin-bottom:3px; }
+.reply-tag-select { font-size:12px; width:100%; }
 .cmd-icon { font-size:14px; flex-shrink:0; margin-top:1px; }
 .cmd-label { font-weight:600; color:var(--text); }
 .cmd-detail { color:var(--text-muted); margin-top:2px; }
@@ -86,6 +91,7 @@
 .reply-actions { display:flex; justify-content:space-between; align-items:center; margin-top:6px; }
 .reply-hint { font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
 #slash-palette-reply { display:none; position:absolute; bottom:100%; left:20px; right:20px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r-lg); padding:4px; z-index:50; margin-bottom:4px; }
+#mention-palette-reply { display:none; position:absolute; bottom:100%; left:20px; right:20px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--r-lg); padding:4px; z-index:50; max-height:200px; overflow-y:auto; margin-bottom:4px; }
 /* Auth warning */
 .gmail-auth-bar { padding:8px 0 6px; font-size:12px; color:var(--yellow); display:none; }
 /* Drive picker modal */
@@ -187,13 +193,20 @@
             {% elif msg.command == 'remind' %}Reminder: {{ msg.command_meta.when }}{% endif %}
           </div>
           {% if msg.command == 'task' and msg.command_meta.task_id %}
-          <div class="cmd-detail"><a href="/projects/tasks/{{ msg.command_meta.task_id }}/" style="color:var(--accent);">{{ msg.command_meta.title }}</a></div>
+          <div class="cmd-detail"><a href="/projects/{{ msg.command_meta.project_id|default:thread.project_id }}/?task={{ msg.command_meta.task_id }}" style="color:var(--accent);">{{ msg.command_meta.title }}</a></div>
           {% endif %}
           {% if msg.command_meta.warn %}<div class="cmd-warn"><i class="fa-solid fa-triangle-exclamation"></i> {{ msg.command_meta.warn }}</div>{% endif %}
         </div>
       </div>
       {% else %}
       <div class="int-body" id="body-{{ msg.pk }}">{{ msg.body|linebreaksbr }}</div>
+      {% if msg.command_meta.tagged_contacts %}
+      <div class="msg-tag-row">
+        {% for tc in msg.command_meta.tagged_contacts %}
+        <span class="msg-tag-badge"><i class="fa-solid fa-at"></i> {{ tc.name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
       <div class="msg-edit-wrap" id="edit-{{ msg.pk }}">
         <textarea class="form-control msg-edit-ta" id="edit-ta-{{ msg.pk }}">{{ msg.body }}</textarea>
         <div class="msg-edit-actions">
@@ -253,10 +266,21 @@
   {# ── Reply bar ── #}
   {% if thread.source == 'internal' %}
   <div class="reply-bar">
+    {% if client_contacts %}
+    <div class="reply-tag-row">
+      <label>Tag contacts (optional — emails them about this reply)</label>
+      <select class="form-control reply-tag-select" id="reply-tag-contacts" multiple size="2">
+        {% for c in client_contacts %}
+        <option value="{{ c.pk }}">{{ c.full_name }}{% if c.role %} ({{ c.role }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
     <div id="slash-palette-reply"></div>
+    <div id="mention-palette-reply"></div>
     <div class="reply-input-wrap">
       <textarea class="form-control" id="reply-body" rows="3"
-        placeholder="Reply… or type / for commands"
+        placeholder="Reply… or type / for commands, @ to tag a contact"
         style="resize:vertical;font-family:var(--font-mono);font-size:13px;min-height:70px;"
         oninput="checkSlashReply(this)" onkeydown="replyKeydown(event)"></textarea>
     </div>
@@ -324,6 +348,7 @@
 <script>
 const CSRF     = '{{ csrf_token }}';
 const THREAD_ID = {{ thread.pk }};
+const THREAD_PROJECT_ID = {{ thread.project_id|default:'null' }};
 
 /* ─── Edit / Delete messages ──────────────────────────────────── */
 function startEdit(pk) {
@@ -470,6 +495,12 @@ const SLASH_COMMANDS = [
   {cmd:'/remind',  icon:'⏰', label:'Remind me',    hint:'/remind [when]'},
 ];
 
+const MENTION_CONTACTS = [
+  {% for c in client_contacts %}
+  {id: {{ c.pk }}, name: "{{ c.full_name|escapejs }}"},
+  {% endfor %}
+];
+
 function replyKeydown(e) {
   const palette = document.getElementById('slash-palette-reply');
   if (palette.style.display !== 'none') {
@@ -484,6 +515,20 @@ function replyKeydown(e) {
       return;
     }
     if (e.key === 'Escape') { hideReplyPalette(); return; }
+  }
+  const mentionPalette = document.getElementById('mention-palette-reply');
+  if (mentionPalette.style.display !== 'none') {
+    const items  = mentionPalette.querySelectorAll('.slash-item');
+    const active = mentionPalette.querySelector('.slash-item.hover');
+    if (e.key === 'ArrowDown') { e.preventDefault(); activateNext(items, active, 1); return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); activateNext(items, active, -1); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const s = mentionPalette.querySelector('.slash-item.hover');
+      if (s) applyMentionReply(parseInt(s.dataset.id), s.dataset.name);
+      return;
+    }
+    if (e.key === 'Escape') { hideMentionPaletteReply(); return; }
   }
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendReply(); }
 }
@@ -503,9 +548,59 @@ function checkSlashReply(ta) {
   if (currentLine.startsWith('/')) {
     const query = currentLine.slice(1).toLowerCase();
     const matches = SLASH_COMMANDS.filter(c => c.cmd.slice(1).startsWith(query) || !query);
-    if (matches.length) { showReplyPalette(matches); return; }
+    if (matches.length) { hideMentionPaletteReply(); showReplyPalette(matches); return; }
   }
   hideReplyPalette();
+
+  const atMatch = currentLine.match(/@([\w .'-]*)$/);
+  if (atMatch) {
+    const query = atMatch[1].toLowerCase();
+    const matches = MENTION_CONTACTS.filter(c => c.name.toLowerCase().includes(query));
+    if (matches.length) { showMentionPaletteReply(matches); return; }
+  }
+  hideMentionPaletteReply();
+}
+
+function showMentionPaletteReply(matches) {
+  const p = document.getElementById('mention-palette-reply');
+  p.innerHTML = '';
+  matches.forEach((c, i) => {
+    const item = document.createElement('div');
+    item.className = 'slash-item' + (i === 0 ? ' hover' : '');
+    item.dataset.id = c.id;
+    item.dataset.name = c.name;
+    item.style.cssText = 'display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:var(--r-sm);cursor:pointer;';
+    item.innerHTML = `<i class="fa-solid fa-at" style="width:16px;color:var(--accent);font-size:12px;"></i>` +
+      `<span style="font-size:13px;">${escHtml(c.name)}</span>`;
+    item.addEventListener('mouseenter', () => {
+      p.querySelectorAll('.slash-item').forEach(i2 => i2.classList.remove('hover'));
+      item.classList.add('hover');
+    });
+    item.addEventListener('click', () => applyMentionReply(c.id, c.name));
+    p.appendChild(item);
+  });
+  p.style.display = 'block';
+}
+
+function hideMentionPaletteReply() {
+  document.getElementById('mention-palette-reply').style.display = 'none';
+}
+
+function applyMentionReply(id, name) {
+  const ta = document.getElementById('reply-body');
+  const val = ta.value;
+  const lastNL = val.lastIndexOf('\n');
+  const currentLine = val.slice(lastNL + 1);
+  const atIdx = currentLine.lastIndexOf('@');
+  const newLine = currentLine.slice(0, atIdx) + '@' + name + ' ';
+  ta.value = val.slice(0, lastNL + 1) + newLine;
+  hideMentionPaletteReply();
+  ta.focus();
+  const select = document.getElementById('reply-tag-contacts');
+  if (select) {
+    const opt = Array.from(select.options).find(o => parseInt(o.value) === id);
+    if (opt) opt.selected = true;
+  }
 }
 
 function showReplyPalette(cmds) {
@@ -537,11 +632,18 @@ function applySlashReply(cmd) {
 async function sendReply() {
   const body = document.getElementById('reply-body')?.value.trim();
   if (!body) return;
+  const tagSelect = document.getElementById('reply-tag-contacts');
+  const contactIds = tagSelect ? Array.from(tagSelect.selectedOptions).map(o => parseInt(o.value)) : [];
   const res = await fetch(`/messaging/thread/${THREAD_ID}/reply/`, {
     method: 'POST', headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
-    body: JSON.stringify({body}),
+    body: JSON.stringify({body, contact_ids: contactIds}),
   });
-  if (!res.ok) return;
+  if (!res.ok) {
+    let msg = 'Send failed';
+    try { msg = (await res.json()).error || msg; } catch (e) {}
+    alert(msg);
+    return;
+  }
   const msg = await res.json();
   const list = document.getElementById('message-list');
   const div = document.createElement('div');
@@ -554,17 +656,24 @@ async function sendReply() {
   } else {
     inner += `<div class="int-body">${escHtml(body).replace(/\n/g,'<br>')}</div>`;
   }
+  if (msg.command_meta && msg.command_meta.tagged_contacts && msg.command_meta.tagged_contacts.length) {
+    inner += '<div class="msg-tag-row">' + msg.command_meta.tagged_contacts.map(
+      tc => `<span class="msg-tag-badge"><i class="fa-solid fa-at"></i> ${escHtml(tc.name)}</span>`
+    ).join('') + '</div>';
+  }
   div.innerHTML = inner;
   list.appendChild(div);
   document.getElementById('reply-body').value = '';
+  if (tagSelect) Array.from(tagSelect.options).forEach(o => o.selected = false);
   hideReplyPalette();
+  hideMentionPaletteReply();
   div.scrollIntoView({behavior:'smooth'});
 }
 
 function renderCmdCard(cmd, meta) {
   const icons = {task:'✅',project:'📁',flag:'🚩',note:'📝',remind:'⏰'};
   let label = '', detail = '', warn = '';
-  if (cmd==='task')    { label='Task created'+(meta.project?' in '+meta.project:''); if(meta.task_id) detail=`<a href="/projects/tasks/${meta.task_id}/" style="color:var(--accent);">${escHtml(meta.title||'')}</a>`; }
+  if (cmd==='task')    { label='Task created'+(meta.project?' in '+meta.project:''); if(meta.task_id) detail=`<a href="/projects/${meta.project_id||THREAD_PROJECT_ID}/?task=${meta.task_id}" style="color:var(--accent);">${escHtml(meta.title||'')}</a>`; }
   else if(cmd==='project') { label=meta.project_name?'Linked to '+meta.project_name:'Project link'; }
   else if(cmd==='flag')    { label=meta.flagged?'Thread flagged':'Flag removed'; }
   else if(cmd==='note')    { label='Note: '+(meta.title||''); }

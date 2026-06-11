@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#7c6af7">
+  <meta name="theme-color" content="#0a0a0c" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#0a0a0c">
+  <meta name="color-scheme" content="dark">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,16 +23,20 @@
 <body>
 
 <nav class="sidenav">
-  <div class="sidenav-logo">
+  {# Rail toggle — only visible in collapsed mode, always at top #}
+  <button class="nav-rail-toggle" onclick="toggleSideNav()" title="Expand menu" id="nav-rail-btn">
+    <i class="fa-solid fa-angles-right"></i>
+  </button>
+  <div class="sidenav-logo" id="sidenav-logo-wrap">
     <span class="logo-hi">hi</span><span class="logo-hi2">hi</span>
     <span class="logo-tag">labs</span>
   </div>
   <ul class="sidenav-links">
-    <li><a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+    <li><a href="{% url 'dashboard:index' %}" class="{% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}">
       <i class="fa-solid fa-gauge-high"></i> Dashboard
     </a></li>
     <li><a href="{% url 'ai:index' %}" class="{% if request.resolver_match.app_name == 'ai' and 'chat' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="fa-solid fa-comments"></i> Chat
+      <i class="fa-solid fa-robot"></i> Lloyd
     </a></li>
     <li><a href="{% url 'ai:templates' %}" class="{% if 'template' in request.path %}active{% endif %}">
       <i class="fa-solid fa-wand-magic-sparkles"></i> Templates
@@ -59,8 +65,14 @@
           <i class="fa-solid fa-chart-line"></i> Value Board
         </a></li>
       </ul>
+      <div class="subnav-flyout">
+        <div class="flyout-label">Projects</div>
+        <a href="{% url 'projects:index' %}"><i class="fa-solid fa-folder-open"></i> All Projects</a>
+        <a href="{% url 'projects:global_tasks' %}"><i class="fa-solid fa-circle-check"></i> Tasks</a>
+        <a href="{% url 'projects:value_board' %}"><i class="fa-solid fa-chart-line"></i> Value Board</a>
+      </div>
     </li>
-    <li><a href="{% url 'clients:index' %}" class="{% if 'clients' in request.path %}active{% endif %}">
+    <li><a href="{% url 'clients:index' %}" data-label="Clients" class="{% if 'clients' in request.path %}active{% endif %}">
       <i class="fa-solid fa-address-book"></i> Clients
     </a></li>
     <li class="has-subnav">
@@ -83,8 +95,15 @@
           <i class="fa-solid fa-tags"></i> Services
         </a></li>
       </ul>
+      <div class="subnav-flyout">
+        <div class="flyout-label">Billing</div>
+        <a href="{% url 'billing:index' %}"><i class="fa-solid fa-receipt"></i> Invoices</a>
+        <a href="{% url 'proposals:index' %}"><i class="fa-solid fa-file-pen"></i> Proposals</a>
+        <a href="{% url 'contracts:index' %}"><i class="fa-solid fa-file-contract"></i> Contracts</a>
+        <a href="{% url 'services:index' %}"><i class="fa-solid fa-tags"></i> Services</a>
+      </div>
     </li>
-    <li><a href="{% url 'files:index' %}" class="{% if 'files' in request.path %}active{% endif %}">
+    <li><a href="{% url 'files:index' %}" data-label="Files" class="{% if 'files' in request.path %}active{% endif %}">
       <i class="fa-brands fa-google-drive"></i> Files
     </a></li>
     <li class="has-subnav">
@@ -112,54 +131,93 @@
           <i class="fa-solid fa-at"></i> Email Accounts
         </a></li>
       </ul>
+      <div class="subnav-flyout">
+        <div class="flyout-label">Messages</div>
+        <a href="{% url 'messaging:inbox' %}?tab=internal"><i class="fa-solid fa-comments"></i> Internal</a>
+        <a href="{% url 'messaging:inbox' %}?tab=email"><i class="fa-solid fa-envelope"></i> Email</a>
+        <a href="{% url 'messaging:inbox' %}?tab=notifs"><i class="fa-solid fa-bell"></i> Notifications</a>
+        <a href="{% url 'messaging:email_accounts' %}"><i class="fa-solid fa-at"></i> Email Accounts</a>
+      </div>
     </li>
-    <li><a href="{% url 'wiki:index' %}" class="{% if 'wiki' in request.path %}active{% endif %}">
+    <li><a href="{% url 'wiki:index' %}" data-label="Wiki" class="{% if 'wiki' in request.path %}active{% endif %}">
       <i class="fa-solid fa-book-open"></i> Wiki
     </a></li>
-    <li><a href="{% url 'whiteboards:index' %}" class="{% if 'whiteboards' in request.path %}active{% endif %}">
+    <li><a href="{% url 'whiteboards:index' %}" data-label="Whiteboards" class="{% if 'whiteboards' in request.path %}active{% endif %}">
       <i class="fa-solid fa-chalkboard"></i> Whiteboards
     </a></li>
-    <li><a href="{% url 'tickets:index' %}" class="{% if 'tickets' in request.path %}active{% endif %}">
+    <li><a href="{% url 'tickets:index' %}" data-label="Tickets" class="{% if 'tickets' in request.path %}active{% endif %}">
       <i class="fa-solid fa-ticket"></i> Tickets
     </a></li>
     {% if user.is_staff %}
-    <li><a href="{% url 'portal:admin' %}" class="{% if 'portal' in request.path %}active{% endif %}">
+    <li><a href="{% url 'portal:admin' %}" data-label="Client Portal" class="{% if 'portal' in request.path %}active{% endif %}">
       <i class="fa-solid fa-user-shield"></i> Client Portal
     </a></li>
     {% endif %}
-    <li><a href="{% url 'sound:index' %}" class="{% if 'sound' in request.path %}active{% endif %}">
+    <li><a href="{% url 'sound:index' %}" data-label="Sound" class="{% if 'sound' in request.path %}active{% endif %}">
       <i class="fa-solid fa-music"></i> Sound
     </a></li>
-    <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-server"></i> Servers
-    </a></li>
-    <li><a href="{% url 'workers:index' %}" class="{% if 'workers' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-microchip"></i> Workers
-    </a></li>
-    <li><a href="{% url 'gitnode:index' %}" class="{% if 'gitnode' in request.path %}active{% endif %}">
-      <i class="fa-solid fa-code-branch"></i> HiHi Node
-    </a></li>
-    <li><a href="{% url 'modules:index' %}" class="{% if 'modules' in request.path %}active{% endif %}">
+    <li><a href="{% url 'modules:index' %}" data-label="Modules" class="{% if 'modules' in request.path %}active{% endif %}">
       <i class="fa-solid fa-cubes"></i> Modules
     </a></li>
-    <li><a href="/works/" target="_blank" rel="noopener" title="Public portfolio">
+    <li><a href="/works/" data-label="Works" target="_blank" rel="noopener">
       <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;opacity:.6;"></i> Works
     </a></li>
-    <li><a href="{% url 'pepperjuice:dashboard' %}" class="{% if 'finance' in request.path %}active{% endif %}">
+    <li><a href="{% url 'pepperjuice:dashboard' %}" data-label="Pepperjuice" class="{% if 'finance' in request.path %}active{% endif %}">
       <i class="fa-solid fa-pepper-hot"></i> Pepperjuice
     </a></li>
-    <li><a href="{% url 'tax:index' %}" class="{% if 'tax' in request.path %}active{% endif %}">
+    <li><a href="{% url 'tax:index' %}" data-label="Expenses" class="{% if 'tax' in request.path %}active{% endif %}">
       <i class="fa-solid fa-receipt"></i> Expenses
     </a></li>
-    <li><a href="{% url 'subscriptions:upgrade' %}" class="{% if 'subscriptions' in request.path %}active{% endif %}">
+    <li><a href="{% url 'subscriptions:upgrade' %}" data-label="Plans" class="{% if 'subscriptions' in request.path %}active{% endif %}">
       <i class="fa-solid fa-rocket"></i> Plans
     </a></li>
+    {% if user.is_staff %}
+    <li class="sidenav-divider"></li>
+    <li class="has-subnav">
+      <button class="subnav-toggle {% if 'ops' in request.path or 'workers' in request.path or 'servers' in request.path or 'gitnode' in request.path or 'admin' in request.path %}open{% endif %}"
+              id="toggle-system" onclick="toggleSubnav('system')">
+        <i class="fa-solid fa-terminal"></i> System
+        <i class="fa-solid fa-chevron-right subnav-chevron"></i>
+      </button>
+      <ul class="subnav {% if 'ops' in request.path or 'workers' in request.path or 'servers' in request.path or 'gitnode' in request.path or 'admin' in request.path %}open{% endif %}" id="subnav-system">
+        <li><a href="/admin/" class="{% if 'admin' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-shield-halved"></i> Django Admin
+        </a></li>
+        <li><a href="{% url 'ops:system' %}" class="{% if 'ops/system' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-terminal"></i> Command Center
+        </a></li>
+        <li><a href="{% url 'ops:panel' %}" class="{% if 'ops' in request.path and 'system' not in request.path %}active{% endif %}">
+          <i class="fa-solid fa-sliders"></i> Ops Panel
+        </a></li>
+        <li><a href="{% url 'servers:index' %}" class="{% if 'servers' in request.path and 'sessions' not in request.path %}active{% endif %}">
+          <i class="fa-solid fa-satellite-dish"></i> Fleet
+        </a></li>
+        <li><a href="{% url 'modules:index' %}" class="{% if 'modules' in request.path %}active{% endif %}">
+          <i class="fa-solid fa-cubes"></i> Modules
+        </a></li>
+      </ul>
+      <div class="subnav-flyout">
+        <div class="flyout-label">System</div>
+        <a href="/admin/"><i class="fa-solid fa-shield-halved"></i> Django Admin</a>
+        <a href="{% url 'ops:system' %}"><i class="fa-solid fa-terminal"></i> Command Center</a>
+        <a href="{% url 'ops:panel' %}"><i class="fa-solid fa-sliders"></i> Ops Panel</a>
+        <a href="{% url 'servers:index' %}"><i class="fa-solid fa-satellite-dish"></i> Fleet</a>
+        <a href="{% url 'servers:sessions' %}"><i class="fa-solid fa-users"></i> Sessions</a>
+        <a href="{% url 'workers:index' %}"><i class="fa-solid fa-microchip"></i> Workers</a>
+        <a href="{% url 'modules:index' %}"><i class="fa-solid fa-cubes"></i> Modules</a>
+      </div>
+    </li>
+    {% endif %}
   </ul>
   <div class="sidenav-footer">
     {% if user.is_authenticated %}
     <span class="user-tag">{{ user.get_short_name|default:user.username }}</span>
     <div style="display:flex;align-items:center;gap:6px;">
+      <button class="nav-toggle-btn" onclick="toggleSideNav()" id="nav-toggle-btn" title="Collapse menu">
+        <i class="fa-solid fa-angles-left" id="nav-toggle-icon"></i>
+      </button>
       <button id="pwa-bell"
+              data-pwa-bell
               onclick="togglePush(this)"
               title="Enable notifications"
               style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;padding:4px;transition:color 0.15s;"
@@ -176,7 +234,7 @@
 
 {% if user.is_authenticated %}
 <nav class="mobile-tabs">
-  <a href="{% url 'dashboard' %}" class="mobile-tab {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+  <a href="{% url 'dashboard:index' %}" class="mobile-tab {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}">
     <i class="fa-solid fa-gauge-high"></i><span>Home</span>
   </a>
   <a href="{% url 'projects:index' %}" class="mobile-tab {% if request.resolver_match.app_name == 'projects' %}active{% endif %}">
@@ -205,7 +263,7 @@
   </div>
   <div class="mob-drawer-body">
     <div class="mob-nav-group">
-      <a href="{% url 'ai:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-comments"></i> Chat</a>
+      <a href="{% url 'ai:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-robot"></i> Lloyd</a>
       <a href="{% url 'ai:templates' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-wand-magic-sparkles"></i> Templates</a>
       <a href="{% url 'ai:documents' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-file-lines"></i> Documents</a>
       <a href="{% url 'ai:voice' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-microphone"></i> Voice Notes</a>
@@ -230,16 +288,33 @@
     </div>
     <div class="mob-nav-divider"></div>
     <div class="mob-nav-group">
-      <a href="{% url 'servers:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-server"></i> Servers</a>
+      <a href="{% url 'servers:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-satellite-dish"></i> Fleet</a>
       <a href="{% url 'workers:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-microchip"></i> Workers</a>
       <a href="{% url 'tax:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-receipt"></i> Expenses</a>
       <a href="{% url 'modules:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-cubes"></i> Modules</a>
       <a href="{% url 'whiteboards:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-chalkboard"></i> Whiteboards</a>
       <a href="{% url 'tickets:index' %}" class="mob-nav-link" onclick="closeMobileDrawer()"><i class="fa-solid fa-ticket"></i> Tickets</a>
     </div>
-    <div class="mob-nav-divider"></div>
-    <div class="mob-nav-group">
-      <form method="post" action="{% url 'logout' %}" style="display:contents;">{% csrf_token %}<button type="submit" class="mob-nav-link" style="color:var(--red);background:none;border:none;cursor:pointer;width:100%;text-align:left;"><i class="fa-solid fa-right-from-bracket"></i> Log out</button></form>
+  </div>
+  <div class="mob-drawer-foot">
+    <div class="mob-drawer-foot-user">
+      <i class="fa-solid fa-circle-user"></i>
+      <span>{{ user.get_short_name|default:user.username }}</span>
+    </div>
+    <div class="mob-drawer-foot-actions">
+      <button id="pwa-bell-mob" type="button" class="mob-foot-btn" data-pwa-bell
+              onclick="togglePush(this)" aria-label="Toggle notifications" title="Toggle notifications">
+        <i class="fa-solid fa-bell"></i>
+      </button>
+      <button data-pwa-install type="button" class="mob-foot-btn" hidden
+              onclick="pwaInstall()" aria-label="Install app" title="Install app">
+        <i class="fa-solid fa-download"></i>
+      </button>
+      <form method="post" action="{% url 'logout' %}" style="display:contents;">{% csrf_token %}
+        <button type="submit" class="mob-foot-btn danger" aria-label="Log out" title="Log out">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+      </form>
     </div>
   </div>
 </div>
@@ -293,11 +368,11 @@ let _deferredInstall = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _deferredInstall = e;
-  document.querySelectorAll('[data-pwa-install]').forEach(el => el.style.removeProperty('display'));
+  document.querySelectorAll('[data-pwa-install]').forEach(el => { el.hidden = false; el.style.removeProperty('display'); });
 });
 window.addEventListener('appinstalled', () => {
   _deferredInstall = null;
-  document.querySelectorAll('[data-pwa-install]').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('[data-pwa-install]').forEach(el => { el.hidden = true; el.style.display = 'none'; });
 });
 function pwaInstall() {
   if (!_deferredInstall) return;
@@ -349,14 +424,17 @@ function getCookie(name) {
     .find(c=>c.startsWith(name+'='))?.split('=')[1] || '';
 }
 
-// Update bell on load
+// Update all bells on load (desktop sidenav + mobile drawer footer)
 document.addEventListener('DOMContentLoaded', () => {
-  const bell = document.getElementById('pwa-bell');
-  if (!bell || !('Notification' in window)) return;
-  if (Notification.permission === 'granted') {
-    bell.style.color = 'var(--accent)';
-    bell.title = 'Push on — click to disable';
-  }
+  if (!('Notification' in window)) return;
+  const on = Notification.permission === 'granted';
+  document.querySelectorAll('[data-pwa-bell]').forEach(bell => {
+    if (on) {
+      bell.classList.add('on');
+      bell.style.color = 'var(--accent)';
+      bell.title = 'Push on — click to disable';
+    }
+  });
 });
 
 // Unread badge polling
@@ -497,6 +575,56 @@ document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(step);
   });
 });
+
+// ── sidenav collapse ─────────────────────────────────────────────────────────
+function _applyNavCollapse(collapsed) {
+  document.documentElement.style.setProperty('--nav-w', collapsed ? '52px' : '220px');
+  document.body.classList.toggle('nav-collapsed', collapsed);
+  // Update both toggle buttons to reflect direction
+  var footerIcon = document.getElementById('nav-toggle-icon');
+  var footerBtn  = document.getElementById('nav-toggle-btn');
+  if (footerIcon) {
+    footerIcon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+  }
+  if (footerBtn) {
+    footerBtn.title = collapsed ? 'Expand menu' : 'Collapse menu';
+  }
+}
+
+(function(){
+  // Never apply collapsed state on tablet/mobile — bottom tabs handle nav there
+  if (window.innerWidth > 900 && localStorage.getItem('nav_collapsed') === '1') {
+    _applyNavCollapse(true);
+  }
+})();
+
+function toggleSideNav() {
+  var collapsed = !document.body.classList.contains('nav-collapsed');
+  _applyNavCollapse(collapsed);
+  localStorage.setItem('nav_collapsed', collapsed ? '1' : '0');
+}
+
+// ── grab project (shared across project index + detail + dashboard) ──────────
+function toggleGrab(pk, btn) {
+  fetch('/dashboard/grab/' + pk + '/', {
+    method: 'POST',
+    headers: {'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''}
+  }).then(r => r.json()).then(d => {
+    if (d.grabbed) {
+      btn.classList.add('grabbed');
+      btn.style.color = '#2dd4bf';
+      btn.style.borderColor = '#2dd4bf';
+      btn.innerHTML = '<i class="fa-solid fa-star"></i> grabbed';
+      btn.title = 'Remove from dashboard task list';
+    } else {
+      btn.classList.remove('grabbed');
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.innerHTML = '<i class="fa-regular fa-star"></i> grab';
+      btn.title = 'Add tasks to dashboard';
+    }
+  });
+}
 
 </script>
 {% include 'portal/_footer_portal.html' %}

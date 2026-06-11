@@ -10,8 +10,11 @@
     <button class="btn btn-ghost btn-sm" onclick="refreshStatus()" title="Refresh">
       <i class="fa-solid fa-arrows-rotate"></i>
     </button>
+    <button class="btn btn-ghost btn-sm" onclick="showUbuntuSetup()" title="Ubuntu setup guide">
+      <i class="fa-brands fa-ubuntu"></i> Setup
+    </button>
     <a href="{% url 'workers:worker_download' %}" class="btn btn-ghost btn-sm" title="Download worker bundle">
-      <i class="fa-solid fa-download"></i> Worker
+      <i class="fa-solid fa-download"></i> Bundle
     </a>
     <button class="btn btn-primary btn-sm" onclick="toggleClientForm()">
       <i class="fa-solid fa-plus"></i> Add Client
@@ -65,9 +68,14 @@
               {% if w.ip %}<span style="color:var(--text-muted)">{{ w.ip }}</span>{% endif %}
             </div>
           </div>
-          <button class="btn-icon danger" onclick="deleteWorker({{ w.pk }})" style="font-size:.75rem;">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
+          <div style="display:flex;gap:4px;">
+            <button class="btn-icon" onclick="openCmdPanel({{ w.pk }}, '{{ w.name }}')" title="Send command" style="font-size:.75rem;">
+              <i class="fa-solid fa-terminal"></i>
+            </button>
+            <button class="btn-icon danger" onclick="deleteWorker({{ w.pk }})" style="font-size:.75rem;">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
         </div>
         {% if w.gpu %}
         <div style="font-size:.7rem;color:var(--teal);margin-top:6px;">
@@ -202,6 +210,107 @@
   </div>
 </div>
 
+{# ── Command panel modal ──────────────────────────────────────────────────── #}
+<div id="cmd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;width:380px;max-width:95vw;">
+    <div style="font-weight:600;margin-bottom:14px;">
+      <i class="fa-solid fa-terminal me-2" style="color:var(--teal)"></i>
+      Send Command — <span id="cmd-node-name" style="color:var(--teal)"></span>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button class="btn btn-ghost btn-sm" onclick="sendCmd('restart')"><i class="fa-solid fa-rotate-right me-1"></i>Restart</button>
+      <button class="btn btn-ghost btn-sm" onclick="sendCmd('update_restart')"><i class="fa-solid fa-download me-1"></i>Update &amp; Restart</button>
+    </div>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px;">Custom command (max 80 chars):</div>
+    <div style="display:flex;gap:6px;">
+      <input id="cmd-input" class="form-control" placeholder="e.g. restart" maxlength="80"
+             style="font-family:monospace;font-size:.85rem;"
+             onkeydown="if(event.key==='Enter')sendCmd(this.value.trim())">
+      <button class="btn btn-primary btn-sm" onclick="sendCmd(document.getElementById('cmd-input').value.trim())">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <button class="btn btn-ghost btn-sm" onclick="closeCmdModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+{# ── Ubuntu setup modal ───────────────────────────────────────────────────── #}
+<div id="ubuntu-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;">
+    <div style="font-weight:600;margin-bottom:4px;">
+      <i class="fa-brands fa-ubuntu me-2" style="color:#e95420"></i>Ubuntu Worker Setup
+    </div>
+    <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:16px;">Run these commands on the Ubuntu box (THOR / binsky)</div>
+
+    <div class="ub-section">1 — Install system deps</div>
+    <pre class="ub-code">sudo apt update && sudo apt install -y python3-pip python3-venv git curl
+# NVIDIA (skip if no GPU on this box):
+# sudo apt install -y nvidia-cuda-toolkit</pre>
+
+    <div class="ub-section">2 — Create worker directory</div>
+    <pre class="ub-code">mkdir -p ~/hihi-worker && cd ~/hihi-worker</pre>
+
+    <div class="ub-section">3 — Download bundle from hihilabs</div>
+    <pre class="ub-code">curl -L -o worker.zip \
+  -H "X-Worker-Key: {{ worker_secret }}" \
+  https://hihilabs.xyz/workers/download/
+unzip -o worker.zip && rm worker.zip</pre>
+
+    <div class="ub-section">4 — Python virtualenv + install</div>
+    <pre class="ub-code">python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt</pre>
+
+    <div class="ub-section">5 — Create config.env</div>
+    <pre class="ub-code">cat > config.env << 'EOF'
+PLESK_URL=https://hihilabs.xyz/workers
+WORKER_SECRET={{ worker_secret }}
+WORKER_NAME=thor
+ANTHROPIC_API_KEY={{ anthropic_key }}
+OLLAMA_URL=http://localhost:11434
+OLLAMA_AI_MODEL=deepseek-r1:14b
+OPEN_WEBUI_URL=http://10.0.0.124:6969
+OPEN_WEBUI_KEY={{ owui_key }}
+POLL_INTERVAL=10
+EOF</pre>
+
+    <div class="ub-section">6 — Run (or set up as systemd service)</div>
+    <pre class="ub-code"># One-shot test:
+source venv/bin/activate && python3 worker.py
+
+# Systemd service (run once):
+sudo tee /etc/systemd/system/hihi-worker.service > /dev/null << 'EOF'
+[Unit]
+Description=HiHi Worker
+After=network.target
+
+[Service]
+User={{ request.user.username }}
+WorkingDirectory=/home/{{ request.user.username }}/hihi-worker
+ExecStart=/home/{{ request.user.username }}/hihi-worker/venv/bin/python worker.py
+Restart=on-failure
+RestartSec=10
+EnvironmentFile=/home/{{ request.user.username }}/hihi-worker/config.env
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now hihi-worker
+sudo systemctl status hihi-worker</pre>
+
+    <div class="ub-section" style="margin-top:12px;">Optional — Ollama on Ubuntu (for local AI)</div>
+    <pre class="ub-code">curl -fsSL https://ollama.com/install.sh | sh
+ollama pull deepseek-r1:14b
+ollama pull llama3.2-vision:11b   # for OCR tasks</pre>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost btn-sm" onclick="closeUbuntuModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <style>
 .wk-stat { display:flex;flex-direction:column;align-items:center;background:var(--bg3);border:1px solid var(--border);border-top:3px solid var(--c);border-radius:8px;padding:10px 20px;min-width:80px; }
 .wk-stat span { font-size:1.6rem;font-weight:700;color:var(--c); }
@@ -237,6 +346,18 @@
 .st-claimed, .st-running { background:rgba(63,185,80,.15);color:#3fb950; }
 .st-done    { background:rgba(110,118,129,.12);color:#6e7681; }
 .st-error   { background:rgba(248,81,73,.15);color:#f85149; }
+
+/* ── Ubuntu setup modal ─────────────────────────────────────────────────── */
+.ub-section { font-size:.72rem;font-weight:600;color:var(--teal);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 5px; }
+.ub-code    { background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 14px;font-size:.75rem;font-family:monospace;white-space:pre-wrap;word-break:break-all;margin:0 0 4px;color:#e6edf3;overflow-x:auto; }
+
+/* ── Shared modal overlay ───────────────────────────────────────────────── */
+.modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px; }
+.modal-box     { background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:22px 24px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto; }
+.modal-title   { font-size:1rem;font-weight:700;margin:0 0 14px;color:var(--text); }
+.modal-actions { display:flex;gap:8px;flex-wrap:wrap;margin-top:14px; }
+.modal-input   { width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:.85rem;box-sizing:border-box; }
+.modal-input:focus { outline:none;border-color:var(--teal); }
 </style>
 {% endblock %}
 
@@ -286,6 +407,56 @@ async function deleteWorker(pk) {
   await fetch(`/workers/nodes/${pk}/delete/`, {method:'POST',headers:{'X-CSRFToken':CSRF}});
   location.reload();
 }
+
+// ── Command panel ─────────────────────────────────────────────────────────────
+let _cmdNodeId = null;
+
+function openCmdPanel(pk, name) {
+  _cmdNodeId = pk;
+  document.getElementById('cmd-node-name').textContent = name;
+  document.getElementById('cmd-input').value = '';
+  const m = document.getElementById('cmd-modal');
+  m.style.display = 'flex';
+  setTimeout(() => document.getElementById('cmd-input').focus(), 50);
+}
+
+function closeCmdModal() {
+  document.getElementById('cmd-modal').style.display = 'none';
+  _cmdNodeId = null;
+}
+
+async function sendCmd(cmd) {
+  if (!cmd || !_cmdNodeId) return;
+  const res = await fetch(`/workers/nodes/${_cmdNodeId}/cmd/`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+    body: JSON.stringify({cmd}),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    closeCmdModal();
+    // Brief flash on the card
+    const card = document.getElementById(`wk-${_cmdNodeId}`);
+    if (card) { card.style.outline = '2px solid var(--teal)'; setTimeout(()=>card.style.outline='',1500); }
+  } else {
+    alert(data.error || 'Error sending command');
+  }
+}
+
+// ── Ubuntu setup modal ────────────────────────────────────────────────────────
+function showUbuntuSetup() {
+  document.getElementById('ubuntu-modal').style.display = 'flex';
+}
+function closeUbuntuModal() {
+  document.getElementById('ubuntu-modal').style.display = 'none';
+}
+
+// Close modals on backdrop click
+['cmd-modal','ubuntu-modal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+});
 
 async function cancelJob(pk) {
   if (!confirm('Cancel this job?')) return;
@@ -345,7 +516,10 @@ function _workerCard(w) {
           </div>
           ${w.gpu?`<div style="font-size:.7rem;color:var(--teal);margin-top:5px;"><i class="fa-solid fa-microchip me-1"></i>${w.gpu}</div>`:''}
         </div>
-        <button class="btn-icon danger" onclick="deleteWorker(${w.id})" style="font-size:.75rem;"><i class="fa-solid fa-xmark"></i></button>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-icon" onclick="openCmdPanel(${w.id},'${w.name.replace(/'/g,"\\'")}'); " title="Send command" style="font-size:.75rem;"><i class="fa-solid fa-terminal"></i></button>
+          <button class="btn-icon danger" onclick="deleteWorker(${w.id})" style="font-size:.75rem;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
       </div>
       <div class="wk-activity">${act}</div>
       ${bars?`<div class="wk-bars">${bars}</div>`:''}

@@ -1,0 +1,732 @@
+{% extends 'base.html' %}
+{% block title %}System — {{ project_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── System Command Center ───────────────────────────────────── */
+:root {
+  --green: var(--green, #4ade80);
+  --red:   var(--red,   #f87171);
+  --ylw:   #facc15;
+}
+
+/* Summary KPIs */
+.sys-sum {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  padding: 0 24px 22px;
+}
+.sys-kpi {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 9px; padding: 10px 16px;
+  display: flex; align-items: center; gap: 10px; min-width: 90px;
+}
+.sys-kpi .n { font-weight: 700; font-size: 1.4em; line-height: 1; color: var(--text); }
+.sys-kpi .l { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }
+.sys-kpi.ok  .n { color: #4ade80; }
+.sys-kpi.warn .n { color: #facc15; }
+.sys-kpi.err  .n { color: #f87171; }
+
+/* Section label */
+.sys-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.sys-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.sys-label a { font-size: 9px; color: var(--text-muted); text-decoration: none; margin-left: auto; }
+.sys-label a:hover { color: var(--accent); }
+
+/* Pipeline */
+.sys-pipes { padding: 0 24px 28px; }
+
+/* One deployed pipeline row */
+.pipe-row {
+  display: flex; align-items: center;
+  margin-bottom: 10px; position: relative;
+}
+
+/* Node card */
+.pipe-node {
+  flex: 1; min-width: 0;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 13px 14px;
+  transition: border-color .2s;
+}
+.pipe-node:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+.pn-head { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+.pn-icon {
+  width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 12px;
+  background: color-mix(in srgb, var(--nc, var(--accent)) 15%, transparent);
+  color: var(--nc, var(--accent));
+}
+.pn-title { font-weight: 600; font-size: 12px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pn-sub   { font-size: 10px; color: var(--text-muted); margin-top: 1px; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pn-status { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 9px; color: var(--text-muted); font-family: var(--font-mono); }
+
+/* LED dot */
+.led {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--text-muted); transition: background .3s, box-shadow .3s;
+}
+.led.green  { background: #4ade80; box-shadow: 0 0 6px #4ade80; animation: led-pulse 2s ease-in-out infinite; }
+.led.red    { background: #f87171; }
+.led.yellow { background: #facc15; }
+@keyframes led-pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+/* Switch buttons (the "switches on a path") */
+.sw {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg2); color: var(--text-muted);
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  cursor: pointer; font-family: var(--font-ui); transition: all .15s;
+  white-space: nowrap; text-decoration: none;
+}
+.sw:hover          { border-color: var(--accent); color: var(--accent); }
+.sw.deploy-sw      { background: color-mix(in srgb, var(--accent) 12%, transparent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); color: var(--accent); }
+.sw.ok-sw          { background: color-mix(in srgb, #4ade80 12%, transparent); border-color: color-mix(in srgb, #4ade80 50%, transparent); color: #4ade80; }
+.sw.warn-sw        { background: color-mix(in srgb, #facc15 10%, transparent); border-color: color-mix(in srgb, #facc15 45%, transparent); color: #facc15; }
+.sw:disabled       { opacity: .4; cursor: default; pointer-events: none; }
+.sw .sw-dot        { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.pn-actions        { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+
+/* Connector between pipe nodes (horizontal arrow + switch) */
+.pipe-conn {
+  flex: 0 0 52px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  position: relative; padding: 0 4px;
+}
+.conn-line {
+  width: 100%; height: 2px;
+  background: var(--border); position: relative;
+}
+.conn-line.active { background: color-mix(in srgb, #4ade80 35%, transparent); }
+.conn-line::after {
+  content: ''; position: absolute; right: -1px; top: 50%;
+  transform: translateY(-50%);
+  border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--border);
+}
+.conn-line.active::after { border-left-color: color-mix(in srgb, #4ade80 35%, transparent); }
+
+/* cmd output strip */
+.pipe-out {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 9px 12px;
+  font-family: var(--font-mono); font-size: 10px; color: #4ade80;
+  white-space: pre-wrap; word-break: break-all;
+  display: none; margin-bottom: 10px;
+  max-height: 120px; overflow-y: auto;
+}
+.pipe-out.show { display: block; }
+.pipe-out.err  { color: #f87171; }
+
+/* Quick actions bar */
+.sys-quick {
+  margin: 0 24px 16px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.sys-quick-label { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); flex-shrink: 0; }
+.sys-quick-row   { display: flex; flex-wrap: wrap; gap: 7px; }
+
+.quick-out {
+  margin: -4px 24px 16px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 9px 12px;
+  font-family: var(--font-mono); font-size: 10px; color: #4ade80;
+  white-space: pre-wrap; word-break: break-all;
+  display: none; max-height: 140px; overflow-y: auto;
+}
+.quick-out.show { display: block; }
+.quick-out.err  { color: #f87171; }
+
+/* Bottom grid */
+.sys-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px; padding: 0 24px 80px;
+}
+@media(max-width:720px) { .sys-grid { grid-template-columns: 1fr; } }
+
+.sys-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px 18px;
+}
+.sys-card h3 {
+  font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sys-card h3 a { font-size: 9px; color: var(--text-muted); text-decoration: none; margin-left: auto; }
+.sys-card h3 a:hover { color: var(--accent); }
+
+/* Session rows */
+.sess-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: 7px; background: var(--bg2); margin-bottom: 5px;
+}
+.sess-emo  { font-size: 18px; flex-shrink: 0; }
+.sess-name { font-weight: 600; font-size: 12px; }
+.sess-task { font-size: 10px; color: var(--text-muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sess-dur  { margin-left: auto; font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); flex-shrink: 0; }
+
+/* Worker rows */
+.wkr-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px; border-radius: 7px; background: var(--bg2); margin-bottom: 5px;
+}
+.wkr-name { font-weight: 600; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wkr-gpu  { font-size: 10px; color: var(--text-muted); }
+.wkr-meta { display: flex; gap: 8px; margin-left: auto; font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); flex-shrink: 0; }
+.wkr-meta span { color: var(--text); }
+
+/* Log rows */
+.log-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 6px; border-radius: 4px; font-size: 10px;
+}
+.log-row:hover { background: var(--bg2); }
+.log-dot    { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.log-action { color: var(--text-muted); min-width: 100px; font-family: var(--font-mono); }
+.log-out    { color: var(--text-muted); opacity: .5; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.log-time   { color: var(--text-muted); opacity: .35; font-family: var(--font-mono); white-space: nowrap; }
+
+/* Ticket rows */
+.t-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 4px; font-size: 11px; }
+.t-row:hover { background: var(--bg2); }
+.t-badge { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 2px 5px; border-radius: 3px; flex-shrink: 0; }
+.t-bug     { background: color-mix(in srgb, #f87171 14%, transparent); color: #f87171; }
+.t-feature { background: color-mix(in srgb, #4ade80 14%, transparent); color: #4ade80; }
+.t-task    { background: color-mix(in srgb, #60a5fa 14%, transparent); color: #60a5fa; }
+.t-infra   { background: color-mix(in srgb, #facc15 14%, transparent); color: #facc15; }
+.t-title { flex: 1; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-pri-urgent { color: #f87171; font-size: 9px; }
+.t-pri-high   { color: #facc15; font-size: 9px; }
+.t-pri-medium { color: var(--text-muted); font-size: 9px; }
+.t-pri-low    { color: var(--text-muted); opacity: .5; font-size: 9px; }
+
+/* Fleet cards (servers not in any repo pipeline) */
+.fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 10px; margin-bottom: 28px; }
+.fleet-card {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.fc-head { display: flex; align-items: center; gap: 9px; }
+.fc-icon {
+  width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 11px;
+  background: color-mix(in srgb, var(--sc, var(--accent)) 14%, transparent);
+  color: var(--sc, var(--accent));
+}
+.fc-name { font-weight: 600; font-size: 12px; }
+.fc-host { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+.fc-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+
+@media(max-width:700px) {
+  .pipe-row { flex-direction: column; align-items: stretch; }
+  .pipe-conn { flex: 0 0 20px; flex-direction: row; }
+  .conn-line { width: 2px; height: 100%; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <i class="fa-solid fa-terminal" style="color:var(--accent);margin-right:8px;"></i>System
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="btn btn-ghost btn-sm" onclick="refreshAll()" id="btn-refresh">
+      <i class="fa-solid fa-arrows-rotate"></i> Refresh
+    </button>
+    <a href="{% url 'ops:panel' %}" class="btn btn-ghost btn-sm">
+      <i class="fa-solid fa-sliders"></i> Ops
+    </a>
+  </div>
+</div>
+
+{# ── KPI Summary ── #}
+<div class="sys-sum">
+  <div class="sys-kpi {% if fleet %}ok{% else %}dim{% endif %}">
+    <div><div class="n">{{ fleet|length }}</div><div class="l">Servers</div></div>
+  </div>
+  <div class="sys-kpi {% if repos %}ok{% else %}dim{% endif %}">
+    <div><div class="n">{{ repos|length }}</div><div class="l">Pipelines</div></div>
+  </div>
+  <div class="sys-kpi {% if worker_stats.online %}ok{% elif worker_stats.total %}warn{% else %}dim{% endif %}">
+    <div><div class="n">{{ worker_stats.online }}<span style="color:var(--text-muted);font-size:.6em;">/{{ worker_stats.total }}</span></div><div class="l">Workers</div></div>
+  </div>
+  <div class="sys-kpi {% if worker_stats.queued or worker_stats.running %}warn{% else %}dim{% endif %}">
+    <div><div class="n">{{ worker_stats.queued }}</div><div class="l">Queued Jobs</div></div>
+  </div>
+  <div class="sys-kpi {% if active_sessions %}ok{% else %}dim{% endif %}">
+    <div><div class="n">{{ active_sessions|length }}</div><div class="l">Sessions</div></div>
+  </div>
+  <div class="sys-kpi {% if git.dirty %}warn{% else %}ok{% endif %}">
+    <div>
+      <div class="n" style="font-size:.9em;font-family:var(--font-mono);">{{ git.branch|default:"?" }}</div>
+      <div class="l">{% if git.dirty %}Uncommitted{% else %}Git Clean{% endif %}</div>
+    </div>
+  </div>
+  <div class="sys-kpi {% if open_tickets %}warn{% else %}dim{% endif %}">
+    <div><div class="n">{{ open_tickets|length }}</div><div class="l">Tickets</div></div>
+  </div>
+  {% if modules_summary.total %}
+  <div class="sys-kpi ok" style="cursor:pointer;" onclick="location.href='{% url 'modules:index' %}'">
+    <div>
+      <div class="n">{{ modules_summary.total }}</div>
+      <div class="l">Modules</div>
+    </div>
+    <div style="font-size:9px;color:var(--text-faint);line-height:1.4;margin-left:6px;">
+      <div>{{ modules_summary.public }} public</div>
+      <div>{{ modules_summary.live }} live</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Deploy Pipelines (one row per managed repo) ── #}
+<div class="sys-pipes">
+  <div class="sys-label">
+    <i class="fa-solid fa-code-branch"></i> Deploy Pipelines
+    <a href="{% url 'gitnode:index' %}">HiHi Node <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:7px;"></i></a>
+  </div>
+
+  {% for repo in repos %}
+  {# ── REPO → SERVER → LIVE ── #}
+  <div class="pipe-row" id="pipe-{{ repo.pk }}">
+
+    {# Node 1: Repo #}
+    <div class="pipe-node" style="--nc: {{ repo.color }}">
+      <div class="pn-head">
+        <div class="pn-icon"><i class="fa-solid {{ repo.icon }}"></i></div>
+        <div style="min-width:0;">
+          <div class="pn-title">{{ repo.name }}</div>
+          <div class="pn-sub">{{ repo.path|truncatechars:36 }}</div>
+        </div>
+      </div>
+      <div class="pn-status" id="status-{{ repo.pk }}">
+        <span class="led" id="repo-led-{{ repo.pk }}"></span>
+        <span id="status-text-{{ repo.pk }}">—</span>
+      </div>
+      <div class="pn-actions">
+        {% if repo.github_url %}
+        <a href="{{ repo.github_url }}" target="_blank" class="sw">
+          <i class="fa-brands fa-github" style="font-size:9px;"></i> GitHub
+        </a>
+        {% endif %}
+        <button class="sw" onclick="statusRepo({{ repo.pk }})">
+          <span class="sw-dot"></span> Check
+        </button>
+        <button class="sw" onclick="scoopRepo({{ repo.pk }})">
+          <span class="sw-dot"></span> Scoop
+        </button>
+      </div>
+    </div>
+
+    {# Connector 1: Deploy switch #}
+    <div class="pipe-conn" title="git pull + service restart">
+      <div class="conn-line" id="conn1-{{ repo.pk }}"></div>
+      <button class="sw deploy-sw" onclick="deployRepo({{ repo.pk }})" id="deploy-btn-{{ repo.pk }}">
+        <span class="sw-dot"></span> Deploy
+      </button>
+      <div class="conn-line" id="conn1b-{{ repo.pk }}"></div>
+    </div>
+
+    {# Node 2: Server #}
+    <div class="pipe-node" style="--nc: {{ repo.server.color }}">
+      <div class="pn-head">
+        <div class="pn-icon"><i class="fa-solid {{ repo.server.icon }}"></i></div>
+        <div style="min-width:0;">
+          <div class="pn-title">{{ repo.server.name }}</div>
+          <div class="pn-sub">{{ repo.server.host }}</div>
+        </div>
+        <span class="led" id="srv-led-{{ repo.server.pk }}" style="margin-left:auto;flex-shrink:0;"></span>
+      </div>
+      <div class="pn-status" style="color:var(--text-muted);font-size:9px;">
+        <i class="fa-solid fa-code-branch" style="font-size:8px;"></i>
+        <span id="branch-{{ repo.pk }}">{{ repo.branch }}</span>
+        &nbsp;·&nbsp; {{ repo.server.get_platform_display }}
+      </div>
+      <div class="pn-actions">
+        <button class="sw" onclick="statusRepo({{ repo.pk }})">
+          <span class="sw-dot"></span> Status
+        </button>
+        {% if repo.server.ssh_user and repo.server.host %}
+        <button class="sw" onclick="copySSH('{{ repo.server.ssh_command }}')" title="{{ repo.server.ssh_command }}">
+          <i class="fa-solid fa-terminal" style="font-size:8px;"></i> SSH
+        </button>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Connector 2: Live path #}
+    <div class="pipe-conn">
+      <div class="conn-line" id="conn2-{{ repo.pk }}"></div>
+      <button class="sw" onclick="pingServer({{ repo.server.pk }}, {{ repo.pk }})" id="ping-btn-{{ repo.pk }}">
+        <span class="sw-dot"></span> Ping
+      </button>
+      <div class="conn-line" id="conn2b-{{ repo.pk }}"></div>
+    </div>
+
+    {# Node 3: Live endpoint #}
+    <div class="pipe-node" style="--nc: #4ade80">
+      <div class="pn-head">
+        <div class="pn-icon" style="--nc:#4ade80"><i class="fa-solid fa-globe"></i></div>
+        <div style="min-width:0;">
+          <div class="pn-title" style="font-family:var(--font-mono);font-size:11px;">
+            {{ repo.server.domain|default:repo.server.host|truncatechars:28 }}
+          </div>
+          <div class="pn-sub">{{ repo.server.service_type }}</div>
+        </div>
+        <span class="led" id="live-led-{{ repo.pk }}" style="margin-left:auto;flex-shrink:0;"></span>
+      </div>
+      <div class="pn-actions">
+        {% if repo.server.domain %}
+        <a href="{{ repo.server.domain }}" target="_blank" class="sw ok-sw">
+          <span class="sw-dot"></span> Open
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <pre class="pipe-out" id="out-{{ repo.pk }}"></pre>
+  {% empty %}
+  <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;">
+    <i class="fa-solid fa-code-branch" style="font-size:1.5rem;display:block;margin-bottom:10px;"></i>
+    No pipelines yet. Add repos in <a href="{% url 'gitnode:index' %}" style="color:var(--accent);">HiHi Node</a>.
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Quick-action switchboard ── #}
+<div class="sys-quick">
+  <span class="sys-quick-label"><i class="fa-solid fa-bolt"></i>&nbsp; Quick</span>
+  <div class="sys-quick-row">
+    <button class="sw deploy-sw" onclick="opsCmd('git_pull')"><span class="sw-dot"></span> Git Pull</button>
+    <button class="sw" onclick="opsCmd('git_status')"><span class="sw-dot"></span> Git Status</button>
+    <button class="sw" onclick="opsCmd('git_log')"><span class="sw-dot"></span> Git Log</button>
+    <button class="sw deploy-sw" onclick="opsCmd('reload')"><span class="sw-dot"></span> Reload Workers</button>
+    <button class="sw" onclick="opsCmd('collectstatic')"><span class="sw-dot"></span> Collect Static</button>
+    <button class="sw" onclick="checkAllGits()"><span class="sw-dot"></span> Check All Repos</button>
+    <a href="{% url 'servers:index' %}" class="sw"><i class="fa-solid fa-satellite-dish" style="font-size:8px;"></i> Fleet</a>
+    <a href="{% url 'workers:index' %}" class="sw"><i class="fa-solid fa-microchip" style="font-size:8px;"></i> Workers</a>
+    <a href="{% url 'servers:sessions' %}" class="sw"><i class="fa-solid fa-users" style="font-size:8px;"></i> Sessions</a>
+  </div>
+</div>
+<pre class="quick-out" id="quick-out"></pre>
+
+{# ── Bottom 2×2 grid ── #}
+<div class="sys-grid">
+
+  {# Sessions #}
+  <div class="sys-card">
+    <h3><i class="fa-solid fa-users"></i> Active Sessions <a href="{% url 'servers:sessions' %}">→ Full view</a></h3>
+    {% for s in active_sessions %}
+    <div class="sess-row">
+      <span class="sess-emo">{{ s.developer.avatar_emoji }}</span>
+      <div style="min-width:0;">
+        <div class="sess-name">{{ s.developer.display_name }}</div>
+        <div class="sess-task">{{ s.task_summary|default:s.project_name|default:"No task set"|truncatechars:52 }}</div>
+      </div>
+      <span class="sess-dur">{{ s.duration_display }}</span>
+    </div>
+    {% empty %}
+    <p style="color:var(--text-muted);font-size:11px;padding:8px 0;">No active sessions.</p>
+    {% endfor %}
+  </div>
+
+  {# Workers #}
+  <div class="sys-card">
+    <h3><i class="fa-solid fa-microchip"></i> Workers <a href="{% url 'workers:index' %}">→ Full view</a></h3>
+    {% for w in workers %}
+    <div class="wkr-row">
+      <span class="led {% if w.online %}green{% else %}red{% endif %}"></span>
+      <div style="min-width:0;">
+        <div class="wkr-name">{{ w.name }}</div>
+        {% if w.gpu %}<div class="wkr-gpu">{{ w.gpu }}</div>{% endif %}
+      </div>
+      <div class="wkr-meta">
+        {% if w.online %}
+          {% if w.cpu_pct is not None %}<span>CPU <span>{{ w.cpu_pct|floatformat:0 }}%</span></span>{% endif %}
+          {% if w.vram_used is not None %}<span>VRAM <span>{{ w.vram_used }}M</span></span>{% endif %}
+          {% if w.active_jobs %}<span>Jobs <span>{{ w.active_jobs }}</span></span>{% endif %}
+        {% else %}<span style="color:#f87171;font-size:9px;">OFFLINE</span>{% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <p style="color:var(--text-muted);font-size:11px;padding:8px 0;">No workers registered.</p>
+    {% endfor %}
+    {% if worker_stats.queued or worker_stats.running %}
+    <div style="margin-top:8px;padding:7px 10px;background:var(--bg2);border-radius:6px;font-size:10px;color:var(--text-muted);">
+      Queue: <span style="color:#facc15;">{{ worker_stats.queued }} waiting</span>
+      {% if worker_stats.running %} · <span style="color:#4ade80;">{{ worker_stats.running }} running</span>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {# Open Tickets #}
+  <div class="sys-card">
+    <h3><i class="fa-solid fa-ticket"></i> Tickets <span style="color:var(--text-muted);font-weight:400;font-size:9px;margin-left:2px;">({{ open_tickets|length }})</span><a href="{% url 'ops:panel' %}">→ Ops Panel</a></h3>
+    {% for t in open_tickets %}
+    <div class="t-row">
+      <span class="t-badge t-{{ t.ticket_type }}">{{ t.get_ticket_type_display }}</span>
+      <span class="t-title" title="{{ t.description }}">{{ t.title }}</span>
+      <span class="t-pri-{{ t.priority }}">{{ t.priority|upper|slice:":3" }}</span>
+    </div>
+    {% empty %}
+    <p style="color:var(--text-muted);font-size:11px;padding:8px 0;">All clear — no open tickets.</p>
+    {% endfor %}
+  </div>
+
+  {# Ops Log #}
+  <div class="sys-card">
+    <h3><i class="fa-solid fa-clock-rotate-left"></i> Ops Log <a href="{% url 'ops:panel' %}">→ Full log</a></h3>
+    {% for ev in ops_log %}
+    <div class="log-row">
+      <span class="log-dot" style="background:{% if ev.success %}#4ade80{% else %}#f87171{% endif %};"></span>
+      <span class="log-action">{{ ev.action }}</span>
+      <span class="log-out" title="{{ ev.output }}">{{ ev.output|truncatechars:55 }}</span>
+      <span class="log-time">{{ ev.created_at|date:"m/d H:i" }}</span>
+    </div>
+    {% empty %}
+    <p style="color:var(--text-muted);font-size:11px;padding:8px 0;">No ops logged yet.</p>
+    {% endfor %}
+  </div>
+
+  {# Fleet — servers not covered by a pipeline #}
+  {% if fleet %}
+  <div class="sys-card" style="grid-column:1/-1">
+    <h3><i class="fa-solid fa-satellite-dish"></i> All Servers <a href="{% url 'servers:index' %}">→ Fleet</a></h3>
+    <div class="fleet-grid">
+      {% for srv in fleet %}
+      <div class="fleet-card" style="--sc: {{ srv.color }}">
+        <div class="fc-head">
+          <div class="fc-icon"><i class="fa-solid {{ srv.icon }}"></i></div>
+          <div style="min-width:0;">
+            <div class="fc-name">{{ srv.name }}</div>
+            <div class="fc-host">{{ srv.host }}</div>
+          </div>
+          <span class="led" id="fleet-led-{{ srv.pk }}" style="margin-left:auto;flex-shrink:0;"></span>
+        </div>
+        <div class="fc-actions">
+          <button class="sw" onclick="pingFleet({{ srv.pk }})"><span class="sw-dot"></span> Ping</button>
+          {% if srv.domain %}
+          <a href="{{ srv.domain }}" target="_blank" class="sw ok-sw">
+            <span class="sw-dot"></span> Live
+          </a>
+          {% endif %}
+          <button class="sw" onclick="copySSH('{{ srv.ssh_command }}')" title="{{ srv.ssh_command }}">
+            <i class="fa-solid fa-terminal" style="font-size:8px;"></i> SSH
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# Modules summary #}
+  {% if modules_summary.total %}
+  <div class="sys-card">
+    <h3>
+      <i class="fa-solid fa-cubes"></i> HiHi Modules
+      <a href="{% url 'modules:index' %}">→ Manage</a>
+    </h3>
+    <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="text-align:center;min-width:50px;">
+        <div style="font-size:1.3em;font-weight:700;color:var(--text);">{{ modules_summary.total }}</div>
+        <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">Total</div>
+      </div>
+      <div style="text-align:center;min-width:50px;">
+        <div style="font-size:1.3em;font-weight:700;color:#4ade80;">{{ modules_summary.public }}</div>
+        <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">Public</div>
+      </div>
+      <div style="text-align:center;min-width:50px;">
+        <div style="font-size:1.3em;font-weight:700;color:var(--accent);">{{ modules_summary.live }}</div>
+        <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;">Live</div>
+      </div>
+    </div>
+    {% if modules_summary.last_sync %}
+    <div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);margin-bottom:10px;">
+      Last GitHub sync: {{ modules_summary.last_sync|timesince }} ago
+    </div>
+    {% else %}
+    <div style="font-size:10px;color:var(--text-faint);font-family:var(--font-mono);margin-bottom:10px;">
+      Not yet synced from GitHub
+    </div>
+    {% endif %}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="sw deploy-sw" onclick="syncModulesGitHub()">
+        <i class="fa-brands fa-github" style="font-size:9px;"></i> Sync GitHub
+      </button>
+      <a href="{% url 'modules:works' %}" target="_blank" class="sw ok-sw">
+        <span class="sw-dot"></span> Works page
+      </a>
+    </div>
+    <div id="mod-sync-out" class="pipe-out" style="margin-top:8px;"></div>
+  </div>
+  {% endif %}
+
+</div>{# /sys-grid #}
+
+<script>
+const CSRF = '{{ csrf_token }}';
+const GN_BASE = '{% url "gitnode:index" %}';
+const SRV_BASE = '{% url "servers:index" %}';
+
+async function apiFetch(url, opts) {
+  const r = await fetch(url, {
+    headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest', ...(opts.headers || {}) },
+    ...opts,
+  });
+  return r.json();
+}
+
+function showOut(id, text, isErr) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'pipe-out show' + (isErr ? ' err' : '');
+}
+
+function setLed(id, state) {  // state: 'green' | 'red' | 'yellow' | ''
+  const el = document.getElementById(id);
+  if (el) el.className = 'led' + (state ? ' ' + state : '');
+}
+
+function setStatusText(pk, text, ledState) {
+  const el = document.getElementById('status-text-' + pk);
+  if (el) el.textContent = text;
+  setLed('repo-led-' + pk, ledState || '');
+}
+
+// ── Repo actions ──────────────────────────────────────────────
+async function statusRepo(pk) {
+  setStatusText(pk, 'checking…', '');
+  const d = await apiFetch(GN_BASE + pk + '/status/', { method: 'GET' });
+  if (d.ok) {
+    const clean = d.clean;
+    setStatusText(pk, clean ? '✓ clean' : d.status, clean ? 'green' : 'yellow');
+    const brEl = document.getElementById('branch-' + pk);
+    if (brEl) brEl.textContent = d.branch;
+    if (clean) {
+      document.getElementById('conn1-' + pk)?.classList.add('active');
+      document.getElementById('conn1b-' + pk)?.classList.add('active');
+    }
+  } else {
+    setStatusText(pk, 'error', 'red');
+  }
+}
+
+async function deployRepo(pk) {
+  const btn = document.getElementById('deploy-btn-' + pk);
+  if (btn) btn.disabled = true;
+  setStatusText(pk, 'deploying…', '');
+  const d = await apiFetch(GN_BASE + pk + '/deploy/', { method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json' } });
+  if (btn) btn.disabled = false;
+  showOut('out-' + pk, d.output || (d.ok ? '✓ done' : 'error'), !d.ok);
+  if (d.ok) {
+    setStatusText(pk, '✓ deployed', 'green');
+    setLed('live-led-' + pk, 'green');
+    document.getElementById('conn2-' + pk)?.classList.add('active');
+    document.getElementById('conn2b-' + pk)?.classList.add('active');
+  } else {
+    setStatusText(pk, 'error', 'red');
+  }
+  setTimeout(() => statusRepo(pk), 800);
+}
+
+async function scoopRepo(pk) {
+  const msg = window.prompt('Commit message:', 'scoop: checkpoint') || 'scoop: checkpoint';
+  setStatusText(pk, 'scooping…', '');
+  const d = await apiFetch(GN_BASE + pk + '/scoop/', { method: 'POST', body: JSON.stringify({ message: msg }), headers: { 'Content-Type': 'application/json' } });
+  showOut('out-' + pk, d.output || (d.ok ? '✓ done' : 'error'), !d.ok);
+  const isScooped = (d.output || '').includes('SCOOPED');
+  const isClean   = (d.output || '').includes('CLEAN');
+  setStatusText(pk, isScooped ? '✓ scooped' : isClean ? '✓ clean' : (d.ok ? 'done' : 'error'),
+                isScooped || isClean ? 'green' : (d.ok ? '' : 'red'));
+}
+
+// ── Ping server ───────────────────────────────────────────────
+async function pingServer(srvPk, repoPk) {
+  setLed('srv-led-' + srvPk, '');
+  setLed('live-led-' + repoPk, '');
+  const d = await fetch(SRV_BASE + srvPk + '/ping/').then(r => r.json()).catch(() => ({ ok: false }));
+  setLed('srv-led-' + srvPk, d.ok ? 'green' : 'red');
+  setLed('live-led-' + repoPk, d.ok ? 'green' : 'red');
+  if (d.ok) {
+    document.getElementById('conn2-' + repoPk)?.classList.add('active');
+    document.getElementById('conn2b-' + repoPk)?.classList.add('active');
+  }
+}
+
+async function pingFleet(srvPk) {
+  setLed('fleet-led-' + srvPk, '');
+  const d = await fetch(SRV_BASE + srvPk + '/ping/').then(r => r.json()).catch(() => ({ ok: false }));
+  setLed('fleet-led-' + srvPk, d.ok ? 'green' : 'red');
+}
+
+// ── Ops commands ──────────────────────────────────────────────
+async function opsCmd(cmd) {
+  const out = document.getElementById('quick-out');
+  out.textContent = '⏳ Running…'; out.className = 'quick-out show'; out.classList.remove('err');
+  const body = new URLSearchParams({ cmd });
+  const d = await apiFetch('{% url "ops:run_cmd" %}', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+  out.textContent = d.output || '(no output)';
+  if (!d.success) out.classList.add('err');
+  if (cmd === 'git_pull' && d.success) setTimeout(() => location.reload(), 1200);
+}
+
+async function checkAllGits() {
+  const out = document.getElementById('quick-out');
+  out.textContent = '⏳ Checking all repos…'; out.className = 'quick-out show'; out.classList.remove('err');
+  const d = await apiFetch('{% url "ops:check_all_repos" %}', { method: 'POST', body: '' });
+  if (d.ok && d.repos) {
+    out.textContent = d.repos.map(r => (r.clean ? '✓' : '✗') + ' [' + r.branch + '] ' + r.name + ' — ' + r.status).join('\n');
+    if (d.repos.some(r => !r.clean)) out.classList.add('err');
+  } else {
+    out.textContent = d.error || 'error'; out.classList.add('err');
+  }
+}
+
+function copySSH(cmd) {
+  navigator.clipboard?.writeText(cmd).then(() => {
+    const tmp = document.createElement('div');
+    tmp.textContent = 'Copied: ' + cmd;
+    tmp.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:11px;font-family:var(--font-mono);z-index:999;color:var(--text);';
+    document.body.appendChild(tmp);
+    setTimeout(() => tmp.remove(), 2000);
+  });
+}
+
+async function syncModulesGitHub() {
+  const out = document.getElementById('mod-sync-out');
+  out.textContent = 'Connecting to GitHub…'; out.classList.add('show');
+  try {
+    const r = await apiFetch('{% url "modules:sync_github" %}', {method:'POST'});
+    if (r.ok) {
+      out.textContent = '✓ Synced ' + r.total + ' repos — ' + r.created + ' new, ' + r.updated + ' updated.';
+      out.classList.remove('err');
+    } else {
+      out.textContent = '✗ ' + (r.error || 'Error'); out.classList.add('err');
+    }
+  } catch(e) { out.textContent = '✗ ' + e.message; out.classList.add('err'); }
+}
+
+function refreshAll() {
+  const btn = document.getElementById('btn-refresh');
+  if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Refreshing…';
+  {% for repo in repos %}statusRepo({{ repo.pk }});{% endfor %}
+  {% for repo in repos %}pingServer({{ repo.server.pk }}, {{ repo.pk }});{% endfor %}
+  {% for srv in fleet %}pingFleet({{ srv.pk }});{% endfor %}
+  setTimeout(() => { if (btn) btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Refresh'; }, 4000);
+}
+
+document.addEventListener('DOMContentLoaded', refreshAll);
+</script>
+{% endblock %}

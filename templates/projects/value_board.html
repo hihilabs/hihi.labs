@@ -102,6 +102,25 @@
 /* ── Draft invoice btn ──────────────────────────────────────── */
 .vb-draft-btn { flex-shrink: 0; }
 
+/* ── Mode tabs ──────────────────────────────────────────────── */
+.vb-tabs { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+.vb-tab {
+  font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--text-muted); text-decoration: none; transition: all .15s;
+}
+.vb-tab:hover { color: var(--text); border-color: var(--accent); }
+.vb-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── Cost-mode badges ───────────────────────────────────────── */
+.vb-flag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; padding: 3px 10px;
+  border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+}
+.vb-flag.underwater  { background: color-mix(in srgb,#f87171 18%,transparent); color: #f87171; }
+.vb-flag.underpriced { background: color-mix(in srgb,var(--yellow) 18%,transparent); color: var(--yellow); }
+
 @media (max-width: 900px) {
   .vb-metrics { grid-template-columns: repeat(3, 1fr); }
   .vb-summary { grid-template-columns: repeat(2, 1fr); }
@@ -122,6 +141,15 @@
   <a href="{% url 'projects:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
 </div>
 
+<div class="vb-wrap" style="padding-bottom:0;">
+  <div class="vb-tabs">
+    <a href="?mode=value"   class="vb-tab {% if mode == 'value' %}active{% endif %}"><i class="fa-solid fa-chart-line"></i> Value</a>
+    <a href="?mode=cost"    class="vb-tab {% if mode == 'cost' %}active{% endif %}"><i class="fa-solid fa-coins"></i> Cost</a>
+    <a href="?mode=sustain" class="vb-tab {% if mode == 'sustain' %}active{% endif %}"><i class="fa-solid fa-heart-pulse"></i> Sustain</a>
+    <a href="?mode=pricing" class="vb-tab {% if mode == 'pricing' %}active{% endif %}"><i class="fa-solid fa-tags"></i> Pricing</a>
+  </div>
+</div>
+
 {% if not rows %}
 <div class="empty-state" style="margin-top:60px;">
   <i class="fa-solid fa-chart-line"></i>
@@ -131,6 +159,64 @@
 <div class="vb-wrap">
 
   {# ── Summary strip ── #}
+  {% if mode == 'cost' %}
+  <div class="vb-summary">
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Total Cost to Date</div>
+      <div class="vb-summary-val" style="color:#f87171;">${{ total_cost }}</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Total Margin</div>
+      <div class="vb-summary-val" style="color:{% if total_margin >= 0 %}var(--green){% else %}#f87171{% endif %};">${{ total_margin }}</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Underwater</div>
+      <div class="vb-summary-val" style="color:#f87171;">{{ underwater_count }}</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Labor Cost Basis</div>
+      <div class="vb-summary-val">${{ cost_settings.labor_cost_per_hour }}/hr</div>
+    </div>
+  </div>
+  {% elif mode == 'sustain' %}
+  <div class="vb-summary">
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Monthly Burn (all projects)</div>
+      <div class="vb-summary-val" style="color:#fb923c;">${{ total_sustain }}/mo</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Fixed Overhead</div>
+      <div class="vb-summary-val">${{ cost_settings.overhead_monthly }}/mo</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Active Projects</div>
+      <div class="vb-summary-val">{{ rows|length }}</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Underwater</div>
+      <div class="vb-summary-val" style="color:#f87171;">{{ underwater_count }}</div>
+    </div>
+  </div>
+  {% elif mode == 'pricing' %}
+  <div class="vb-summary">
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Repricing Opportunity</div>
+      <div class="vb-summary-val" style="color:var(--green);">${{ repricing_opportunity }}</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Underpriced Projects</div>
+      <div class="vb-summary-val" style="color:var(--yellow);">{{ underpriced_count }}</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Margin Target</div>
+      <div class="vb-summary-val">{{ cost_settings.target_margin_pct }}%</div>
+    </div>
+    <div class="vb-summary-card">
+      <div class="vb-summary-label">Labor Cost Basis</div>
+      <div class="vb-summary-val">${{ cost_settings.labor_cost_per_hour }}/hr</div>
+    </div>
+  </div>
+  {% else %}
   <div class="vb-summary">
     <div class="vb-summary-card">
       <div class="vb-summary-label">Unbilled Revenue</div>
@@ -151,6 +237,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   {# ── Board ── #}
   <div class="vb-board">
@@ -165,6 +252,10 @@
           {% if row.project.client %}<span class="vb-client-tag">{{ row.project.client }}</span>{% endif %}
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          {% if mode != 'value' %}
+            {% if row.underwater %}<span class="vb-flag underwater"><i class="fa-solid fa-water"></i> Underwater</span>{% endif %}
+            {% if row.pricing.underpriced %}<span class="vb-flag underpriced"><i class="fa-solid fa-arrow-trend-down"></i> Underpriced</span>{% endif %}
+          {% endif %}
           {# Health badge #}
           <span class="vb-health h-{{ row.health }}">
             {% if row.health == 'urgent'  %}<i class="fa-solid fa-bolt"></i> Urgent
@@ -186,6 +277,103 @@
       </div>
 
       {# Metrics #}
+      {% if mode == 'cost' %}
+      <div class="vb-metrics">
+        <div>
+          <div class="vb-metric-label">Cost to Date</div>
+          <div class="vb-metric-val" style="color:#f87171;">${{ row.cost.total }}</div>
+          <div class="vb-metric-sub">L1 raw cost</div>
+        </div>
+        <div>
+          <div class="vb-metric-label">Labor</div>
+          <div class="vb-metric-val">${{ row.cost.labor }}</div>
+          <div class="vb-metric-sub">{{ row.total_hours }}h at cost</div>
+        </div>
+        <div>
+          <div class="vb-metric-label">AI Spend</div>
+          {% if row.cost.ai > 0 %}<div class="vb-metric-val">${{ row.cost.ai }}</div>
+          {% else %}<div class="vb-metric-val" style="color:var(--text-muted);">—</div>{% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Expenses</div>
+          {% if row.cost.one_time_expenses > 0 %}<div class="vb-metric-val">${{ row.cost.one_time_expenses }}</div>
+          {% else %}<div class="vb-metric-val" style="color:var(--text-muted);">—</div>{% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Revenue</div>
+          <div class="vb-metric-val">${{ row.total_value }}</div>
+        </div>
+        <div>
+          <div class="vb-metric-label">Margin</div>
+          <div class="vb-metric-val" style="color:{% if row.margin >= 0 %}var(--green){% else %}#f87171{% endif %};">${{ row.margin }}</div>
+          {% if row.margin_pct != None %}<div class="vb-metric-sub">{{ row.margin_pct }}%</div>{% endif %}
+        </div>
+      </div>
+      {% elif mode == 'sustain' %}
+      <div class="vb-metrics">
+        <div>
+          <div class="vb-metric-label">Sustain / Month</div>
+          <div class="vb-metric-val" style="color:#fb923c;">${{ row.sustain.total }}</div>
+          <div class="vb-metric-sub">L2 run-rate</div>
+        </div>
+        <div>
+          <div class="vb-metric-label">Maint. Labor</div>
+          <div class="vb-metric-val">${{ row.sustain.labor }}</div>
+          <div class="vb-metric-sub">{{ row.sustain.maint_hours }}h/mo (90d avg)</div>
+        </div>
+        <div>
+          <div class="vb-metric-label">Recurring Exp.</div>
+          {% if row.sustain.recurring_expenses > 0 %}<div class="vb-metric-val">${{ row.sustain.recurring_expenses }}</div>
+          {% else %}<div class="vb-metric-val" style="color:var(--text-muted);">—</div>{% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Infra Share</div>
+          {% if row.sustain.infra > 0 %}<div class="vb-metric-val">${{ row.sustain.infra }}</div>
+          {% else %}<div class="vb-metric-val" style="color:var(--text-muted);">—</div>{% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Overhead Share</div>
+          {% if row.sustain.overhead > 0 %}<div class="vb-metric-val">${{ row.sustain.overhead }}</div>
+          {% else %}<div class="vb-metric-val" style="color:var(--text-muted);">—</div>{% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Break-even Retainer</div>
+          <div class="vb-metric-val" style="color:var(--teal);">${{ row.sustain.total }}/mo</div>
+          <div class="vb-metric-sub">charge at least this</div>
+        </div>
+      </div>
+      {% elif mode == 'pricing' %}
+      <div class="vb-metrics">
+        <div>
+          <div class="vb-metric-label">Current Rate</div>
+          <div class="vb-metric-val">${{ row.pricing.current_hourly }}/hr</div>
+        </div>
+        <div>
+          <div class="vb-metric-label">Suggested Rate</div>
+          <div class="vb-metric-val" style="color:{% if row.pricing.underpriced %}var(--yellow){% else %}var(--green){% endif %};">${{ row.pricing.suggested_hourly }}/hr</div>
+          {% if row.pricing.hourly_delta_pct != None %}<div class="vb-metric-sub">{% if row.pricing.hourly_delta_pct > 0 %}+{% endif %}{{ row.pricing.hourly_delta_pct }}% vs current</div>{% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Suggested Retainer</div>
+          <div class="vb-metric-val" style="color:var(--teal);">${{ row.pricing.suggested_retainer }}/mo</div>
+          <div class="vb-metric-sub">L3 scaled price</div>
+        </div>
+        <div>
+          <div class="vb-metric-label">Client Factor</div>
+          <div class="vb-metric-val">{{ row.pricing.factor }}×</div>
+          {% if row.project.client_fk %}<div class="vb-metric-sub">{{ row.project.client_fk.display_name }}</div>{% endif %}
+        </div>
+        <div>
+          <div class="vb-metric-label">Cost Floor</div>
+          <div class="vb-metric-val">${{ row.sustain.total }}/mo</div>
+          <div class="vb-metric-sub">sustain run-rate</div>
+        </div>
+        <div>
+          <div class="vb-metric-label">Revenue to Date</div>
+          <div class="vb-metric-val">${{ row.total_value }}</div>
+        </div>
+      </div>
+      {% else %}
       <div class="vb-metrics">
         <div>
           <div class="vb-metric-label">Time Spent</div>
@@ -234,6 +422,7 @@
           {% endif %}
         </div>
       </div>
+      {% endif %}
 
       {# Progress bars #}
       <div class="vb-bars">

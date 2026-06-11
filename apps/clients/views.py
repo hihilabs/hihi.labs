@@ -161,6 +161,19 @@ def contact_delete(request, pk, contact_pk):
 
 @login_required
 @require_POST
+def contact_portal_toggle(request, pk, contact_pk):
+    contact = su_get(Contact, contact_pk, request.user, owner_field='client__owner')
+    data = json.loads(request.body)
+    if 'portal_active' in data:
+        contact.portal_active = bool(data['portal_active'])
+    else:
+        contact.portal_active = not contact.portal_active
+    contact.save(update_fields=['portal_active'])
+    return JsonResponse({'ok': True, 'portal_active': contact.portal_active})
+
+
+@login_required
+@require_POST
 def followup_create(request, pk):
     client = su_get(Client, pk, request.user)
     data = json.loads(request.body)

@@ -113,6 +113,19 @@ def worker_delete(request, pk):
     return JsonResponse({'ok': True})
 
 
+@login_required
+@require_POST
+def worker_cmd(request, pk):
+    node = get_object_or_404(WorkerNode, pk=pk)
+    data = json.loads(request.body)
+    cmd  = data.get('cmd', '').strip()[:80]
+    if not cmd:
+        return JsonResponse({'error': 'cmd required'}, status=400)
+    node.pending_command = cmd
+    node.save(update_fields=['pending_command'])
+    return JsonResponse({'ok': True, 'node': node.name, 'cmd': cmd})
+
+
 # ── Job management ────────────────────────────────────────────────────────────
 
 @login_required

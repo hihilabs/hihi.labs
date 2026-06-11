@@ -33,11 +33,14 @@ def _get_task(pk, user):
 
 @login_required
 def project_index(request):
+    from apps.dashboard.models import ProjectSubscription
     projects = _proj_qs(request.user).exclude(status='archived')
     running = TimeEntry.objects.filter(owner=request.user, ended_at__isnull=True).first()
+    grabbed_ids = set(ProjectSubscription.objects.filter(user=request.user).values_list('project_id', flat=True))
     return render(request, 'projects/index.html', {
-        'projects': projects,
-        'running': running,
+        'projects':    projects,
+        'running':     running,
+        'grabbed_ids': grabbed_ids,
     })
 
 
@@ -55,17 +58,34 @@ def project_detail(request, pk):
     files = ClientFile.objects.filter(project=project).order_by('-created_at')
     notes = project.notes.select_related('author')
     from apps.tickets.models import Ticket
+    from apps.dashboard.models import ProjectSubscription
     proj_tickets = Ticket.objects.filter(project=project).order_by('-created_at')
+    is_grabbed = ProjectSubscription.objects.filter(user=request.user, project=project).exists()
+
+    from django.contrib.auth.models import User
+    staff_users = User.objects.filter(is_staff=True, is_active=True).order_by('first_name', 'username')
+
+    client_contacts = []
+    if project.client_fk_id:
+        from apps.clients.models import Contact
+        client_ids = [project.client_fk_id] + list(
+            project.client_fk.portal_linked_clients.values_list('pk', flat=True)
+        )
+        client_contacts = Contact.objects.filter(client_id__in=client_ids)
+
     return render(request, 'projects/detail.html', {
-        'project': project,
-        'tasks': tasks,
-        'entries': entries,
-        'running': running,
-        'tracks': tracks,
+        'project':    project,
+        'tasks':      tasks,
+        'entries':    entries,
+        'running':    running,
+        'tracks':     tracks,
         'whiteboards': whiteboards,
-        'files': files,
-        'notes': notes,
+        'files':      files,
+        'notes':      notes,
         'proj_tickets': proj_tickets,
+        'is_grabbed': is_grabbed,
+        'staff_users': staff_users,
+        'client_contacts': client_contacts,
     })
 
 
@@ -77,6 +97,7 @@ def project_create(request):
         owner=request.user,
         name=data['name'],
         client=data.get('client', ''),
+        entity=data.get('entity', 'general'),
         color=data.get('color', '#7c6af7'),
         hourly_rate=data.get('hourly_rate', 150),
     )
@@ -88,7 +109,7 @@ def project_create(request):
 def project_update(request, pk):
     project = _get_project(pk, request.user)
     data = json.loads(request.body)
-    for field in ['name', 'client', 'description', 'status', 'color', 'hourly_rate']:
+    for field in ['name', 'client', 'description', 'status', 'entity', 'color', 'hourly_rate']:
         if field in data:
             setattr(project, field, data[field])
     project.save()
@@ -118,6 +139,14 @@ def task_update(request, pk):
     for field in ['title', 'notes', 'status', 'priority', 'order']:
         if field in data:
             setattr(task, field, data[field])
+    if 'due_date' in data:
+        task.due_date = data['due_date'] or None
+    if 'client_visible' in data:
+        task.client_visible = bool(data['client_visible'])
+    if 'assigned_to_user_id' in data:
+        task.assigned_to_user_id = data['assigned_to_user_id'] or None
+    if 'assigned_to_contact_id' in data:
+        task.assigned_to_contact_id = data['assigned_to_contact_id'] or None
     if data.get('status') == 'done' and not task.completed_at:
         task.completed_at = timezone.now()
     elif data.get('status') != 'done':
@@ -282,7 +311,17 @@ def global_tasks(request):
 
 @login_required
 def value_board(request):
+    from apps.billing import costing
+
+    mode = request.GET.get('mode', 'value')
+    if mode not in ('value', 'cost', 'sustain', 'pricing'):
+        mode = 'value'
+    cost_mode = mode != 'value'
+
     projects = _proj_qs(request.user).exclude(status='archived')
+    if cost_mode:
+        cost_settings = costing.get_cost_settings()
+        active_count = projects.count()
     rows = []
     for p in projects:
         entries = list(p.time_entries.filter(ended_at__isnull=False))
@@ -336,6 +375,23 @@ def value_board(request):
         # Priority sort score: unbilled + urgency boost
         sort_score = unbilled_value + (urgent_open * 500) + (total_hours * rate * 0.1)
 
+        cost = sustain = pricing = margin = margin_pct = None
+        underwater = False
+        if cost_mode:
+            cost = costing.raw_cost(p, cost_settings, total_hours)
+            sustain = costing.sustain_monthly(p, cost_settings, active_count)
+            pricing = costing.suggested_pricing(p, cost_settings, sustain['total'])
+            margin = round(total_value - cost['total'], 2)
+            margin_pct = round(margin / total_value * 100) if total_value else None
+            underwater = margin < 0
+            # Worst problems float to the top of each mode
+            if mode == 'cost':
+                sort_score = -margin
+            elif mode == 'sustain':
+                sort_score = sustain['total']
+            elif mode == 'pricing':
+                sort_score = (pricing['hourly_delta_pct'] or 0) if pricing['underpriced'] else -1000
+
         rows.append({
             'project': p,
             'total_hours': total_hours,
@@ -354,16 +410,34 @@ def value_board(request):
             'urgent_open': urgent_open,
             'health': health,
             'sort_score': sort_score,
+            'cost': cost,
+            'sustain': sustain,
+            'pricing': pricing,
+            'margin': margin,
+            'margin_pct': margin_pct,
+            'underwater': underwater,
         })
 
     rows.sort(key=lambda r: r['sort_score'], reverse=True)
     total_unbilled = sum(r['unbilled_value'] for r in rows)
     total_potential = sum(r['potential_value'] for r in rows if r['potential_value'])
-    return render(request, 'projects/value_board.html', {
+    ctx = {
         'rows': rows,
+        'mode': mode,
         'total_unbilled': round(total_unbilled, 2),
         'total_potential': round(total_potential, 2),
-    })
+    }
+    if cost_mode:
+        ctx['total_cost'] = round(sum(r['cost']['total'] for r in rows), 2)
+        ctx['total_margin'] = round(sum(r['margin'] for r in rows), 2)
+        ctx['total_sustain'] = round(sum(r['sustain']['total'] for r in rows), 2)
+        ctx['underwater_count'] = sum(1 for r in rows if r['underwater'])
+        ctx['underpriced_count'] = sum(1 for r in rows if r['pricing']['underpriced'])
+        ctx['repricing_opportunity'] = round(sum(
+            max(r['pricing']['suggested_hourly'] - r['pricing']['current_hourly'], 0)
+            * r['total_hours'] for r in rows), 2)
+        ctx['cost_settings'] = cost_settings
+    return render(request, 'projects/value_board.html', ctx)
 
 
 @login_required
@@ -498,3 +572,119 @@ def project_set_stage(request, pk):
     project.stage = stage
     project.save(update_fields=['stage', 'updated_at'])
     return JsonResponse({'ok': True, 'stage': stage, 'label': dict(Project.STAGE).get(stage, '')})
+
+
+# ── Merge ─────────────────────────────────────────────────────────────────────
+
+@login_required
+def merge_preview(request, pk):
+    """GET — return counts of related records that would transfer."""
+    source = _get_project(pk, request.user)
+    data = {
+        'id':   source.pk,
+        'name': source.name,
+        'counts': {
+            'tasks':       source.tasks.count(),
+            'time_entries': source.time_entries.count(),
+            'notes':       source.notes.count(),
+        },
+    }
+    try:
+        from apps.tickets.models import Ticket
+        data['counts']['tickets'] = Ticket.objects.filter(project=source).count()
+    except Exception:
+        pass
+    try:
+        from apps.files.models import ClientFile
+        data['counts']['files'] = ClientFile.objects.filter(project=source).count()
+    except Exception:
+        pass
+    try:
+        from apps.whiteboards.models import Whiteboard
+        data['counts']['whiteboards'] = Whiteboard.objects.filter(project=source).count()
+    except Exception:
+        pass
+    try:
+        from apps.modules.models import HihiModule
+        data['counts']['modules'] = HihiModule.objects.filter(project=source).count()
+    except Exception:
+        pass
+    return JsonResponse(data)
+
+
+@login_required
+@require_POST
+def merge_project(request, pk):
+    """
+    Absorb project `pk` (source/stub) into `into_pk` (canonical target).
+    Re-points all relations, optionally renames the target, then archives source.
+    """
+    source = _get_project(pk, request.user)
+    data   = json.loads(request.body)
+    into_pk   = data.get('into_pk')
+    new_name  = data.get('new_name', '').strip()
+
+    if not into_pk:
+        return JsonResponse({'error': 'into_pk required'}, status=400)
+    if int(into_pk) == source.pk:
+        return JsonResponse({'error': 'Cannot merge a project into itself'}, status=400)
+
+    target = _get_project(into_pk, request.user)
+    moved  = {}
+
+    # ── Re-point CASCADE / SET_NULL relations ──────────────────────────────────
+    moved['tasks']        = source.tasks.update(project=target)
+    moved['time_entries'] = source.time_entries.update(project=target)
+    moved['notes']        = source.notes.update(project=target)
+
+    _optional_transfer = [
+        ('apps.tickets.models',      'Ticket',              'project'),
+        ('apps.files.models',        'ClientFile',          'project'),
+        ('apps.files.models',        'DriveFolder',         'project'),
+        ('apps.whiteboards.models',  'Whiteboard',          'project'),
+        ('apps.sound.models',        'Track',               'project'),
+        ('apps.billing.models',      'InvoiceLine',         'project'),
+        ('apps.contracts.models',    'Contract',            'project'),
+        ('apps.dashboard.models',    'ProjectSubscription', 'project'),
+        ('apps.messaging.models',    'Thread',              'project'),
+        ('apps.proposals.models',    'Proposal',            'project'),
+        ('apps.services.models',     'ProjectService',      'project'),
+        ('apps.modules.models',      'HihiModule',          'project'),
+    ]
+    for module_path, model_name, field in _optional_transfer:
+        try:
+            import importlib
+            mod   = importlib.import_module(module_path)
+            Model = getattr(mod, model_name)
+            n = Model.objects.filter(**{field: source}).update(**{field: target})
+            if n:
+                moved[model_name] = n
+        except Exception:
+            pass
+
+    # ── Rename target if requested ─────────────────────────────────────────────
+    if new_name and new_name != target.name:
+        target.name = new_name
+        target.save(update_fields=['name', 'updated_at'])
+
+    # ── Copy missing metadata from source → target where target is blank ───────
+    if not target.description and source.description:
+        target.description = source.description
+        target.save(update_fields=['description', 'updated_at'])
+    if not target.client and source.client:
+        target.client = source.client
+        target.save(update_fields=['client', 'updated_at'])
+    if not target.url and source.url:
+        target.url = source.url
+        target.save(update_fields=['url', 'updated_at'])
+
+    # ── Archive source ─────────────────────────────────────────────────────────
+    source.status = 'archived'
+    source.save(update_fields=['status', 'updated_at'])
+
+    return JsonResponse({
+        'ok':        True,
+        'moved':     moved,
+        'target_pk': target.pk,
+        'target_name': target.name,
+    })

@@ -15,6 +15,13 @@ class Project(models.Model):
         ('development', 'Development'),
         ('maintaining', 'Maintaining'),
     ]
+    ENTITY = [
+        ('binsky',    'Binsky'),
+        ('fckry',     'FCKRY LLC'),
+        ('community', 'Community Playlist'),
+        ('clients',   'Clients'),
+        ('general',   'General'),
+    ]
     name = models.CharField(max_length=200)
     client = models.CharField(max_length=150, blank=True)
     client_fk = models.ForeignKey(
@@ -25,6 +32,7 @@ class Project(models.Model):
     status = models.CharField(max_length=20, choices=STATUS, default='active')
     stage = models.CharField(max_length=20, choices=STAGE, blank=True, default='')
     color = models.CharField(max_length=7, default='#7c6af7')
+    entity = models.CharField(max_length=20, choices=ENTITY, default='general', db_index=True)
     url = models.URLField(max_length=500, blank=True, help_text='Internal or external link for this project')
     hourly_rate = models.DecimalField(max_digits=8, decimal_places=2, default=150)
     hihi_crm_project_id = models.IntegerField(null=True, blank=True, help_text='rise_projects.id for sync')
@@ -72,6 +80,14 @@ class Task(models.Model):
     client_visible = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    assigned_to_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks',
+        help_text='Staff/contractor this task is assigned to.',
+    )
+    assigned_to_contact = models.ForeignKey(
+        'clients.Contact', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks',
+        help_text='Client-side contact this task is assigned to.',
+    )
 
     class Meta:
         ordering = ['order', 'created_at']

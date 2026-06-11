@@ -5,6 +5,10 @@ from django.contrib.auth.models import User
 class Conversation(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations')
     title = models.CharField(max_length=200, blank=True)
+    project = models.ForeignKey(
+        'projects.Project', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='ai_conversations',
+        help_text='Attribute this conversation\'s token spend to a project for cost tracking.')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

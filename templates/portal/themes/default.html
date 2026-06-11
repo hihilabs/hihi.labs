@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>{% if client.company %}{{ client.company }}{% else %}{{ client.name }}{% endif %} — Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:      {{ accent }};
+      --accent-glow: {{ accent }}38;
+      --accent-dim:  {{ accent }}18;
+      --bg:          #0c0c10;
+      --bg2:         #14141a;
+      --bg3:         #1c1c24;
+      --border:      #26263a;
+      --text:        #eaeaf2;
+      --muted:       #72728a;
+      --r:           10px;
+      --r-sm:        6px;
+      --r-lg:        14px;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Preview banner ── */
+    .preview-banner {
+      background: #f59e0b;
+      color: #1a1000;
+      text-align: center;
+      padding: 7px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      flex-shrink: 0;
+    }
+    .preview-banner a { color: inherit; text-decoration: underline; }
+
+    /* ── Ghost brand — top-left corner ── */
+    .brand-corner {
+      position: fixed;
+      top: 18px;
+      left: 22px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 50;
+      pointer-events: none;
+    }
+    .brand-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      flex-shrink: 0;
+    }
+    .brand-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: .02em;
+      white-space: nowrap;
+    }
+
+    /* ── Stage ── */
+    .portal-stage {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient center glow */
+    .portal-stage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 44%, var(--accent-glow) 0%, transparent 66%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Home state ── */
+    .home-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 24px;
+      z-index: 1;
+      transition: opacity .28s ease, transform .28s ease;
+    }
+    .home-state.hidden {
+      opacity: 0;
+      transform: scale(.96) translateY(-10px);
+      pointer-events: none;
+    }
+
+    /* Avatar */
+    .client-avatar {
+      width: 84px;
+      height: 84px;
+      border-radius: 22px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 0 60px var(--accent-glow), 0 4px 20px #0005;
+      letter-spacing: -.02em;
+    }
+
+    .home-greeting {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -.03em;
+      text-align: center;
+    }
+    .home-sub {
+      font-size: 13px;
+      color: var(--muted);
+      max-width: 360px;
+      line-height: 1.65;
+      text-align: center;
+    }
+
+    /* Notification cards */
+    .notif-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      max-width: 420px;
+    }
+    .notif-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--r);
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .notif-icon { color: var(--accent); font-size: 13px; margin-top: 1px; }
+    .notif-text { font-size: 13px; line-height: 1.5; }
+    .notif-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Module panels ── */
+    .module-panel {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: auto;
+      padding: 28px 24px;
+      display: none;
+      z-index: 2;
+    }
+    .module-panel.active {
+      display: block;
+      animation: panelIn .22s ease;
+    }
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-inner {
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    /* Panel header */
+    .panel-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .panel-icon { color: var(--accent); font-size: 16px; }
+    .panel-title { font-size: 18px; font-weight: 700; flex: 1; }
+    .panel-count {
+      font-size: 11px; font-weight: 600;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2px 10px; color: var(--muted);
+    }
+    .panel-close {
+      width: 30px; height: 30px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      cursor: pointer;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      transition: all .15s;
+      font-family: inherit;
+    }
+    .panel-close:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Project cards */
+    .proj-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 12px;
+    }
+    .proj-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 16px 18px;
+      transition: border-color .18s;
+    }
+    .proj-card:hover { border-color: var(--accent)55; }
+    .proj-card-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .proj-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .proj-name { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; }
+    .proj-badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      padding: 2px 7px; border-radius: 20px;
+      border: 1px solid var(--border); color: var(--muted);
+      flex-shrink: 0;
+    }
+    .proj-badge.active { border-color: #22c55e44; color: #22c55e; background: #22c55e0a; }
+    .proj-badge.paused { border-color: #f59e0b44; color: #f59e0b; background: #f59e0b0a; }
+    .proj-badge.done   { border-color: #818cf844; color: #818cf8; background: #818cf80a; }
+
+    /* Project task list */
+    .proj-tasks {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .proj-task-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .proj-task-status {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+    .proj-task-status.status-todo    { background: transparent; }
+    .proj-task-status.status-doing   { background: #3b82f6; border-color: #3b82f644; }
+    .proj-task-status.status-blocked { background: #f85149; border-color: #f8514944; }
+    .proj-task-status.status-done    { background: #22c55e; border-color: #22c55e44; }
+    .proj-task-title {
+      flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: var(--text);
+    }
+    .proj-task-due {
+      font-size: 10px; color: var(--muted); flex-shrink: 0;
+    }
+    .proj-task-assignee, .proj-task-assignee-label {
+      font-size: 10px; color: var(--muted); flex-shrink: 0;
+      max-width: 110px;
+    }
+    .proj-task-assignee {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2px 8px; color: var(--muted);
+      font-family: inherit; cursor: pointer;
+    }
+    .proj-task-assignee:focus { outline: none; border-color: var(--accent); }
+
+    /* Invoice list */
+    .inv-list { display: flex; flex-direction: column; gap: 10px; }
+    .inv-row {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color .18s;
+    }
+    .inv-row:hover { border-color: var(--accent)55; }
+    .inv-main { flex: 1; min-width: 0; }
+    .inv-num { font-weight: 600; font-size: 13px; }
+    .inv-org {
+      font-size: 10px; color: var(--muted); margin-top: 2px;
+    }
+    .inv-org i { margin-right: 3px; }
+    .inv-dates { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .inv-total { font-weight: 700; font-size: 15px; flex-shrink: 0; }
+    .inv-badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 20px;
+      border: 1px solid var(--border); color: var(--muted);
+      flex-shrink: 0;
+    }
+    .inv-badge.sent  { border-color: #f59e0b44; color: #f59e0b; background: #f59e0b0a; }
+    .inv-badge.paid  { border-color: #22c55e44; color: #22c55e; background: #22c55e0a; }
+    .inv-badge.void  { border-color: #ef444444; color: #ef4444; background: #ef44440a; }
+    .inv-badge.draft { border-color: var(--border); color: var(--muted); }
+
+    /* File grid */
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .file-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .18s;
+    }
+    .file-card:hover { border-color: var(--accent)55; }
+    .file-icon {
+      width: 36px; height: 36px; border-radius: var(--r-sm);
+      background: var(--bg3); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent); font-size: 15px; flex-shrink: 0;
+    }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name {
+      font-weight: 600; font-size: 12px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .file-meta i { margin-right: 3px; }
+    .file-open { color: var(--muted); font-size: 13px; flex-shrink: 0; }
+
+    /* Messages */
+    .msg-new-btn {
+      width: 100%;
+      background: var(--accent); color: #fff; border: none;
+      border-radius: var(--r-lg); padding: 10px; font-size: 13px; font-weight: 600;
+      cursor: pointer; margin-bottom: 14px;
+      font-family: inherit;
+    }
+    .thread-list { display: flex; flex-direction: column; gap: 10px; }
+    .thread-row {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      cursor: pointer; transition: border-color .18s;
+    }
+    .thread-row:hover { border-color: var(--accent)55; }
+    .thread-main { flex: 1; min-width: 0; }
+    .thread-subject { font-weight: 600; font-size: 13px; }
+    .thread-org { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .thread-org i { margin-right: 3px; }
+    .thread-preview {
+      font-size: 11px; color: var(--muted); margin-top: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .thread-meta { text-align: right; flex-shrink: 0; }
+    .thread-date { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+    .msg-thread-head {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .msg-back {
+      background: var(--bg2); border: 1px solid var(--border); color: var(--muted);
+      border-radius: var(--r-sm); padding: 6px 10px; font-size: 12px;
+      cursor: pointer; font-family: inherit;
+    }
+    .msg-back:hover { border-color: var(--accent); color: var(--accent); }
+    .msg-thread-title { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; }
+    .msg-bubbles {
+      display: flex; flex-direction: column; gap: 10px;
+      max-height: 320px; overflow-y: auto; padding-right: 4px; margin-bottom: 12px;
+    }
+    .msg-bubble {
+      max-width: 80%; padding: 8px 12px; border-radius: var(--r-lg);
+      font-size: 12px; line-height: 1.5;
+      background: var(--bg2); border: 1px solid var(--border);
+      align-self: flex-start;
+    }
+    .msg-bubble.mine {
+      background: var(--accent); color: #fff; border-color: transparent;
+      align-self: flex-end;
+    }
+    .msg-bubble-meta {
+      font-size: 9px; opacity: .65; margin-bottom: 3px;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .msg-reply-row { display: flex; gap: 8px; align-items: flex-end; }
+    .msg-reply-row textarea { flex: 1; }
+    .msg-send-btn {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: var(--r-sm); width: 40px; height: 40px; flex-shrink: 0;
+      font-size: 14px; cursor: pointer;
+    }
+    .proj-desc {
+      font-size: 12px; color: var(--muted);
+      margin-bottom: 12px; line-height: 1.55;
+    }
+    .proj-bar-wrap { height: 3px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .proj-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+    .proj-bar-label {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: var(--muted); margin-top: 5px;
+    }
+
+    /* Empty / coming-soon */
+    .empty-center {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--muted);
+    }
+    .empty-center i { font-size: 30px; margin-bottom: 12px; display: block; }
+    .coming-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 22px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .coming-card i { color: var(--accent); font-size: 20px; }
+
+    /* ── Menu zone ── */
+    .menu-zone {
+      flex-shrink: 0;
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 30;
+    }
+
+    /* The central mark — circle outline */
+    .menu-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1.5px solid var(--accent);
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      z-index: 2;
+      transition: transform .22s ease, background .22s ease,
+                  border-color .22s ease, opacity .22s ease;
+      animation: markBreath 4s ease-in-out infinite;
+    }
+    @keyframes markBreath {
+      0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow), 0 0 10px var(--accent-glow); }
+      50%       { box-shadow: 0 0 0 8px transparent, 0 0 28px var(--accent-glow); }
+    }
+    .menu-mark:hover {
+      background: var(--accent-dim);
+      transform: scale(1.12);
+      animation: none;
+      box-shadow: 0 0 28px var(--accent-glow);
+    }
+    .menu-mark.is-open {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      transform: scale(.88);
+      opacity: .7;
+      animation: none;
+    }
+
+    /* Spread container — centered on the mark */
+    .menu-spread {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    /* Each spreading item */
+    .menu-item {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      /* start collapsed at center */
+      transform: translate(-50%, -50%) translateX(var(--spread-x, 0px)) scale(0);
+      opacity: 0;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-family: inherit;
+      transition:
+        transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) var(--delay, 0ms),
+        opacity   0.22s ease                               var(--delay, 0ms),
+        background .15s, border-color .15s, color .15s,
+        box-shadow .15s;
+      pointer-events: none;
+    }
+
+    /* Item label — fades in beneath the circle */
+    .item-label {
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity .2s ease calc(var(--delay, 0ms) + 80ms);
+      pointer-events: none;
+    }
+
+    /* Open state — items slide out */
+    .menu-spread.is-open .menu-item {
+      transform: translate(-50%, -50%) translateX(var(--spread-x)) scale(1);
+      opacity: 1;
+      pointer-events: all;
+    }
+    .menu-spread.is-open .menu-item .item-label {
+      opacity: 1;
+    }
+
+    /* Active / hover states */
+    .menu-item.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 22px var(--accent-glow);
+    }
+    .menu-item:hover:not(.active) {
+      background: var(--bg3);
+      border-color: var(--accent)55;
+      color: var(--text);
+    }
+
+    /* ── Footer ── */
+    .portal-footer {
+      border-top: 1px solid var(--border);
+      padding: 10px 24px 52px;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    /* Panel scrollbar */
+    .module-panel::-webkit-scrollbar { width: 4px; }
+    .module-panel::-webkit-scrollbar-track { background: transparent; }
+    .module-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Mobile */
+    @media (max-width: 600px) {
+      .portal-stage { }
+      .proj-grid { grid-template-columns: 1fr; }
+      .client-avatar { width: 70px; height: 70px; font-size: 24px; }
+      .home-greeting { font-size: 22px; }
+      .menu-zone { height: 88px; }
+    }
+  </style>
+</head>
+<body>
+{% csrf_token %}
+
+{% if is_preview %}
+<div class="preview-banner">
+  <i class="fa-solid fa-eye" style="margin-right:5px;"></i>
+  Staff Preview — exactly what <strong>{{ client.display_name }}</strong> sees &nbsp;·&nbsp;
+  <a href="/portal/">Back to Portal Admin</a>
+</div>
+{% endif %}
+
+<!-- Ghost client name, top-left -->
+<div class="brand-corner">
+  <div class="brand-dot"></div>
+  <span class="brand-name">{% if client.company %}{{ client.company }}{% else %}{{ client.name }}{% endif %}</span>
+</div>
+
+<!-- Stage -->
+<main class="portal-stage">
+
+  {# ── Home state ── #}
+  <div class="home-state" id="home-state">
+    {% if notifications %}
+      <div class="notif-list">
+        {% for n in notifications %}
+        <div class="notif-card">
+          <i class="fa-solid fa-bell notif-icon"></i>
+          <div>
+            <div class="notif-text">{{ n.message }}</div>
+            {% if n.timestamp %}<div class="notif-time">{{ n.timestamp }}</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% elif client.company or client.name %}
+      <div class="client-avatar">{{ avatar_initials }}</div>
+      <div class="home-greeting">Hi{% if client.name %}, {{ client.name.split.0 }}{% endif %}!</div>
+      {% if welcome %}
+      <div class="home-sub">{{ welcome }}</div>
+      {% else %}
+      <div class="home-sub">Welcome to your portal — tap the mark below to explore.</div>
+      {% endif %}
+    {% else %}
+      <div class="home-greeting">Hi!</div>
+    {% endif %}
+  </div>
+
+  {# ── Projects panel ── #}
+  {% if show_projects %}
+  <div class="module-panel" id="panel-projects">
+    <div class="panel-inner">
+      <div class="panel-head">
+        <i class="fa-solid fa-diagram-project panel-icon"></i>
+        <span class="panel-title">Projects</span>
+        {% if projects %}<span class="panel-count">{{ projects|length }}</span>{% endif %}
+        <button class="panel-close" onclick="closeModule()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      {% if projects %}
+      <div class="proj-grid">
+        {% for p in projects %}
+        <div class="proj-card">
+          <div class="proj-card-top">
+            <div class="proj-dot" style="background:{{ p.color }};"></div>
+            <div class="proj-name">{{ p.name }}</div>
+            <span class="proj-badge {{ p.status }}">{{ p.status }}</span>
+          </div>
+          {% if p.org %}
+          <div style="font-size:10px;color:var(--muted);margin-top:-4px;margin-bottom:6px;">
+            <i class="fa-solid fa-building" style="margin-right:3px;"></i>{{ p.org }}
+          </div>
+          {% endif %}
+          {% if p.description %}
+          <div class="proj-desc">{{ p.description|truncatechars:110 }}</div>
+          {% endif %}
+          {% if p.task_total %}
+          <div class="proj-bar-wrap">
+            <div class="proj-bar-fill" style="width:{{ p.task_pct }}%;"></div>
+          </div>
+          <div class="proj-bar-label">
+            <span>{{ p.task_done }}/{{ p.task_total }} tasks</span>
+            <span>{{ p.task_pct }}%</span>
+          </div>
+          {% endif %}
+          {% if p.tasks %}
+          <div class="proj-tasks">
+            {% for t in p.tasks %}
+            <div class="proj-task-row">
+              <span class="proj-task-status status-{{ t.status }}" title="{{ t.status_label }}"></span>
+              <span class="proj-task-title">{{ t.title }}</span>
+              {% if t.due_date %}<span class="proj-task-due">{{ t.due_date|date:"M j" }}</span>{% endif %}
+              {% if client_contacts %}
+              <select class="proj-task-assignee" onchange="assignTask({{ t.pk }}, this.value)">
+                <option value="">{% if t.assignee_type == 'team' %}{{ t.assignee_name }} (team){% else %}Unassigned{% endif %}</option>
+                {% for c in client_contacts %}
+                <option value="{{ c.pk }}" {% if t.assignee_contact_id == c.pk %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+              </select>
+              {% elif t.assignee_name %}
+              <span class="proj-task-assignee-label">{{ t.assignee_name }}</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-center">
+        <i class="fa-regular fa-folder-open"></i>
+        No active projects yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Invoices panel ── #}
+  {% if show_invoices %}
+  <div class="module-panel" id="panel-invoices">
+    <div class="panel-inner">
+      <div class="panel-head">
+        <i class="fa-solid fa-file-invoice-dollar panel-icon"></i>
+        <span class="panel-title">Invoices</span>
+        {% if invoices %}<span class="panel-count">{{ invoices|length }}</span>{% endif %}
+        <button class="panel-close" onclick="closeModule()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      {% if invoices %}
+      <div class="inv-list">
+        {% for inv in invoices %}
+        <div class="inv-row">
+          <div class="inv-main">
+            <div class="inv-num">{{ inv.number }}</div>
+            {% if inv.org %}
+            <div class="inv-org"><i class="fa-solid fa-building"></i>{{ inv.org }}</div>
+            {% endif %}
+            <div class="inv-dates">
+              Issued {{ inv.issued_date|date:"M j, Y" }}{% if inv.due_date %} &middot; Due {{ inv.due_date|date:"M j, Y" }}{% endif %}
+            </div>
+          </div>
+          <div class="inv-total">${{ inv.total|floatformat:2 }}</div>
+          <span class="inv-badge {{ inv.status }}">{{ inv.status_label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-center">
+        <i class="fa-regular fa-file-lines"></i>
+        No invoices yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Files panel ── #}
+  {% if show_files %}
+  <div class="module-panel" id="panel-files">
+    <div class="panel-inner">
+      <div class="panel-head">
+        <i class="fa-solid fa-folder-open panel-icon"></i>
+        <span class="panel-title">Files</span>
+        {% if files %}<span class="panel-count">{{ files|length }}</span>{% endif %}
+        <button class="panel-close" onclick="closeModule()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      {% if files %}
+      <div class="file-grid">
+        {% for f in files %}
+        <a class="file-card" href="{{ f.url }}" target="_blank" rel="noopener">
+          <div class="file-icon">
+            {% if f.is_image %}<i class="fa-regular fa-image"></i>
+            {% elif f.ext == 'pdf' %}<i class="fa-regular fa-file-pdf"></i>
+            {% else %}<i class="fa-regular fa-file"></i>{% endif %}
+          </div>
+          <div class="file-info">
+            <div class="file-name">{{ f.name }}</div>
+            <div class="file-meta">
+              {% if f.org %}<i class="fa-solid fa-building"></i>{{ f.org }}{% endif %}
+            </div>
+          </div>
+          <div class="file-open"><i class="fa-solid fa-arrow-up-right-from-square"></i></div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-center">
+        <i class="fa-regular fa-folder-open"></i>
+        No shared files yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Tickets panel ── #}
+  {% if show_tickets %}
+  <div class="module-panel" id="panel-tickets">
+    <div class="panel-inner">
+      <div class="panel-head">
+        <i class="fa-solid fa-ticket panel-icon"></i>
+        <span class="panel-title">Support</span>
+        <button class="panel-close" onclick="closeModule()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="ticket-form-wrap" style="padding:4px 0 8px;">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+          Describe your request below. You can type or <strong style="color:var(--text);">record a voice note</strong> and we'll transcribe it.
+        </p>
+        <div id="voice-recorder" style="margin-bottom:14px;">
+          <button id="rec-btn" onclick="toggleRecording()" style="display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:var(--text);cursor:pointer;font-size:13px;width:100%;justify-content:center;transition:border-color .2s;">
+            <i class="fa-solid fa-microphone" id="rec-icon"></i>
+            <span id="rec-label">Record voice note</span>
+          </button>
+          <div id="rec-status" style="display:none;font-size:11px;color:var(--muted);margin-top:6px;text-align:center;"></div>
+        </div>
+        <input id="tk-name"  type="text"  placeholder="Your name" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box;" />
+        <input id="tk-email" type="email" placeholder="Your email (for follow-up)" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box;" />
+        <input id="tk-title" type="text"  placeholder="Subject * (required)" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box;" />
+        <textarea id="tk-body" rows="4" placeholder="Details (or paste transcription here)" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:12px;"></textarea>
+        <button onclick="submitTicket()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">
+          <i class="fa-solid fa-paper-plane"></i> Submit Request
+        </button>
+        <div id="tk-msg" style="display:none;margin-top:10px;font-size:12px;text-align:center;color:#3fb950;"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Messages panel ── #}
+  {% if show_messages %}
+  <div class="module-panel" id="panel-messages">
+    <div class="panel-inner">
+      <div class="panel-head">
+        <i class="fa-solid fa-comments panel-icon"></i>
+        <span class="panel-title">Messages</span>
+        {% if threads %}<span class="panel-count">{{ threads|length }}</span>{% endif %}
+        <button class="panel-close" onclick="closeModule()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div id="msg-list-view">
+        <button class="msg-new-btn" onclick="openNewThread()"><i class="fa-solid fa-pen"></i> New Message</button>
+        {% if threads %}
+        <div class="thread-list">
+          {% for t in threads %}
+          <div class="thread-row" onclick="openThread({{ t.pk }}, {{ t.subject|escapejs }})">
+            <div class="thread-main">
+              <div class="thread-subject">{{ t.subject }}</div>
+              {% if t.org %}<div class="thread-org"><i class="fa-solid fa-building"></i>{{ t.org }}</div>{% endif %}
+              {% if t.last_body %}<div class="thread-preview">{{ t.last_body }}</div>{% endif %}
+            </div>
+            <div class="thread-meta">
+              <div class="thread-date">{{ t.last_at|date:"M j" }}</div>
+              <span class="panel-count">{{ t.count }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-center">
+          <i class="fa-regular fa-comment-dots"></i>
+          No conversations yet — send us a message anytime.
+        </div>
+        {% endif %}
+      </div>
+
+      <div id="msg-new-view" style="display:none;">
+        <div class="msg-thread-head">
+          <button class="msg-back" onclick="closeNewThread()"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="msg-thread-title">New Message</div>
+        </div>
+        <input id="msg-new-subject" class="modal-input" placeholder="Subject (optional)" style="margin-bottom:8px;">
+        <textarea id="msg-new-body" class="modal-input" rows="5" placeholder="Type your message..." style="resize:vertical;margin-bottom:10px;"></textarea>
+        <button class="msg-new-btn" onclick="sendNewThread()"><i class="fa-solid fa-paper-plane"></i> Send</button>
+      </div>
+
+      <div id="msg-thread-view" style="display:none;">
+        <div class="msg-thread-head">
+          <button class="msg-back" onclick="closeThread()"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="msg-thread-title" id="msg-thread-title"></div>
+        </div>
+        <div class="msg-bubbles" id="msg-bubbles"></div>
+        <div class="msg-reply-row">
+          <textarea id="msg-reply-body" rows="2" placeholder="Reply..."></textarea>
+          <button class="msg-send-btn" onclick="sendReply()"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</main>
+
+<!-- Menu zone — always visible, items spread from here -->
+<div class="menu-zone">
+  <button class="menu-mark" id="menu-mark" onclick="handleMark()" aria-label="Open menu"></button>
+  <div class="menu-spread" id="menu-spread">
+    {% if show_projects %}
+    <button class="menu-item" data-module="projects" onclick="openModule('projects',this)">
+      <i class="fa-solid fa-diagram-project"></i>
+      <span class="item-label">Projects</span>
+    </button>
+    {% endif %}
+    {% if show_invoices %}
+    <button class="menu-item" data-module="invoices" onclick="openModule('invoices',this)">
+      <i class="fa-solid fa-file-invoice-dollar"></i>
+      <span class="item-label">Invoices</span>
+    </button>
+    {% endif %}
+    {% if show_files %}
+    <button class="menu-item" data-module="files" onclick="openModule('files',this)">
+      <i class="fa-solid fa-folder-open"></i>
+      <span class="item-label">Files</span>
+    </button>
+    {% endif %}
+    {% if show_tickets %}
+    <button class="menu-item" data-module="tickets" onclick="openModule('tickets',this)">
+      <i class="fa-solid fa-ticket"></i>
+      <span class="item-label">Support</span>
+    </button>
+    {% endif %}
+    {% if show_messages %}
+    <button class="menu-item" data-module="messages" onclick="openModule('messages',this)">
+      <i class="fa-solid fa-comments"></i>
+      <span class="item-label">Messages</span>
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+{% if portal_footer.html_content %}
+<footer class="portal-footer">{{ portal_footer.html_content|safe }}</footer>
+{% endif %}
+
+<div style="position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,14,.92);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,.07);padding:8px 20px;display:flex;align-items:center;gap:8px;font-size:11px;color:#6b7280;z-index:999;pointer-events:none;">
+  <i class="fa-solid fa-lock" style="color:#4b5563;font-size:10px;flex-shrink:0;"></i>
+  This portal link is <strong style="color:#9ca3af;">&nbsp;private to you</strong>&nbsp;— treat it like a password. If you think it's been shared or compromised, contact
+  <a href="mailto:hello@hihilabs.xyz" style="color:#6366f1;pointer-events:all;">hello@hihilabs.xyz</a> to reset it.
+</div>
+
+<script>
+(function () {
+  let menuOpen = false;
+  let activeModule = null;
+  const mark   = document.getElementById('menu-mark');
+  const spread = document.getElementById('menu-spread');
+
+  // Layout items with positions radiating from center
+  function layout() {
+    const items = [...spread.querySelectorAll('.menu-item')];
+    const n = items.length;
+    if (!n) return;
+    const spacing = 74;
+    const half = (n - 1) / 2;
+    items.forEach((item, i) => {
+      const x = (i - half) * spacing;
+      item.style.setProperty('--spread-x', x + 'px');
+      // stagger from center outward
+      const dist = Math.abs(i - half);
+      item.style.setProperty('--delay', Math.round(dist * 32) + 'ms');
+    });
+  }
+
+  function openSpread() {
+    menuOpen = true;
+    spread.classList.add('is-open');
+    mark.classList.add('is-open');
+    mark.setAttribute('aria-label', 'Close menu');
+  }
+
+  function closeSpread() {
+    menuOpen = false;
+    spread.classList.remove('is-open');
+    mark.classList.remove('is-open');
+    mark.setAttribute('aria-label', 'Open menu');
+  }
+
+  window.handleMark = function () {
+    if (menuOpen) {
+      closeSpread();
+    } else {
+      openSpread();
+    }
+  };
+
+  window.openModule = function (name, btn) {
+    closeSpread();
+
+    if (activeModule === name) {
+      closeModule();
+      return;
+    }
+
+    document.querySelectorAll('.module-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
+    const panel = document.getElementById('panel-' + name);
+    if (panel) panel.classList.add('active');
+    btn.classList.add('active');
+    document.getElementById('home-state').classList.add('hidden');
+    activeModule = name;
+  };
+
+  window.closeModule = function () {
+    closeSpread();
+    document.querySelectorAll('.module-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('home-state').classList.remove('hidden');
+    activeModule = null;
+  };
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (activeModule) closeModule();
+      else closeSpread();
+    }
+  });
+
+  layout();
+})();
+</script>
+
+
+<script>
+// ── Voice recorder ────────────────────────────────────────────────────────────
+const PORTAL_TOKEN = '{{ client.portal_token }}';
+
+function getCookie(name) {
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? decodeURIComponent(m.pop()) : '';
+}
+const CSRF_TOKEN = getCookie('csrftoken');
+let _mediaRec = null, _recChunks = [], _recActive = false;
+
+async function toggleRecording() {
+  if (_recActive) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    _recChunks = [];
+    _mediaRec = new MediaRecorder(stream);
+    _mediaRec.ondataavailable = e => { if (e.data.size > 0) _recChunks.push(e.data); };
+    _mediaRec.onstop = handleRecordingStop;
+    _mediaRec.start();
+    _recActive = true;
+    document.getElementById('rec-btn').style.borderColor = '#f85149';
+    document.getElementById('rec-btn').style.color = '#f85149';
+    document.getElementById('rec-icon').className = 'fa-solid fa-stop';
+    document.getElementById('rec-label').textContent = 'Stop recording';
+    document.getElementById('rec-status').style.display = 'block';
+    document.getElementById('rec-status').textContent = 'Recording… tap Stop when done.';
+  } catch(e) {
+    alert('Microphone access denied: ' + e.message);
+  }
+}
+
+function stopRecording() {
+  if (_mediaRec && _mediaRec.state !== 'inactive') {
+    _mediaRec.stop();
+    _mediaRec.stream.getTracks().forEach(t => t.stop());
+  }
+  _recActive = false;
+  document.getElementById('rec-btn').style.borderColor = '';
+  document.getElementById('rec-btn').style.color = '';
+  document.getElementById('rec-icon').className = 'fa-solid fa-microphone';
+  document.getElementById('rec-label').textContent = 'Record voice note';
+}
+
+async function handleRecordingStop() {
+  const blob = new Blob(_recChunks, {type: 'audio/webm'});
+  const status = document.getElementById('rec-status');
+  status.textContent = 'Transcribing…';
+
+  const fd = new FormData();
+  fd.append('audio', blob, 'voice.webm');
+
+  try {
+    const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/voice/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF_TOKEN},
+      body: fd,
+    });
+    const data = await res.json();
+    if (data.ok && data.transcript) {
+      const body = document.getElementById('tk-body');
+      body.value = (body.value ? body.value + '\n\n' : '') + data.transcript;
+      status.textContent = 'Transcribed — review and edit above, then submit.';
+    } else {
+      status.textContent = 'Transcription failed: ' + (data.error || 'unknown');
+    }
+  } catch(e) {
+    status.textContent = 'Network error during transcription.';
+  }
+}
+
+// ── Ticket submit ─────────────────────────────────────────────────────────────
+async function submitTicket() {
+  const title = document.getElementById('tk-title').value.trim();
+  if (!title) { alert('Please enter a subject.'); return; }
+
+  const res = await fetch('/portal/submit/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+    body: JSON.stringify({
+      title,
+      body:  document.getElementById('tk-body').value.trim(),
+      name:  document.getElementById('tk-name').value.trim(),
+      email: document.getElementById('tk-email').value.trim(),
+      type:  'request',
+      _hp:   '',
+    }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    document.getElementById('ticket-form-wrap').innerHTML =
+      '<div style="text-align:center;padding:30px 0;"><i class="fa-solid fa-circle-check" style="font-size:2rem;color:#3fb950;"></i><p style="margin-top:12px;color:var(--text);">Request submitted!</p><p style="color:var(--muted);font-size:12px;margin-top:6px;">We\'ll be in touch soon.</p></div>';
+  } else {
+    alert(data.error || 'Submission failed');
+  }
+}
+
+// ── Messaging ────────────────────────────────────────────────────────────────
+let _activeThread = null;
+
+function openNewThread() {
+  document.getElementById('msg-list-view').style.display = 'none';
+  document.getElementById('msg-thread-view').style.display = 'none';
+  document.getElementById('msg-new-view').style.display = 'block';
+  document.getElementById('msg-new-subject').value = '';
+  document.getElementById('msg-new-body').value = '';
+}
+function closeNewThread() {
+  document.getElementById('msg-new-view').style.display = 'none';
+  document.getElementById('msg-list-view').style.display = 'block';
+}
+
+async function sendNewThread() {
+  const subject = document.getElementById('msg-new-subject').value.trim();
+  const body = document.getElementById('msg-new-body').value.trim();
+  if (!body) return;
+  const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/threads/new/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+    body: JSON.stringify({subject, body}),
+  });
+  const data = await res.json();
+  if (data.thread_pk) {
+    document.getElementById('msg-new-view').style.display = 'none';
+    openThread(data.thread_pk, data.subject);
+  } else {
+    alert(data.error || 'Could not send message');
+  }
+}
+
+async function openThread(pk, subject) {
+  _activeThread = pk;
+  document.getElementById('msg-list-view').style.display = 'none';
+  document.getElementById('msg-new-view').style.display = 'none';
+  document.getElementById('msg-thread-view').style.display = 'block';
+  document.getElementById('msg-thread-title').textContent = subject;
+  document.getElementById('msg-bubbles').innerHTML = '';
+
+  const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/threads/' + pk + '/');
+  const data = await res.json();
+  if (data.messages) renderMessages(data.messages);
+}
+
+function closeThread() {
+  _activeThread = null;
+  document.getElementById('msg-thread-view').style.display = 'none';
+  document.getElementById('msg-list-view').style.display = 'block';
+}
+
+function renderMessages(msgs) {
+  const wrap = document.getElementById('msg-bubbles');
+  wrap.innerHTML = '';
+  msgs.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'msg-bubble' + (m.mine ? ' mine' : '');
+    div.innerHTML = `<div class="msg-bubble-meta">${m.mine ? 'You' : m.sender} &middot; ${m.sent_at}</div>${m.body.replace(/</g,'&lt;')}`;
+    wrap.appendChild(div);
+  });
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function sendReply() {
+  const input = document.getElementById('msg-reply-body');
+  const body = input.value.trim();
+  if (!body || !_activeThread) return;
+  const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/threads/' + _activeThread + '/reply/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+    body: JSON.stringify({body}),
+  });
+  const data = await res.json();
+  if (data.id) {
+    input.value = '';
+    const wrap = document.getElementById('msg-bubbles');
+    const div = document.createElement('div');
+    div.className = 'msg-bubble mine';
+    div.innerHTML = `<div class="msg-bubble-meta">You &middot; ${data.sent_at}</div>${data.body.replace(/</g,'&lt;')}`;
+    wrap.appendChild(div);
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+}
+
+async function assignTask(taskPk, contactId) {
+  const res = await fetch('/portal/view/' + PORTAL_TOKEN + '/tasks/' + taskPk + '/assign/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+    body: JSON.stringify({contact_id: contactId || null}),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || 'Could not update assignment.');
+  }
+}
+</script>
+</body>
+</html>
