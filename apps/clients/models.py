@@ -28,6 +28,9 @@ class Client(models.Model):
                         help_text='Domain hosted on this server — enables in-CRM email management.')
     portal_token  = models.UUIDField(default=uuid.uuid4, unique=True, editable=False,
                         help_text='Token for tokenized client portal access URL.')
+    pricing_factor = models.DecimalField(
+        max_digits=5, decimal_places=2, default=1.0,
+        help_text='Pricing multiplier for this client (org size / strategic value). 1.0 = baseline.')
     portal_linked_clients = models.ManyToManyField(
         'self', blank=True, symmetrical=False, related_name='portal_linked_by',
         help_text='Other client records whose projects/invoices/etc. should also appear in this client\'s portal (e.g. one person who owns multiple companies).',

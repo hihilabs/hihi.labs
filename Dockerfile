@@ -24,5 +24,6 @@ RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
+# Single ASGI worker: in-memory channel layer (rooms websockets) is per-process.
 CMD python manage.py migrate --noinput && \
-    gunicorn hihilabs.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120 --reload --access-logfile -
+    gunicorn hihilabs.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 1 --timeout 120 --reload --access-logfile -

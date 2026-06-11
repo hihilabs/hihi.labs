@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'whitenoise.runserver_nostatic',
     'django.contrib.staticfiles',
     'apps.claude_ai',
+    'apps.dashboard',
     'apps.projects',
     'apps.sound',
     'apps.servers',
@@ -47,7 +48,7 @@ INSTALLED_APPS = [
     'apps.tickets',
     'apps.portal',
     'apps.pepperjuice',
-    'apps.dashboard',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -85,6 +86,13 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'hihilabs.wsgi.application'
+ASGI_APPLICATION = 'hihilabs.asgi.application'
+
+# In-memory layer: single ASGI worker process only. Swap to channels_redis
+# before scaling workers (room broadcast breaks across processes otherwise).
+CHANNEL_LAYERS = {
+    'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
+}
 
 _DATA_DIR = Path(os.environ.get('DATA_DIR', BASE_DIR))
 DATABASES = {
@@ -134,6 +142,12 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 CLAUDE_CHAT_MODEL = 'claude-sonnet-4-6'               # chat + self-editing
 CLAUDE_SMART_MODEL = 'claude-sonnet-4-6'              # templates, complex tasks
 WHISPER_MODEL = 'whisper-1'
+
+# LiveKit (rooms video/audio)
+LIVEKIT_API_KEY = os.environ.get('LIVEKIT_API_KEY', '')
+LIVEKIT_API_SECRET = os.environ.get('LIVEKIT_API_SECRET', '')
+# Client ws URL; empty = same-origin wss at /livekit (needs traefik route)
+LIVEKIT_CLIENT_URL = os.environ.get('LIVEKIT_CLIENT_URL', '')
 
 # Branding
 SITE_NAME = os.environ.get('SITE_NAME', 'HiHi Labs')

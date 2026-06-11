@@ -46,6 +46,12 @@ class Server(models.Model):
     platform     = models.CharField(max_length=20, choices=PLATFORMS, default='vps')
     service_type = models.CharField(max_length=20, choices=SERVICE_TYPES, default='ssh')
     status_url   = models.URLField(blank=True)
+    monthly_cost = models.DecimalField(
+        max_digits=8, decimal_places=2, default=0,
+        help_text='What this server costs per month (hosting bill, amortized hardware + power).')
+    projects     = models.ManyToManyField(
+        'projects.Project', blank=True, related_name='servers',
+        help_text='Projects this server supports — its monthly cost is split evenly across them.')
     created_at   = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -72,3 +72,52 @@ class InvoiceLine(models.Model):
     @property
     def amount(self):
         return self.quantity * self.rate
+
+
+class CostSettings(models.Model):
+    """Singleton: global cost basis used by the value board's cost/sustain/pricing modes."""
+    labor_cost_per_hour = models.DecimalField(
+        max_digits=8, decimal_places=2, default=40,
+        help_text='What an hour of work actually costs you (not the client bill rate).')
+    ai_cost_per_1k_tokens = models.DecimalField(
+        max_digits=8, decimal_places=4, default=0.01,
+        help_text='Blended $ per 1k tokens across the AI stack.')
+    overhead_monthly = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text='Fixed monthly overhead: hosting, electricity, software subs, accounting…')
+    target_margin_pct = models.DecimalField(
+        max_digits=6, decimal_places=2, default=150,
+        help_text='Markup over cost floor, in percent (150 = price at 2.5x cost).')
+    default_client_factor = models.DecimalField(
+        max_digits=5, decimal_places=2, default=1.0,
+        help_text='Pricing multiplier used when a client has no pricing_factor set.')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Cost settings'
+        verbose_name_plural = 'Cost settings'
+
+    def __str__(self):
+        return 'Cost settings'
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+class ProjectExpense(models.Model):
+    KIND = [('one_time', 'One-time'), ('monthly', 'Monthly recurring')]
+    project = models.ForeignKey(
+        'projects.Project', on_delete=models.CASCADE, related_name='expenses')
+    kind = models.CharField(max_length=10, choices=KIND, default='one_time')
+    description = models.CharField(max_length=300)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateField(default=date.today)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date']
+
+    def __str__(self):
+        return f'{self.project.name}: {self.description} (${self.amount})'

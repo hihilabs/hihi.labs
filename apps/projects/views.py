@@ -311,7 +311,17 @@ def global_tasks(request):
 
 @login_required
 def value_board(request):
+    from apps.billing import costing
+
+    mode = request.GET.get('mode', 'value')
+    if mode not in ('value', 'cost', 'sustain', 'pricing'):
+        mode = 'value'
+    cost_mode = mode != 'value'
+
     projects = _proj_qs(request.user).exclude(status='archived')
+    if cost_mode:
+        cost_settings = costing.get_cost_settings()
+        active_count = projects.count()
     rows = []
     for p in projects:
         entries = list(p.time_entries.filter(ended_at__isnull=False))
@@ -365,6 +375,23 @@ def value_board(request):
         # Priority sort score: unbilled + urgency boost
         sort_score = unbilled_value + (urgent_open * 500) + (total_hours * rate * 0.1)
 
+        cost = sustain = pricing = margin = margin_pct = None
+        underwater = False
+        if cost_mode:
+            cost = costing.raw_cost(p, cost_settings, total_hours)
+            sustain = costing.sustain_monthly(p, cost_settings, active_count)
+            pricing = costing.suggested_pricing(p, cost_settings, sustain['total'])
+            margin = round(total_value - cost['total'], 2)
+            margin_pct = round(margin / total_value * 100) if total_value else None
+            underwater = margin < 0
+            # Worst problems float to the top of each mode
+            if mode == 'cost':
+                sort_score = -margin
+            elif mode == 'sustain':
+                sort_score = sustain['total']
+            elif mode == 'pricing':
+                sort_score = (pricing['hourly_delta_pct'] or 0) if pricing['underpriced'] else -1000
+
         rows.append({
             'project': p,
             'total_hours': total_hours,
@@ -383,16 +410,34 @@ def value_board(request):
             'urgent_open': urgent_open,
             'health': health,
             'sort_score': sort_score,
+            'cost': cost,
+            'sustain': sustain,
+            'pricing': pricing,
+            'margin': margin,
+            'margin_pct': margin_pct,
+            'underwater': underwater,
         })
 
     rows.sort(key=lambda r: r['sort_score'], reverse=True)
     total_unbilled = sum(r['unbilled_value'] for r in rows)
     total_potential = sum(r['potential_value'] for r in rows if r['potential_value'])
-    return render(request, 'projects/value_board.html', {
+    ctx = {
         'rows': rows,
+        'mode': mode,
         'total_unbilled': round(total_unbilled, 2),
         'total_potential': round(total_potential, 2),
-    })
+    }
+    if cost_mode:
+        ctx['total_cost'] = round(sum(r['cost']['total'] for r in rows), 2)
+        ctx['total_margin'] = round(sum(r['margin'] for r in rows), 2)
+        ctx['total_sustain'] = round(sum(r['sustain']['total'] for r in rows), 2)
+        ctx['underwater_count'] = sum(1 for r in rows if r['underwater'])
+        ctx['underpriced_count'] = sum(1 for r in rows if r['pricing']['underpriced'])
+        ctx['repricing_opportunity'] = round(sum(
+            max(r['pricing']['suggested_hourly'] - r['pricing']['current_hourly'], 0)
+            * r['total_hours'] for r in rows), 2)
+        ctx['cost_settings'] = cost_settings
+    return render(request, 'projects/value_board.html', ctx)
 
 
 @login_required

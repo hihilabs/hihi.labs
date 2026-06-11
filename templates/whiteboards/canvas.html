@@ -1,13 +1,74 @@
 {% extends 'base.html' %}
-{% block title %}{{ board.title }} — Whiteboard{% endblock %}
+{% block title %}{{ board.title }} — Room{% endblock %}
 
 {% block extra_css %}
 <style>
-.wb-shell { display: flex; flex-direction: column; height: calc(100vh - 60px); overflow: hidden; }
+.wb-shell { display: flex; height: calc(100vh - 60px); overflow: hidden; }
+
+/* ── Transcript pane (desktop left) ─────────────────────────────────────── */
+.wb-side { width: 320px; min-width: 320px; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg2); }
+.wb-side-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: var(--weight-bold); letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.wb-presence { display: flex; gap: 4px; }
+.wb-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-transform: uppercase; }
+.wb-avatar.loyd { background: var(--green, #34d399); }
+.wb-feed { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.wb-ev { font-size: 12px; line-height: 1.45; }
+.wb-ev .who { font-weight: var(--weight-bold); color: var(--text); margin-right: 6px; }
+.wb-ev .ts { font-size: 10px; color: var(--text-muted); margin-left: 6px; }
+.wb-ev .txt { color: var(--text); }
+.wb-ev.k-board .txt, .wb-ev.k-system .txt { color: var(--text-muted); font-style: italic; }
+.wb-ev.k-board .who, .wb-ev.k-system .who { display: none; }
+.wb-ev.k-loyd { background: rgba(52,211,153,.08); border-left: 2px solid var(--green, #34d399); padding: 6px 8px; border-radius: var(--r-sm); }
+.wb-ev.k-loyd .who { color: var(--green, #34d399); }
+.wb-ev.k-command { background: rgba(124,106,247,.08); border-left: 2px solid var(--primary); padding: 6px 8px; border-radius: var(--r-sm); }
+.wb-ev.k-speech .who::after { content: ' 🎙'; font-size: 10px; }
+.wb-loyd-typing { font-size: 11px; color: var(--green, #34d399); padding: 4px 12px; display: none; }
+
+/* ── Video tiles ────────────────────────────────────────────────────────── */
+.wb-tiles { display: none; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.wb-tiles.on { display: grid; }
+.wb-tile { position: relative; aspect-ratio: 4/3; background: var(--bg3); border-radius: var(--r-sm); overflow: hidden; border: 2px solid transparent; }
+.wb-tile.speaking { border-color: var(--green, #34d399); }
+.wb-tile video { width: 100%; height: 100%; object-fit: cover; }
+.wb-tile .nm { position: absolute; bottom: 4px; left: 6px; font-size: 10px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+.wb-tile .novid { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--text-muted); }
+.wb-callbtn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: var(--r-sm); border: 1px solid var(--border); cursor: pointer; background: var(--bg3); color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+.wb-callbtn:hover { color: var(--text); }
+.wb-callbtn.on { background: rgba(52,211,153,.15); border-color: var(--green, #34d399); color: var(--green, #34d399); }
+.wb-callbtn.danger { background: rgba(248,113,113,.15); border-color: var(--red, #f87171); color: var(--red, #f87171); }
+
+/* ── Sandbox drawer + module picker ─────────────────────────────────────── */
+.wb-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 46%; min-width: 380px; display: none; flex-direction: column; background: var(--bg2); border-left: 1px solid var(--border); z-index: 6; }
+.wb-drawer.on { display: flex; }
+.wb-drawer-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.wb-drawer-head .ttl { font-weight: var(--weight-bold); flex: 1; }
+.wb-drawer-head a { color: var(--primary); font-size: 11px; }
+.wb-drawer iframe { flex: 1.2; border: 0; background: #fff; min-height: 160px; }
+.wb-editor { flex: 1; display: flex; flex-direction: column; border-top: 1px solid var(--border); min-height: 180px; }
+.wb-editor-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.wb-editor-bar select { background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-sm); font-size: 11px; padding: 4px 6px; flex: 1; }
+.wb-editor .CodeMirror { flex: 1; height: auto; font-size: 12px; }
+.wb-picker { position: absolute; bottom: 54px; left: 56px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: 0 8px 24px rgba(0,0,0,.5); display: none; min-width: 280px; z-index: 8; }
+.wb-picker.on { display: block; }
+.wb-picker .pk-head { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 8px 12px 4px; }
+.wb-picker .pk-item { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 8px 12px; cursor: pointer; color: var(--text); font-family: var(--font-ui); }
+.wb-picker .pk-item:hover { background: var(--bg3); }
+.wb-picker .pk-item .lbl { font-size: 13px; font-weight: var(--weight-bold); }
+.wb-picker .pk-item .dsc { font-size: 11px; color: var(--text-muted); }
+
+/* ── Footer command bar ─────────────────────────────────────────────────── */
+.wb-footer { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--bg2); align-items: center; }
+.wb-cmd-in { flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-family: var(--font-ui); font-size: 13px; padding: 8px 12px; outline: none; }
+.wb-cmd-in:focus { border-color: var(--primary); }
+.wb-footer .hint { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.wb-conn { width: 8px; height: 8px; border-radius: 50%; background: var(--red, #f87171); flex-shrink: 0; }
+.wb-conn.on { background: var(--green, #34d399); }
+
+/* ── Board column (existing styles) ─────────────────────────────────────── */
+.wb-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .wb-topbar { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg2); }
 .wb-title-in { background: none; border: none; color: var(--text); font-family: var(--font-ui); font-size: 14px; font-weight: var(--weight-bold); outline: none; flex: 1; padding: 4px 8px; border-radius: var(--r-sm); }
-.wb-title-in:hover { background: var(--bg3); }
-.wb-title-in:focus { background: var(--bg3); }
+.wb-title-in:hover, .wb-title-in:focus { background: var(--bg3); }
 .wb-toolbar { display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; background: var(--bg2); }
 .wb-tool { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--r-sm); border: 1px solid transparent; cursor: pointer; background: none; color: var(--text-muted); font-size: 14px; transition: all .12s; }
 .wb-tool:hover { background: var(--bg3); color: var(--text); }
@@ -16,62 +77,122 @@
 .wb-canvas-wrap { flex: 1; overflow: hidden; position: relative; background: var(--bg); cursor: crosshair; }
 .wb-canvas-wrap canvas { display: block; }
 .wb-status { position: absolute; bottom: 8px; right: 12px; font-size: 10px; color: var(--text-muted); letter-spacing: .04em; }
-.wb-color-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; }
-.wb-color-swatch.active { border-color: var(--text); }
 .color-picker-wrap { position: relative; }
 #color-picker { position: absolute; opacity: 0; width: 0; height: 0; }
+
+@media (max-width: 900px) { .wb-side { display: none; } }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="wb-shell">
-  <div class="wb-topbar">
-    <a href="{% url 'whiteboards:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
-    <input id="wb-title" class="wb-title-in" value="{{ board.title }}">
-    <div id="save-status" style="font-size:11px;color:var(--text-muted);">Saved</div>
-    <button class="btn btn-ghost btn-sm" onclick="deleteBoard()"><i class="fa-solid fa-trash"></i></button>
-  </div>
 
-  <div class="wb-toolbar" id="toolbar">
-    <button class="wb-tool active" id="tool-select" onclick="setTool('select')" title="Select (V)"><i class="fa-solid fa-arrow-pointer"></i></button>
-    <button class="wb-tool" id="tool-pencil" onclick="setTool('pencil')" title="Draw (D)"><i class="fa-solid fa-pencil"></i></button>
-    <button class="wb-tool" id="tool-text" onclick="setTool('text')" title="Text (T)"><i class="fa-solid fa-font"></i></button>
-    <div class="wb-sep"></div>
-    <button class="wb-tool" onclick="addRect()" title="Rectangle"><i class="fa-regular fa-square"></i></button>
-    <button class="wb-tool" onclick="addCircle()" title="Circle"><i class="fa-regular fa-circle"></i></button>
-    <button class="wb-tool" onclick="addArrow()" title="Arrow"><i class="fa-solid fa-arrow-right"></i></button>
-    <button class="wb-tool" onclick="addStickyNote()" title="Sticky note"><i class="fa-solid fa-note-sticky"></i></button>
-    <div class="wb-sep"></div>
-    <button class="wb-tool" onclick="undo()" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
-    <button class="wb-tool" onclick="redo()" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
-    <button class="wb-tool" onclick="deleteSelected()" title="Delete (Del)"><i class="fa-solid fa-trash-can"></i></button>
-    <div class="wb-sep"></div>
-    <div class="wb-tool" style="cursor:default;gap:4px;width:auto;padding:0 4px;" title="Stroke color">
-      <span style="font-size:10px;color:var(--text-muted);">Color</span>
-      <div id="current-color" style="width:18px;height:18px;border-radius:3px;background:#7c6af7;border:1px solid var(--border);cursor:pointer;" onclick="document.getElementById('color-picker').click()"></div>
-      <div class="color-picker-wrap"><input type="color" id="color-picker" value="#7c6af7" oninput="setColor(this.value)"></div>
+  <div class="wb-side">
+    <div class="wb-side-head">
+      <span>Transcript</span>
+      <div class="wb-presence" id="presence"></div>
     </div>
-    <div class="wb-sep"></div>
-    <button class="wb-tool" onclick="canvas.setZoom(canvas.getZoom()*1.15)" title="Zoom in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-    <button class="wb-tool" onclick="canvas.setZoom(1)" title="Reset zoom"><i class="fa-solid fa-compress"></i></button>
-    <button class="wb-tool" onclick="canvas.setZoom(canvas.getZoom()/1.15)" title="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-    <div class="wb-sep"></div>
-    <button class="wb-tool" onclick="saveNow()" title="Save (Ctrl+S)" style="color:var(--green);"><i class="fa-solid fa-floppy-disk"></i></button>
+    <div class="wb-tiles" id="tiles"></div>
+    <div class="wb-feed" id="feed">
+      {% for ev in events %}
+      <div class="wb-ev k-{{ ev.kind }}">
+        <span class="who">{% if ev.user %}{{ ev.user.get_short_name|default:ev.user.username }}{% elif ev.kind == 'loyd' %}loyd{% endif %}</span><span class="txt">{{ ev.text }}</span><span class="ts">{{ ev.created_at|date:"g:i A" }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="wb-loyd-typing" id="loyd-typing">loyd is thinking…</div>
   </div>
 
-  <div class="wb-canvas-wrap" id="canvas-wrap">
-    <canvas id="c"></canvas>
-    <div class="wb-status" id="wb-status">—</div>
+  <div class="wb-main">
+    <div class="wb-topbar">
+      <a href="{% url 'whiteboards:index' %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i></a>
+      <input id="wb-title" class="wb-title-in" value="{{ board.title }}">
+      {% if board.project %}<span style="font-size:11px;color:var(--text-muted);">{{ board.project.name }}</span>{% endif %}
+      <div id="save-status" style="font-size:11px;color:var(--text-muted);">Saved</div>
+      <button class="btn btn-ghost btn-sm" onclick="deleteBoard()"><i class="fa-solid fa-trash"></i></button>
+    </div>
+
+    <div class="wb-toolbar" id="toolbar">
+      <button class="wb-tool active" id="tool-select" onclick="setTool('select')" title="Select (V)"><i class="fa-solid fa-arrow-pointer"></i></button>
+      <button class="wb-tool" id="tool-pencil" onclick="setTool('pencil')" title="Draw (D)"><i class="fa-solid fa-pencil"></i></button>
+      <button class="wb-tool" id="tool-text" onclick="setTool('text')" title="Text (T)"><i class="fa-solid fa-font"></i></button>
+      <div class="wb-sep"></div>
+      <button class="wb-tool" onclick="addRect()" title="Rectangle"><i class="fa-regular fa-square"></i></button>
+      <button class="wb-tool" onclick="addCircle()" title="Circle"><i class="fa-regular fa-circle"></i></button>
+      <button class="wb-tool" onclick="addArrow()" title="Arrow"><i class="fa-solid fa-arrow-right"></i></button>
+      <button class="wb-tool" onclick="addStickyNote()" title="Sticky note"><i class="fa-solid fa-note-sticky"></i></button>
+      <div class="wb-sep"></div>
+      <button class="wb-tool" onclick="undo()" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+      <button class="wb-tool" onclick="redo()" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+      <button class="wb-tool" onclick="deleteSelected()" title="Delete (Del)"><i class="fa-solid fa-trash-can"></i></button>
+      <div class="wb-sep"></div>
+      <div class="wb-tool" style="cursor:default;gap:4px;width:auto;padding:0 4px;" title="Stroke color">
+        <span style="font-size:10px;color:var(--text-muted);">Color</span>
+        <div id="current-color" style="width:18px;height:18px;border-radius:3px;background:#7c6af7;border:1px solid var(--border);cursor:pointer;" onclick="document.getElementById('color-picker').click()"></div>
+        <div class="color-picker-wrap"><input type="color" id="color-picker" value="#7c6af7" oninput="setColor(this.value)"></div>
+      </div>
+      <div class="wb-sep"></div>
+      <button class="wb-tool" onclick="canvas.setZoom(canvas.getZoom()*1.15)" title="Zoom in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+      <button class="wb-tool" onclick="canvas.setZoom(1)" title="Reset zoom"><i class="fa-solid fa-compress"></i></button>
+      <button class="wb-tool" onclick="canvas.setZoom(canvas.getZoom()/1.15)" title="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+      <div class="wb-sep"></div>
+      <button class="wb-tool" onclick="saveNow()" title="Save (Ctrl+S)" style="color:var(--green);"><i class="fa-solid fa-floppy-disk"></i></button>
+    </div>
+
+    <div class="wb-canvas-wrap" id="canvas-wrap">
+      <canvas id="c"></canvas>
+      <div class="wb-status" id="wb-status">—</div>
+
+      <div class="wb-drawer" id="sb-drawer">
+        <div class="wb-drawer-head">
+          <span class="ttl" id="sb-title">sandbox</span>
+          <a id="sb-url" href="#" target="_blank">open ↗</a>
+          <button class="wb-tool" onclick="document.getElementById('sb-frame').src = document.getElementById('sb-frame').src" title="Reload preview"><i class="fa-solid fa-rotate-right"></i></button>
+          <button class="wb-tool" onclick="stopSandbox()" title="Stop sandbox" style="color:var(--red,#f87171);"><i class="fa-solid fa-stop"></i></button>
+          <button class="wb-tool" onclick="closeDrawer()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <iframe id="sb-frame"></iframe>
+        <div class="wb-editor">
+          <div class="wb-editor-bar">
+            <select id="sb-files" onchange="loadFile(this.value)"></select>
+            <button class="btn btn-sm" onclick="saveFile()" style="color:var(--green);"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+            <span id="sb-edit-status" style="font-size:10px;color:var(--text-muted);"></span>
+          </div>
+          <textarea id="sb-cm"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="wb-footer">
+      <div class="wb-conn" id="conn" title="Room connection"></div>
+      <button class="wb-callbtn" id="btn-join" onclick="joinCall()" title="Join voice/video"><i class="fa-solid fa-phone"></i></button>
+      <button class="wb-callbtn" id="btn-mic" onclick="toggleMic()" title="Microphone" style="display:none;"><i class="fa-solid fa-microphone"></i></button>
+      <button class="wb-callbtn" id="btn-cam" onclick="toggleCam()" title="Camera" style="display:none;"><i class="fa-solid fa-video"></i></button>
+      <button class="wb-callbtn" id="btn-sandbox" onclick="togglePicker()" title="Sandboxes (module picker)"><i class="fa-solid fa-cube"></i></button>
+      <div class="wb-picker" id="sb-picker"></div>
+      <input id="cmd-in" class="wb-cmd-in" placeholder="Message the room — / for commands, mention loyd to ask the AI" autocomplete="off">
+      <span class="hint">/help · /task · /loyd · /summarize</span>
+    </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
 <script>
 const CSRF = '{{ csrf_token }}';
 const BOARD_ID = {{ board.pk }};
 const SAVED_DATA = {{ board.data|safe }};
+const ME = '{{ request.user.get_short_name|default:request.user.username|escapejs }}';
 
 // Init canvas
 const wrap = document.getElementById('canvas-wrap');
@@ -82,9 +203,8 @@ const canvas = new fabric.Canvas('c', {
   selection: true,
 });
 
-// Load saved data
 if (SAVED_DATA && SAVED_DATA.objects) {
-  canvas.loadFromJSON(SAVED_DATA, canvas.renderAll.bind(canvas));
+  canvas.loadFromJSON(SAVED_DATA, () => { ensureIds(); canvas.renderAll(); });
 }
 
 window.addEventListener('resize', () => {
@@ -92,6 +212,149 @@ window.addEventListener('resize', () => {
   canvas.setHeight(wrap.clientHeight);
   canvas.renderAll();
 });
+
+// ── Room websocket ───────────────────────────────────────────────────────────
+let ws = null;
+let wsRetry = 1000;
+let applyingRemote = false;
+
+function wsConnect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/rooms/${BOARD_ID}/`);
+  ws.onopen = () => { document.getElementById('conn').classList.add('on'); wsRetry = 1000; };
+  ws.onclose = () => {
+    document.getElementById('conn').classList.remove('on');
+    setTimeout(wsConnect, wsRetry);
+    wsRetry = Math.min(wsRetry * 2, 15000);
+  };
+  ws.onmessage = (e) => handleRoomMsg(JSON.parse(e.data));
+}
+function wsSend(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+wsConnect();
+
+function handleRoomMsg(msg) {
+  if (msg.t === 'event') {
+    appendEvent(msg.event);
+    if (msg.event.kind === 'sandbox') refreshSandboxState();
+  }
+  else if (msg.t === 'presence') renderPresence(msg.users);
+  else if (msg.t === 'board_op') applyRemoteOp(msg);
+  else if (msg.t === 'loyd_status') showLoydTyping(msg.state === 'thinking');
+}
+
+// ── Transcript pane ──────────────────────────────────────────────────────────
+const feed = document.getElementById('feed');
+feed.scrollTop = feed.scrollHeight;
+
+function appendEvent(ev) {
+  showLoydTyping(false);
+  const div = document.createElement('div');
+  div.className = 'wb-ev k-' + ev.kind;
+  const who = document.createElement('span'); who.className = 'who'; who.textContent = ev.user || '';
+  const txt = document.createElement('span'); txt.className = 'txt'; txt.textContent = ev.text;
+  const ts = document.createElement('span'); ts.className = 'ts'; ts.textContent = ev.ts || '';
+  div.append(who, txt, ts);
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function renderPresence(users) {
+  const box = document.getElementById('presence');
+  box.innerHTML = '';
+  users.forEach(u => {
+    const a = document.createElement('div');
+    a.className = 'wb-avatar'; a.title = u;
+    a.textContent = u.slice(0, 2);
+    box.appendChild(a);
+  });
+  const loyd = document.createElement('div');
+  loyd.className = 'wb-avatar loyd'; loyd.title = 'loyd (AI)'; loyd.textContent = 'ly';
+  box.appendChild(loyd);
+}
+renderPresence([ME]);
+
+function showLoydTyping(on) {
+  document.getElementById('loyd-typing').style.display = on ? 'block' : 'none';
+  if (on) feed.scrollTop = feed.scrollHeight;
+}
+
+// ── Footer command bar ───────────────────────────────────────────────────────
+const cmdIn = document.getElementById('cmd-in');
+cmdIn.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const text = cmdIn.value.trim();
+  if (!text) return;
+  wsSend({t: 'chat', text});
+  cmdIn.value = '';
+});
+
+// ── Board op sync ────────────────────────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+function ensureIds() { canvas.getObjects().forEach(o => { if (!o.id) o.id = uid(); }); }
+function serialize(obj) { return obj.toObject(['id']); }
+
+function broadcastAdd(obj, label) {
+  if (applyingRemote) return;
+  if (!obj.id) obj.id = uid();
+  wsSend({t: 'board_op', op: 'add', obj: serialize(obj), id: obj.id, label});
+}
+function broadcastModify(obj) {
+  if (applyingRemote || !obj) return;
+  if (obj.type === 'activeSelection') { obj.getObjects().forEach(o => broadcastModify(o)); return; }
+  if (!obj.id) obj.id = uid();
+  // Absolute coords for objects inside an active selection
+  const data = serialize(obj);
+  if (obj.group) {
+    const m = obj.calcTransformMatrix();
+    const opt = fabric.util.qrDecompose(m);
+    Object.assign(data, {left: opt.translateX, top: opt.translateY, angle: opt.angle,
+                         scaleX: opt.scaleX, scaleY: opt.scaleY});
+  }
+  wsSend({t: 'board_op', op: 'modify', obj: data, id: obj.id});
+}
+function broadcastRemove(obj, label) {
+  if (applyingRemote || !obj.id) return;
+  wsSend({t: 'board_op', op: 'remove', id: obj.id, label});
+}
+function broadcastReplace() {
+  ensureIds();
+  wsSend({t: 'board_op', op: 'replace', obj: canvas.toJSON(['id'])});
+}
+
+function findById(id) { return canvas.getObjects().find(o => o.id === id); }
+
+function applyRemoteOp(msg) {
+  applyingRemote = true;
+  try {
+    if (msg.op === 'add' && msg.obj) {
+      if (findById(msg.id)) return;
+      fabric.util.enlivenObjects([msg.obj], objs => {
+        applyingRemote = true;
+        objs.forEach(o => { o.id = msg.id; canvas.add(o); });
+        canvas.renderAll();
+        applyingRemote = false;
+      });
+    } else if (msg.op === 'modify' && msg.obj) {
+      const existing = findById(msg.id);
+      if (!existing) return;
+      canvas.remove(existing);
+      fabric.util.enlivenObjects([msg.obj], objs => {
+        applyingRemote = true;
+        objs.forEach(o => { o.id = msg.id; canvas.add(o); });
+        canvas.renderAll();
+        applyingRemote = false;
+      });
+    } else if (msg.op === 'remove') {
+      const existing = findById(msg.id);
+      if (existing) { canvas.remove(existing); canvas.renderAll(); }
+    } else if (msg.op === 'replace' && msg.obj) {
+      canvas.loadFromJSON(msg.obj, () => { applyingRemote = false; canvas.renderAll(); });
+      return; // loadFromJSON is async; flag cleared in callback
+    }
+  } finally {
+    if (msg.op !== 'replace') applyingRemote = false;
+  }
+}
 
 // ── Tool state ──────────────────────────────────────────────────────────────
 let currentTool = 'select';
@@ -119,7 +382,7 @@ function setColor(c) {
   document.getElementById('current-color').style.background = c;
   if (canvas.isDrawingMode) canvas.freeDrawingBrush.color = c;
   const active = canvas.getActiveObject();
-  if (active) { active.set({stroke: c}); canvas.renderAll(); markDirty(); }
+  if (active) { active.set({stroke: c}); canvas.renderAll(); broadcastModify(active); markDirty(); }
 }
 
 // ── Object creation ─────────────────────────────────────────────────────────
@@ -129,7 +392,7 @@ function addRect() {
     fill: 'transparent', stroke: currentColor, strokeWidth: 2,
     rx: 6, ry: 6,
   });
-  canvas.add(r); canvas.setActiveObject(r); pushHistory(); markDirty();
+  canvas.add(r); canvas.setActiveObject(r); broadcastAdd(r, 'added a rectangle'); pushHistory(); markDirty();
 }
 
 function addCircle() {
@@ -137,7 +400,7 @@ function addCircle() {
     left: 160, top: 140, radius: 60,
     fill: 'transparent', stroke: currentColor, strokeWidth: 2,
   });
-  canvas.add(c); canvas.setActiveObject(c); pushHistory(); markDirty();
+  canvas.add(c); canvas.setActiveObject(c); broadcastAdd(c, 'added a circle'); pushHistory(); markDirty();
 }
 
 function addArrow() {
@@ -150,7 +413,7 @@ function addArrow() {
     fill: currentColor, angle: 90,
   });
   const grp = new fabric.Group([line, head]);
-  canvas.add(grp); canvas.setActiveObject(grp); pushHistory(); markDirty();
+  canvas.add(grp); canvas.setActiveObject(grp); broadcastAdd(grp, 'added an arrow'); pushHistory(); markDirty();
 }
 
 function addStickyNote() {
@@ -164,7 +427,7 @@ function addStickyNote() {
     width: 140, editable: true,
   });
   const grp = new fabric.Group([rect, text], {left: 100, top: 100});
-  canvas.add(grp); canvas.setActiveObject(grp); pushHistory(); markDirty();
+  canvas.add(grp); canvas.setActiveObject(grp); broadcastAdd(grp, 'added a sticky note'); pushHistory(); markDirty();
 }
 
 // ── Text tool click ──────────────────────────────────────────────────────────
@@ -180,34 +443,50 @@ canvas.on('mouse:down', function(opt) {
   canvas.setActiveObject(t);
   t.enterEditing();
   setTool('select');
-  pushHistory(); markDirty();
+  broadcastAdd(t, 'added text'); pushHistory(); markDirty();
 });
+
+// Pencil strokes
+canvas.on('path:created', function(e) {
+  if (applyingRemote) return;
+  broadcastAdd(e.path, 'drew a stroke');
+});
+
+// Text edits + moves/scales sync on commit
+canvas.on('text:editing:exited', function(e) { broadcastModify(e.target); markDirty(); });
 
 // ── History ──────────────────────────────────────────────────────────────────
 function pushHistory() {
-  history.push(JSON.stringify(canvas.toJSON()));
+  if (applyingRemote) return;
+  history.push(JSON.stringify(canvas.toJSON(['id'])));
   redoStack = [];
   if (history.length > 40) history.shift();
 }
 function undo() {
   if (history.length < 2) return;
   redoStack.push(history.pop());
-  canvas.loadFromJSON(JSON.parse(history[history.length - 1]), () => { canvas.renderAll(); markDirty(); });
+  applyingRemote = true;
+  canvas.loadFromJSON(JSON.parse(history[history.length - 1]), () => {
+    applyingRemote = false; canvas.renderAll(); broadcastReplace(); markDirty();
+  });
 }
 function redo() {
   if (!redoStack.length) return;
   const s = redoStack.pop();
   history.push(s);
-  canvas.loadFromJSON(JSON.parse(s), () => { canvas.renderAll(); markDirty(); });
+  applyingRemote = true;
+  canvas.loadFromJSON(JSON.parse(s), () => {
+    applyingRemote = false; canvas.renderAll(); broadcastReplace(); markDirty();
+  });
 }
 canvas.on('object:added', pushHistory);
-canvas.on('object:modified', () => { pushHistory(); markDirty(); });
+canvas.on('object:modified', (e) => { broadcastModify(e.target); pushHistory(); markDirty(); });
 
 function deleteSelected() {
   const obj = canvas.getActiveObject();
   if (!obj) return;
-  if (obj.type === 'activeSelection') obj.getObjects().forEach(o => canvas.remove(o));
-  else canvas.remove(obj);
+  if (obj.type === 'activeSelection') obj.getObjects().forEach(o => { broadcastRemove(o, 'deleted an object'); canvas.remove(o); });
+  else { broadcastRemove(obj, 'deleted an object'); canvas.remove(obj); }
   canvas.discardActiveObject();
   canvas.renderAll();
   pushHistory(); markDirty();
@@ -233,7 +512,7 @@ async function saveNow() {
   statusEl.textContent = 'Saving…';
   await fetch(`/whiteboards/${BOARD_ID}/save/`, {
     method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
-    body: JSON.stringify({canvas: canvas.toJSON(), title: titleVal}),
+    body: JSON.stringify({canvas: canvas.toJSON(['id']), title: titleVal}),
   });
   dirty = false;
   statusEl.textContent = 'Saved';
@@ -259,6 +538,308 @@ document.addEventListener('keydown', e => {
   if (e.key === 'd' || e.key === 'D') setTool('pencil');
   if (e.key === 't' || e.key === 'T') setTool('text');
 });
+
+// ── Voice/video call (LiveKit) ───────────────────────────────────────────────
+let lkRoom = null;
+let micOn = false, camOn = false;
+
+function tileFor(identity, name) {
+  let t = document.getElementById('tile-' + identity);
+  if (t) return t;
+  t = document.createElement('div');
+  t.className = 'wb-tile'; t.id = 'tile-' + identity;
+  t.innerHTML = '<div class="novid"><i class="fa-solid fa-user"></i></div><span class="nm"></span>';
+  t.querySelector('.nm').textContent = name || identity;
+  document.getElementById('tiles').appendChild(t);
+  return t;
+}
+function dropTile(identity) {
+  const t = document.getElementById('tile-' + identity);
+  if (t) t.remove();
+}
+function attachVideo(track, identity, name) {
+  const t = tileFor(identity, name);
+  t.querySelectorAll('video').forEach(v => v.remove());
+  const el = track.attach();
+  el.muted = true;  // video element only; audio handled separately
+  t.prepend(el);
+}
+
+async function joinCall() {
+  if (lkRoom) { leaveCall(); return; }
+  const res = await fetch(`/whiteboards/${BOARD_ID}/rtc-token/`);
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || 'Call setup failed'); return; }
+  const url = data.url || ((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/livekit');
+
+  const LK = LivekitClient;
+  lkRoom = new LK.Room({adaptiveStream: true, dynacast: true});
+
+  lkRoom.on(LK.RoomEvent.TrackSubscribed, (track, pub, p) => {
+    if (track.kind === 'video') attachVideo(track, p.identity, p.name);
+    else if (track.kind === 'audio') {
+      const el = track.attach();
+      el.id = 'aud-' + p.identity;
+      document.body.appendChild(el);
+      tileFor(p.identity, p.name);
+    }
+  });
+  lkRoom.on(LK.RoomEvent.TrackUnsubscribed, (track, pub, p) => {
+    track.detach().forEach(el => el.remove());
+    if (track.kind === 'video') tileFor(p.identity, p.name);
+  });
+  lkRoom.on(LK.RoomEvent.ParticipantConnected, p => tileFor(p.identity, p.name));
+  lkRoom.on(LK.RoomEvent.ParticipantDisconnected, p => dropTile(p.identity));
+  lkRoom.on(LK.RoomEvent.ActiveSpeakersChanged, speakers => {
+    document.querySelectorAll('.wb-tile').forEach(t => t.classList.remove('speaking'));
+    speakers.forEach(s => {
+      const t = document.getElementById('tile-' + s.identity);
+      if (t) t.classList.add('speaking');
+    });
+  });
+  lkRoom.on(LK.RoomEvent.Disconnected, () => cleanupCall());
+
+  try {
+    await lkRoom.connect(url, data.token);
+  } catch (err) {
+    alert('Could not reach the media server: ' + err.message);
+    lkRoom = null;
+    return;
+  }
+
+  document.getElementById('tiles').classList.add('on');
+  tileFor(lkRoom.localParticipant.identity, ME + ' (you)');
+  lkRoom.remoteParticipants.forEach(p => tileFor(p.identity, p.name));
+  document.getElementById('btn-join').classList.add('danger');
+  document.getElementById('btn-join').innerHTML = '<i class="fa-solid fa-phone-slash"></i>';
+  document.getElementById('btn-mic').style.display = '';
+  document.getElementById('btn-cam').style.display = '';
+  await setMic(true);
+}
+
+function leaveCall() { if (lkRoom) lkRoom.disconnect(); }
+
+function cleanupCall() {
+  stopTranscriber();
+  document.querySelectorAll('[id^="aud-"]').forEach(el => el.remove());
+  document.getElementById('tiles').innerHTML = '';
+  document.getElementById('tiles').classList.remove('on');
+  document.getElementById('btn-join').classList.remove('danger');
+  document.getElementById('btn-join').innerHTML = '<i class="fa-solid fa-phone"></i>';
+  document.getElementById('btn-mic').style.display = 'none';
+  document.getElementById('btn-cam').style.display = 'none';
+  micOn = camOn = false;
+  lkRoom = null;
+}
+
+async function setMic(on) {
+  await lkRoom.localParticipant.setMicrophoneEnabled(on);
+  micOn = on;
+  document.getElementById('btn-mic').classList.toggle('on', on);
+  document.getElementById('btn-mic').innerHTML = on ?
+    '<i class="fa-solid fa-microphone"></i>' : '<i class="fa-solid fa-microphone-slash"></i>';
+  if (on) startTranscriber(); else stopTranscriber();
+}
+function toggleMic() { if (lkRoom) setMic(!micOn); }
+
+async function toggleCam() {
+  if (!lkRoom) return;
+  camOn = !camOn;
+  await lkRoom.localParticipant.setCameraEnabled(camOn);
+  document.getElementById('btn-cam').classList.toggle('on', camOn);
+  if (camOn) {
+    const pub = lkRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.Camera);
+    if (pub && pub.track) attachVideo(pub.track, lkRoom.localParticipant.identity, ME + ' (you)');
+  } else {
+    const t = document.getElementById('tile-' + lkRoom.localParticipant.identity);
+    if (t) t.querySelectorAll('video').forEach(v => v.remove());
+  }
+}
+
+// ── Live transcription: 6s mic chunks → Whisper → transcript ────────────────
+let recTimer = null, recorder = null, audioCtx = null, levelMax = 0, levelPoll = null;
+const LEVEL_GATE = 0.015;  // skip silent chunks — saves Whisper calls
+
+function startTranscriber() {
+  const pub = lkRoom.localParticipant.getTrackPublication(LivekitClient.Track.Source.Microphone);
+  if (!pub || !pub.track || !pub.track.mediaStreamTrack) return;
+  const stream = new MediaStream([pub.track.mediaStreamTrack]);
+
+  audioCtx = new AudioContext();
+  const src = audioCtx.createMediaStreamSource(stream);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  src.connect(analyser);
+  const buf = new Float32Array(analyser.fftSize);
+  levelPoll = setInterval(() => {
+    analyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    levelMax = Math.max(levelMax, Math.sqrt(sum / buf.length));
+  }, 200);
+
+  const cycle = () => {
+    if (!micOn || !lkRoom) return;
+    levelMax = 0;
+    recorder = new MediaRecorder(stream, {mimeType: 'audio/webm'});
+    const parts = [];
+    recorder.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+    recorder.onstop = () => {
+      if (levelMax > LEVEL_GATE && parts.length) {
+        const fd = new FormData();
+        fd.append('audio', new Blob(parts, {type: 'audio/webm'}), 'chunk.webm');
+        fetch(`/whiteboards/${BOARD_ID}/speech/`, {
+          method: 'POST', headers: {'X-CSRFToken': CSRF}, body: fd,
+        }).catch(() => {});
+      }
+      if (micOn && lkRoom) cycle();
+    };
+    recorder.start();
+    recTimer = setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 6000);
+  };
+  cycle();
+}
+
+function stopTranscriber() {
+  clearTimeout(recTimer);
+  clearInterval(levelPoll);
+  if (recorder && recorder.state === 'recording') { recorder.onstop = null; recorder.stop(); }
+  if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+  recorder = null;
+}
+
+window.addEventListener('beforeunload', () => { if (lkRoom) lkRoom.disconnect(); });
+
+// ── Sandboxes: module picker + drawer editor ─────────────────────────────────
+let sbState = {templates: [], sandboxes: []};
+let sbCurrent = null, cmEditor = null, sbFile = null;
+
+async function refreshSandboxState() {
+  const res = await fetch(`/whiteboards/${BOARD_ID}/sandbox/`);
+  if (!res.ok) return;
+  sbState = await res.json();
+  document.getElementById('btn-sandbox').classList.toggle('on', sbState.sandboxes.length > 0);
+  renderPicker();
+}
+
+function renderPicker() {
+  const box = document.getElementById('sb-picker');
+  box.innerHTML = '';
+  if (sbState.sandboxes.length) {
+    const h = document.createElement('div'); h.className = 'pk-head'; h.textContent = 'Running';
+    box.appendChild(h);
+    sbState.sandboxes.forEach(sb => {
+      const b = document.createElement('button'); b.className = 'pk-item';
+      b.innerHTML = `<div class="lbl"></div><div class="dsc"></div>`;
+      b.querySelector('.lbl').textContent = `#${sb.id} · ${sb.template}`;
+      b.querySelector('.dsc').textContent = sb.url;
+      b.onclick = () => { togglePicker(false); openDrawer(sb); };
+      box.appendChild(b);
+    });
+  }
+  const h2 = document.createElement('div'); h2.className = 'pk-head'; h2.textContent = 'Spin up a module';
+  box.appendChild(h2);
+  sbState.templates.forEach(t => {
+    const b = document.createElement('button'); b.className = 'pk-item';
+    b.innerHTML = `<div class="lbl"></div><div class="dsc"></div>`;
+    b.querySelector('.lbl').textContent = t.label;
+    b.querySelector('.dsc').textContent = t.desc;
+    b.onclick = () => { togglePicker(false); spinSandbox(t.key); };
+    box.appendChild(b);
+  });
+}
+
+function togglePicker(force) {
+  const box = document.getElementById('sb-picker');
+  const on = force !== undefined ? force : !box.classList.contains('on');
+  box.classList.toggle('on', on);
+}
+
+async function spinSandbox(key) {
+  const res = await fetch(`/whiteboards/${BOARD_ID}/sandbox/new/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({template: key}),
+  });
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || 'Sandbox failed'); return; }
+  await refreshSandboxState();
+  openDrawer(data);
+}
+
+async function openDrawer(sb) {
+  sbCurrent = sb;
+  document.getElementById('sb-title').textContent = `#${sb.id} · ${sb.template}`;
+  document.getElementById('sb-url').href = sb.url;
+  // give a fresh container a beat before first load
+  setTimeout(() => { document.getElementById('sb-frame').src = sb.url; }, 600);
+  document.getElementById('sb-drawer').classList.add('on');
+  if (!cmEditor) {
+    cmEditor = CodeMirror.fromTextArea(document.getElementById('sb-cm'),
+      {theme: 'material-darker', lineNumbers: true, indentUnit: 2});
+    cmEditor.setSize('100%', '100%');
+  }
+  const res = await fetch(`/whiteboards/${BOARD_ID}/sandbox/${sb.id}/files/`);
+  const data = await res.json();
+  const sel = document.getElementById('sb-files');
+  sel.innerHTML = '';
+  (data.files || []).forEach(f => {
+    const o = document.createElement('option'); o.value = f; o.textContent = f;
+    sel.appendChild(o);
+  });
+  if (data.files && data.files.length) loadFile(data.files[0]);
+}
+
+function cmMode(path) {
+  if (path.endsWith('.html')) return 'htmlmixed';
+  if (path.endsWith('.py')) return 'python';
+  if (path.endsWith('.js')) return 'javascript';
+  if (path.endsWith('.css')) return 'css';
+  return null;
+}
+
+async function loadFile(path) {
+  if (!sbCurrent) return;
+  const res = await fetch(`/whiteboards/${BOARD_ID}/sandbox/${sbCurrent.id}/files/?path=` + encodeURIComponent(path));
+  const data = await res.json();
+  if (!res.ok) return;
+  sbFile = path;
+  document.getElementById('sb-files').value = path;
+  cmEditor.setOption('mode', cmMode(path));
+  cmEditor.setValue(data.content);
+}
+
+async function saveFile() {
+  if (!sbCurrent || !sbFile) return;
+  const st = document.getElementById('sb-edit-status');
+  st.textContent = 'saving…';
+  const res = await fetch(`/whiteboards/${BOARD_ID}/sandbox/${sbCurrent.id}/files/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({path: sbFile, content: cmEditor.getValue()}),
+  });
+  st.textContent = res.ok ? 'saved' : 'save failed';
+  if (res.ok) setTimeout(() => {
+    document.getElementById('sb-frame').src = sbCurrent.url;
+    st.textContent = '';
+  }, 800);
+}
+
+async function stopSandbox() {
+  if (!sbCurrent) return;
+  if (!confirm(`Stop sandbox #${sbCurrent.id}?`)) return;
+  await fetch(`/whiteboards/${BOARD_ID}/sandbox/${sbCurrent.id}/stop/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF},
+  });
+  closeDrawer();
+  refreshSandboxState();
+}
+
+function closeDrawer() {
+  document.getElementById('sb-drawer').classList.remove('on');
+  document.getElementById('sb-frame').src = 'about:blank';
+  sbCurrent = null;
+}
+
+refreshSandboxState();
 
 // Init history
 pushHistory();

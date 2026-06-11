@@ -14,8 +14,9 @@
 
 ### At home (local network)
 ```
-# Step 1 — into Unraid
-ssh -i ~/.ssh/id_ed25519_unraid root@10.0.0.124
+# Step 1 — into Unraid (Tokyo7)
+ssh -i ~/.ssh/id_ed25519_unraid root@tokyo7.local   # LAN
+# or: root@192.168.0.28
 
 # Step 2 — from Unraid into VPS
 ssh -i /root/.ssh/id_ed25519_unraid root@66.175.239.235
@@ -34,7 +35,7 @@ cd /var/www/vhosts/communityplaylist.com/tokyo7.communityplaylist.com
 source venv/bin/activate
 ```
 
-> NOTE: Unraid (10.0.0.124) is LAN-only. From the road, skip it entirely.
+> NOTE: Unraid (Tokyo7 — tokyo7.local / 192.168.0.28) is LAN-only. From the road, skip it entirely.
 > Edit directly on the VPS and commit from there.
 
 ---
