@@ -176,3 +176,12 @@ try:
     CSS_VER = (BASE_DIR / 'VERSION').read_text().strip()
 except Exception:
     CSS_VER = '1'
+
+# Email
+EMAIL_BACKEND    = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST       = os.environ.get('EMAIL_HOST', 'localhost')
+EMAIL_PORT       = int(os.environ.get('EMAIL_PORT', 25))
+EMAIL_USE_TLS    = os.environ.get('EMAIL_USE_TLS', 'False') == 'True'
+EMAIL_HOST_USER  = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL  = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@hihilabs.xyz')

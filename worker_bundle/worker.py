@@ -8,7 +8,7 @@ Supported job types (JOB_HANDLERS):
   library_sync   — bulk download all CC photos to local cache
   ai_task        — Loyd AI inference (cloud or local GPU)
 """
-import os, sys, time, logging, requests, json, shutil
+import os, sys, time, logging, requests, json, shutil, re, platform
 from pathlib import Path
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -56,7 +56,7 @@ load_dotenv("config.env", override=True)
 
 PLESK_URL       = os.getenv("PLESK_URL",     "https://hihilabs.xyz/workers").rstrip("/")
 WORKER_SECRET   = os.getenv("WORKER_SECRET", "")
-WORKER_NAME     = os.getenv("WORKER_NAME",   "unraid")
+WORKER_NAME     = os.getenv("WORKER_NAME",   "")
 POLL_INTERVAL   = int(os.getenv("POLL_INTERVAL", "10"))
 JOBS_DIR        = Path(os.getenv("JOBS_DIR",        "jobs"))
 PHOTO_CACHE_DIR = Path(os.getenv("PHOTO_CACHE_DIR", "photos"))
@@ -798,9 +798,16 @@ def _status_panel() -> Panel:
 
 # ── Main loop ──────────────────────────────────────────────────────────────────
 def main():
-    global _gpu_name
+    global _gpu_name, WORKER_NAME
     _bootstrap_packages()
     _gpu_name = _detect_gpu()
+    if not WORKER_NAME:
+        host = platform.node().split(".")[0] or "worker"
+        if _gpu_name:
+            gpu_short = re.sub(r"[^A-Za-z0-9]+", "", _gpu_name)[-10:]
+            WORKER_NAME = f"{host}-{gpu_short}"
+        else:
+            WORKER_NAME = host
     _print_banner(_gpu_name)
 
     with Live(_status_panel(), console=console, refresh_per_second=0.5,

@@ -263,6 +263,25 @@
           <div class="task-meta">
             <span class="priority-dot priority-{{ task.priority }}">{{ task.get_priority_display }}</span>
             {% if task.total_hours > 0 %}<span style="font-size:11px;color:var(--text-muted);">{{ task.total_hours }}h</span>{% endif %}
+            <select class="task-assignee" onchange="updateAssignee({{ task.pk }}, this.value)" title="Assignee">
+              <option value="">Unassigned</option>
+              {% if staff_users %}
+              <optgroup label="Team">
+                {% for u in staff_users %}
+                <option value="user:{{ u.pk }}" {% if task.assigned_to_user_id == u.pk %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endif %}
+              {% if client_contacts %}
+              <optgroup label="Client">
+                {% for c in client_contacts %}
+                <option value="contact:{{ c.pk }}" {% if task.assigned_to_contact_id == c.pk %}selected{% endif %}>{{ c.full_name }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endif %}
+            </select>
+            <input type="date" class="task-due-input" title="Due date" value="{{ task.due_date|date:'Y-m-d' }}" onchange="updateTaskField({{ task.pk }}, 'due_date', this.value)">
+            <button class="btn-icon {% if task.client_visible %}active{% endif %}" title="Visible to client" onclick="toggleClientVisible({{ task.pk }}, this)"><i class="fa-solid fa-eye"></i></button>
             <button class="btn-icon" onclick="startTimerTask({{ project.pk }}, {{ task.pk }}, '{{ task.title|escapejs }}')"><i class="fa-solid fa-play"></i></button>
             <button class="btn-icon" onclick="suggestNext({{ task.pk }}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
             <button class="btn-icon danger" onclick="deleteTask({{ task.pk }}, this)"><i class="fa-solid fa-trash"></i></button>
@@ -761,6 +780,34 @@ async function deleteTask(id, btn) {
   await fetch(`/projects/tasks/${id}/delete/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
   btn.closest('.task-row').remove();
 }
+async function updateTaskField(id, field, value) {
+  await fetch(`/projects/tasks/${id}/update/`, {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body: JSON.stringify({[field]: value}),
+  });
+}
+async function updateAssignee(id, value) {
+  let body;
+  if (!value) {
+    body = {assigned_to_user_id: null, assigned_to_contact_id: null};
+  } else {
+    const [kind, pk] = value.split(':');
+    body = kind === 'user'
+      ? {assigned_to_user_id: parseInt(pk), assigned_to_contact_id: null}
+      : {assigned_to_user_id: null, assigned_to_contact_id: parseInt(pk)};
+  }
+  await fetch(`/projects/tasks/${id}/update/`, {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+}
+async function toggleClientVisible(id, btn) {
+  const active = btn.classList.toggle('active');
+  await fetch(`/projects/tasks/${id}/update/`, {
+    method:'POST', headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},
+    body: JSON.stringify({client_visible: active}),
+  });
+}
 async function suggestNext(id, btn) {
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
   const res = await fetch(`/projects/tasks/${id}/suggest/`, {method:'POST', headers:{'X-CSRFToken':CSRF}});
@@ -1027,5 +1074,19 @@ async function createInvoice() {
     btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-receipt"></i> Create Invoice';
   }
 }
+
+/* Deep-link to a task from a /messaging command card, e.g. ?task=123 */
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const taskId = params.get('task');
+  if (!taskId) return;
+  document.querySelectorAll(`.task-row[data-id="${taskId}"], .kanban-card[data-id="${taskId}"]`).forEach(el => {
+    if (el.offsetParent === null) return;
+    el.scrollIntoView({behavior: 'smooth', block: 'center'});
+    el.style.transition = 'background-color 0.3s';
+    el.style.backgroundColor = 'color-mix(in srgb, var(--accent) 25%, transparent)';
+    setTimeout(() => { el.style.backgroundColor = ''; }, 2000);
+  });
+})();
 </script>
 {% endblock %}

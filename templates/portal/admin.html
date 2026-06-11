@@ -134,6 +134,7 @@
           <a id="cfg-preview-btn" class="btn btn-ghost btn-sm" href="#" target="_blank" title="Preview as client">
             <i class="fa-solid fa-eye"></i> Preview
           </a>
+          <button class="btn btn-accent btn-sm" onclick="sendInvite()" title="Email portal link to client" style="background:var(--accent);color:#fff;border-color:var(--accent);"><i class="fa-solid fa-envelope"></i> Send Invite</button>
           <button class="btn btn-ghost btn-sm" onclick="regenToken()" title="Rotate token — old URL stops working">
             <i class="fa-solid fa-rotate"></i>
           </button>
@@ -142,6 +143,14 @@
           Send directly to the client — no login required. Remind them to keep it private.
           Rotating the token <strong style="color:var(--text);">immediately</strong> invalidates the old URL.
         </div>
+      </div>
+
+      <div style="margin-bottom:14px;margin-top:16px;">
+        <label class="label" style="display:block;margin-bottom:4px;">Linked Companies</label>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">
+          If this person owns or is associated with other client records, link them here — their projects (and other portal data) will appear in this single portal too.
+        </div>
+        <select id="cfg-linked-clients" multiple class="form-control" style="width:100%;min-height:80px;"></select>
       </div>
 
       <div style="margin-bottom:14px;margin-top:16px;">
@@ -322,7 +331,7 @@ CLIENT_CONFIGS[{{ cid }}] = {
 // Client name, color, token lookup
 const CLIENT_META = {
 {% for c in clients %}
-  {{ c.pk }}: {name: '{{ c.display_name|escapejs }}', color: '{{ c.color }}', token: '{{ c.portal_token }}'},
+  {{ c.pk }}: {name: '{{ c.display_name|escapejs }}', color: '{{ c.color }}', token: '{{ c.portal_token }}', email: '{{ c.email|escapejs }}', linked: [{% for lc in c.portal_linked_clients.all %}{{ lc.pk }}{% if not forloop.last %},{% endif %}{% endfor %}]},
 {% endfor %}
 };
 
@@ -358,6 +367,19 @@ function loadClientConfig(cid) {
   urlEl.textContent = portalUrl;
   urlEl.title = portalUrl;
   document.getElementById('cfg-preview-btn').href = `/portal/client/${activeCid}/preview/`;
+
+  // Linked companies multi-select
+  const linkedSel = document.getElementById('cfg-linked-clients');
+  linkedSel.innerHTML = '';
+  Object.keys(CLIENT_META).forEach(pk => {
+    pk = parseInt(pk);
+    if (pk === activeCid) return;
+    const opt = document.createElement('option');
+    opt.value = pk;
+    opt.textContent = CLIENT_META[pk].name;
+    if ((meta.linked || []).includes(pk)) opt.selected = true;
+    linkedSel.appendChild(opt);
+  });
 
   // Theme picker
   activeTheme = cfg.portal_theme || 'default';
@@ -404,6 +426,30 @@ async function regenToken() {
   }
 }
 
+
+async function sendInvite() {
+  if (!activeCid) return;
+  const meta = CLIENT_META[activeCid];
+  let email = prompt('Send portal invite to (email):', meta.email || '');
+  if (email === null) return;
+  email = email.trim();
+  if (!email) { alert('Email required'); return; }
+  const res = await fetch('/portal/client/' + activeCid + '/send-invite/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+    body: JSON.stringify({email}),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    const msg = document.getElementById('cfg-saved-msg');
+    msg.textContent = 'Invite sent to ' + data.sent_to;
+    msg.style.display = 'inline';
+    setTimeout(() => { msg.style.display = 'none'; msg.textContent = 'Saved'; }, 4000);
+  } else {
+    alert('Failed: ' + (data.error || 'unknown error'));
+  }
+}
+
 function syncAccentHex(val) {
   if (/^#[0-9a-f]{6}$/i.test(val)) {
     document.getElementById('cfg-accent').value = val;
@@ -424,6 +470,7 @@ async function saveClientConfig() {
     welcome_message:document.getElementById('cfg-welcome').value.trim(),
     accent_color:   document.getElementById('cfg-accent').value,
     portal_theme:   activeTheme,
+    linked_clients: [...document.getElementById('cfg-linked-clients').selectedOptions].map(o => parseInt(o.value)),
   };
   if (CLIENT_CONFIGS[activeCid]) Object.assign(CLIENT_CONFIGS[activeCid], payload);
   else CLIENT_CONFIGS[activeCid] = payload;
@@ -432,6 +479,7 @@ async function saveClientConfig() {
     body:JSON.stringify(payload),
   });
   if (res.ok) {
+    CLIENT_META[activeCid].linked = payload.linked_clients;
     const msg = document.getElementById('cfg-saved-msg');
     msg.textContent = 'Saved';
     msg.style.display = 'inline';
