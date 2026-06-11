@@ -1,5 +1,10 @@
 django>=5.2,<6.0
 gunicorn
+channels>=4.0
+uvicorn[standard]
+daphne
+pyjwt
+docker
 anthropic>=0.40.0
 openai>=1.0.0
 whitenoise
@@ -9,3 +14,5 @@ requests
 stripe
 mutagen
 paramiko
+icalendar>=7.0
+recurring-ical-events>=3.0

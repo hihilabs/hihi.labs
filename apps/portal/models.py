@@ -2,7 +2,14 @@ from django.db import models
 
 
 class ClientPortalConfig(models.Model):
+    THEMES = [
+        ('default', 'Default'),
+        ('infinity', 'Infinity'),
+        ('minimal', 'Minimal'),
+    ]
+
     client          = models.OneToOneField('clients.Client', on_delete=models.CASCADE, related_name='portal_config')
+    portal_theme    = models.CharField(max_length=20, choices=THEMES, default='default')
     show_projects   = models.BooleanField(default=True)
     show_invoices   = models.BooleanField(default=True)
     show_files      = models.BooleanField(default=True)
