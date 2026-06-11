@@ -1,0 +1,19 @@
+[Unit]
+Description=HiHi Labs ASGI (uvicorn — websockets / Channels)
+After=network.target redis-server.service redis.service
+
+[Service]
+User=communityplaylist.com_gvv4pv7dqx
+Group=psaserv
+WorkingDirectory=/var/www/vhosts/communityplaylist.com/tokyo7.communityplaylist.com
+Environment="PATH=/var/www/vhosts/communityplaylist.com/tokyo7.communityplaylist.com/venv/bin"
+ExecStart=/var/www/vhosts/communityplaylist.com/tokyo7.communityplaylist.com/venv/bin/uvicorn \
+    hihilabs.asgi:application \
+    --host 127.0.0.1 --port 8001 \
+    --workers 2 \
+    --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

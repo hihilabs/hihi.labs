@@ -88,10 +88,16 @@ TEMPLATES = [
 WSGI_APPLICATION = 'hihilabs.wsgi.application'
 ASGI_APPLICATION = 'hihilabs.asgi.application'
 
-# In-memory layer: single ASGI worker process only. Swap to channels_redis
-# before scaling workers (room broadcast breaks across processes otherwise).
+# Redis-backed layer so room broadcasts work across multiple ASGI workers.
+# Dedicated Redis db (default db 5) to avoid colliding with other apps on db0.
 CHANNEL_LAYERS = {
-    'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [os.environ.get('REDIS_CHANNEL_URL', 'redis://127.0.0.1:6379/5')],
+            'prefix': 'hihilabs:asgi:',
+        },
+    },
 }
 
 _DATA_DIR = Path(os.environ.get('DATA_DIR', BASE_DIR))
