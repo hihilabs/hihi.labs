@@ -172,17 +172,19 @@ def _lifecycle(inst):
         _log(inst, '• image built')
 
         # ── run ──────────────────────────────────────────────────────────
-        used = set(ModuleInstance.objects.filter(status='running')
-                   .exclude(pk=inst.pk).values_list('port', flat=True))
-        port = _free_port(used)
-        internal = _internal_port(workdir)
         name = f'module-{slug}'
         host = f'{slug}.{LOCAL_DOMAIN}'
+        # remove the previous container BEFORE port allocation so a re-spin
+        # reuses its old port instead of drifting up the range
         try:
             old = client.containers.get(name)
             old.remove(force=True)
         except Exception:
             pass
+        used = set(ModuleInstance.objects.filter(status='running')
+                   .exclude(pk=inst.pk).values_list('port', flat=True))
+        port = _free_port(used)
+        internal = _internal_port(workdir)
         client.containers.run(
             f'module-{slug}', name=name, detach=True,
             ports={f'{internal}/tcp': (BIND_IP, port)},
@@ -231,6 +233,19 @@ def _lifecycle(inst):
                     f'✓ running — https://{host}/ (traefik) · http://{BIND_IP}:{port}/ (direct)')
     except Exception as e:
         _set_status(inst, 'error', f'✗ {e}')
+
+
+def reconcile_stale(max_age_minutes=10):
+    """Lifecycle threads die on server reload/restart; mark instances that
+    have sat in a transient state too long so the UI offers a retry."""
+    from django.utils import timezone
+    from datetime import timedelta
+    from .models import ModuleInstance
+    cutoff = timezone.now() - timedelta(minutes=max_age_minutes)
+    for inst in ModuleInstance.objects.filter(status__in=('cloning', 'building'),
+                                              updated_at__lt=cutoff):
+        _set_status(inst, 'error',
+                    '✗ lifecycle interrupted (server restarted mid-build) — retry')
 
 
 def start(module, user):

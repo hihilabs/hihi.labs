@@ -737,7 +737,7 @@ function renderPicker() {
       box.appendChild(b);
     });
   }
-  const h2 = document.createElement('div'); h2.className = 'pk-head'; h2.textContent = 'Spin up a module';
+  const h2 = document.createElement('div'); h2.className = 'pk-head'; h2.textContent = 'Blank sandboxes';
   box.appendChild(h2);
   sbState.templates.forEach(t => {
     const b = document.createElement('button'); b.className = 'pk-item';
@@ -747,6 +747,42 @@ function renderPicker() {
     b.onclick = () => { togglePicker(false); spinSandbox(t.key); };
     box.appendChild(b);
   });
+  if (sbState.modules && sbState.modules.length) {
+    const h3 = document.createElement('div'); h3.className = 'pk-head'; h3.textContent = 'Real modules';
+    box.appendChild(h3);
+    sbState.modules.forEach(m => {
+      const b = document.createElement('button'); b.className = 'pk-item';
+      b.innerHTML = `<div class="lbl"></div><div class="dsc"></div>`;
+      const dot = m.status === 'running' ? '🟢 ' : (m.status === 'error' ? '🔴 ' :
+                  (m.status === 'building' || m.status === 'cloning') ? '🟡 ' : '');
+      b.querySelector('.lbl').textContent = dot + m.slug;
+      b.querySelector('.dsc').textContent = m.status === 'running'
+        ? m.url : (m.desc || 'clone + build + run locally');
+      b.onclick = () => {
+        togglePicker(false);
+        if (m.status === 'running') window.open(m.direct || m.url, '_blank');
+        else spinRoomModule(m.pk, m.slug);
+      };
+      box.appendChild(b);
+    });
+  }
+}
+
+async function spinRoomModule(pk, slug) {
+  const res = await fetch(`/whiteboards/${BOARD_ID}/module/${pk}/run/`, {
+    method: 'POST', headers: {'X-CSRFToken': CSRF},
+  });
+  if (!res.ok) { alert('Module spin failed'); return; }
+  // refresh picker as the build progresses
+  let tries = 0;
+  const tick = async () => {
+    await refreshSandboxState();
+    const m = (sbState.modules || []).find(x => x.pk === pk);
+    if (m && (m.status === 'cloning' || m.status === 'building') && tries++ < 80) {
+      setTimeout(tick, 4000);
+    }
+  };
+  tick();
 }
 
 function togglePicker(force) {

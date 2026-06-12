@@ -15,4 +15,5 @@ urlpatterns = [
     path('<int:pk>/sandbox/new/', views.sandbox_new, name='sandbox_new'),
     path('<int:pk>/sandbox/<int:sb_pk>/stop/', views.sandbox_stop, name='sandbox_stop'),
     path('<int:pk>/sandbox/<int:sb_pk>/files/', views.sandbox_files, name='sandbox_files'),
+    path('<int:pk>/module/<int:module_pk>/run/', views.room_module_run, name='room_module_run'),
 ]

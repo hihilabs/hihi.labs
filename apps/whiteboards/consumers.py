@@ -150,6 +150,16 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
                 f'sandbox {sb.pk} ({sb.template}) stopped',
                 user=self.user, meta={'id': sb.pk, 'status': 'stopped'})
             return
+        if arg not in engine.TEMPLATES:
+            # not a template — maybe a real module slug
+            module = await self._get_module(arg)
+            if module:
+                await asyncio.to_thread(self._spin_module, module)
+                await self._room_event('sandbox',
+                    f'{self.display} is spinning up module "{module.slug}" — '
+                    'cloning/building, links land on /modules/ when ready',
+                    user=self.user, meta={'module_pk': module.pk, 'slug': module.slug})
+                return
         try:
             sb = await asyncio.to_thread(self._spin_sandbox, arg)
         except Exception as e:
@@ -164,6 +174,16 @@ class RoomConsumer(AsyncJsonWebsocketConsumer):
     def _spin_sandbox(self, template_key):
         from . import sandbox as engine
         return engine.spin(self.board, template_key, self.user)
+
+    @database_sync_to_async
+    def _get_module(self, slug):
+        from apps.modules.models import HihiModule
+        return (HihiModule.objects.filter(is_active=True, slug=slug)
+                .exclude(github_url='').first())
+
+    def _spin_module(self, module):
+        from apps.modules import runner as module_runner
+        module_runner.start(module, self.user)
 
     @database_sync_to_async
     def _get_sandbox(self, sb_id):

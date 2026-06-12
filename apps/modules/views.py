@@ -345,8 +345,10 @@ def module_stop(request, pk):
 
 @staff_member_required
 def module_runtime(request, pk):
+    runner.reconcile_stale()
     module = get_object_or_404(HihiModule, pk=pk)
     inst = getattr(module, 'instance', None)
     if not inst:
         return JsonResponse({'status': 'none'})
+    inst.refresh_from_db()
     return JsonResponse(_instance_payload(inst))

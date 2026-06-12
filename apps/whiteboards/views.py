@@ -153,15 +153,50 @@ def _sandbox_payload(sb):
             'url': sandbox_engine.url_for(sb) if sb.status == 'running' else ''}
 
 
+def _module_payload(m):
+    from apps.modules import runner as module_runner
+    inst = getattr(m, 'instance', None)
+    return {
+        'pk': m.pk, 'slug': m.slug, 'name': m.name,
+        'desc': (m.effective_description or '')[:80],
+        'status': inst.status if inst else 'none',
+        'url': f'https://{inst.host}/' if inst and inst.status == 'running' else '',
+        'direct': f'http://{module_runner.BIND_IP}:{inst.port}/'
+                  if inst and inst.status == 'running' and inst.port else '',
+    }
+
+
 @login_required
 def sandbox_state(request, pk):
     board = _room_board(pk, request.user)
+    from apps.modules.models import HihiModule
+    modules = [_module_payload(m) for m in
+               HihiModule.objects.filter(is_active=True).exclude(github_url='')
+               .order_by('slug')]
     return JsonResponse({
         'templates': [{'key': k, 'label': t['label'], 'desc': t['desc']}
                       for k, t in sandbox_engine.TEMPLATES.items()],
         'sandboxes': [_sandbox_payload(s) for s in
                       board.sandboxes.filter(status='running')],
+        'modules': modules,
     })
+
+
+@login_required
+@require_POST
+def room_module_run(request, pk, module_pk):
+    """Spin a real module from inside a room and announce it in the transcript."""
+    board = _room_board(pk, request.user)
+    from apps.modules.models import HihiModule
+    from apps.modules import runner as module_runner
+    module = get_object_or_404(HihiModule, pk=module_pk)
+    module_runner.start(module, request.user)
+    who = request.user.get_short_name() or request.user.username
+    _room_broadcast(board.pk, 'sandbox',
+                    f'{who} is spinning up module "{module.slug}" — cloning/building, '
+                    f'watch /modules/ or ask again in a minute',
+                    user=request.user, meta={'module_pk': module.pk, 'slug': module.slug})
+    return JsonResponse({'ok': True, 'module_pk': module.pk})
 
 
 @login_required
