@@ -20,7 +20,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.hihilabs.rule=Host(`hihilabs.xyz`) || Host(`www.hihilabs.xyz`) || Host(`hihilabs.communityplaylist.com`)"
+      - "traefik.http.routers.hihilabs.rule=Host(`local.hihilabs.xyz`)"
       - "traefik.http.routers.hihilabs.entrypoints=websecure"
       - "traefik.http.routers.hihilabs.tls=true"
       - "traefik.http.routers.hihilabs.tls.certresolver=letsencrypt"

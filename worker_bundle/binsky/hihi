@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# hihi — BinskyBox worker/GPU switch
+# usage: hihi status | hihi game | hihi work
+set -e
+FLAG=/run/hihi-gamemode
+
+unload_models() {
+  ollama ps 2>/dev/null | awk 'NR>1{print $1}' | xargs -r -n1 ollama stop 2>/dev/null || true
+}
+
+case "${1:-status}" in
+  game)
+    sudo touch "$FLAG"
+    sudo systemctl stop hihi-worker 2>/dev/null || true
+    unload_models
+    echo "🎮 game mode: worker stopped, GPU freed. 'hihi work' when done."
+    ;;
+  work)
+    sudo rm -f "$FLAG"
+    sudo systemctl start hihi-worker
+    echo "🛠  work mode: worker running (models reload on demand)."
+    ;;
+  status)
+    [ -f "$FLAG" ] && echo "mode: GAME (manual)" || echo "mode: work (referee auto)"
+    systemctl is-active hihi-worker >/dev/null 2>&1 && echo "worker: running" || echo "worker: stopped"
+    echo "gpu:"
+    nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu --format=csv,noheader
+    ollama ps 2>/dev/null | tail -n +2 | sed 's/^/loaded: /' || true
+    ;;
+  *) echo "usage: hihi status|game|work"; exit 1;;
+esac

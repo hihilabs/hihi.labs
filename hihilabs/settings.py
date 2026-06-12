@@ -11,6 +11,7 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
 
 CSRF_TRUSTED_ORIGINS = [
+    'https://local.hihilabs.xyz',
     'https://hihilabs.xyz',
     'https://www.hihilabs.xyz',
     'https://hihilabs.communityplaylist.com',
