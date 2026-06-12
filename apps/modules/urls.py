@@ -13,4 +13,7 @@ urlpatterns = [
     path("<int:pk>/update/",              views.update_field,   name="update_field"),
     path("<int:pk>/link-project/",        views.link_project,   name="link_project"),
     path("<int:pk>/unlink-project/",      views.unlink_project, name="unlink_project"),
+    path("<int:pk>/run/",                 views.module_run,     name="module_run"),
+    path("<int:pk>/stop/",                views.module_stop,    name="module_stop"),
+    path("<int:pk>/runtime/",             views.module_runtime, name="module_runtime"),
 ]

@@ -149,6 +149,28 @@
 .mod-git-row.git-clean { color: var(--green); border-color: color-mix(in srgb, var(--green) 20%, transparent); }
 .mod-git-row.git-dirty { color: var(--yellow); border-color: color-mix(in srgb, var(--yellow) 20%, transparent); }
 
+.mod-run-row {
+  margin: 0 18px 10px; padding: 6px 10px; border-radius: var(--r-sm);
+  background: var(--bg3); border: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-faint);
+  display: flex; align-items: center; gap: 8px;
+}
+.run-btn { background: none; border: 1px solid var(--border); border-radius: var(--r-sm);
+  color: var(--text-muted); font-family: var(--font-mono); font-size: 10px;
+  padding: 3px 8px; cursor: pointer; }
+.run-btn:hover { color: var(--text); border-color: var(--text-muted); }
+.run-btn.run-go { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
+.run-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; }
+.run-chip.run-running { color: var(--green); }
+.run-chip.run-building, .run-chip.run-cloning { color: var(--yellow); }
+.run-chip.run-error { color: var(--red, #f87171); }
+.run-link { color: var(--primary); font-size: 10px; text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%; }
+.run-log { margin: 0 18px 10px; padding: 8px 10px; background: #0a0a0c;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  font-size: 9px; color: var(--text-muted); max-height: 160px; overflow-y: auto;
+  white-space: pre-wrap; }
+
 .mod-foot {
   padding: 10px 18px;
   border-top: 1px solid var(--border);
@@ -373,6 +395,26 @@
     </div>
     {% endif %}
 
+    {# Local docker runtime #}
+    {% if m.github_url or m.source_url %}
+    <div class="mod-run-row" id="run-{{ m.pk }}" data-slug="{{ m.slug }}">
+      {% if m.instance and m.instance.status == 'running' %}
+      <span class="run-chip run-running"><i class="fa-solid fa-circle-play"></i> running</span>
+      <a href="https://{{ m.instance.host }}/" target="_blank" class="run-link">{{ m.instance.host }}</a>
+      <button class="run-btn" onclick="stopModule({{ m.pk }})" title="Stop container"><i class="fa-solid fa-stop"></i></button>
+      {% elif m.instance and m.instance.status == 'error' %}
+      <span class="run-chip run-error"><i class="fa-solid fa-triangle-exclamation"></i> error</span>
+      <button class="run-btn" onclick="runModule({{ m.pk }})" title="Retry"><i class="fa-solid fa-rotate-right"></i></button>
+      {% else %}
+      <button class="run-btn run-go" onclick="runModule({{ m.pk }})" title="Clone, build and run locally">
+        <i class="fa-brands fa-docker"></i> Run local
+      </button>
+      {% endif %}
+      <button class="run-btn" onclick="toggleRunLog({{ m.pk }})" title="Show log" style="margin-left:auto;"><i class="fa-solid fa-terminal"></i></button>
+    </div>
+    <pre class="run-log" id="runlog-{{ m.pk }}" style="display:none;">{% if m.instance %}{{ m.instance.log }}{% endif %}</pre>
+    {% endif %}
+
     <div class="mod-foot">
       {% if m.live_url %}
       <a href="{{ m.live_url }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
@@ -550,6 +592,64 @@ function filterStatus(val) {
   if (val) url.searchParams.set('status', val);
   else url.searchParams.delete('status');
   window.location = url.toString();
+}
+
+// ── Local docker runtime ───────────────────────────────────────────────────────
+var RUN_POLLERS = {};
+
+function renderRuntime(pk, d) {
+  var row = document.getElementById('run-' + pk);
+  if (!row) return;
+  var html = '';
+  if (d.status === 'running') {
+    html = '<span class="run-chip run-running"><i class="fa-solid fa-circle-play"></i> running</span>' +
+           '<a class="run-link" target="_blank" href="' + d.url_traefik + '">' + d.host + '</a>' +
+           '<a class="run-link" target="_blank" href="' + d.url_direct + '" title="direct LAN">:' + d.port + '</a>' +
+           '<button class="run-btn" onclick="stopModule(' + pk + ')" title="Stop"><i class="fa-solid fa-stop"></i></button>';
+  } else if (d.status === 'cloning' || d.status === 'building') {
+    html = '<span class="run-chip run-' + d.status + '"><i class="fa-solid fa-spinner fa-spin"></i> ' + d.status + '…</span>';
+  } else if (d.status === 'error') {
+    html = '<span class="run-chip run-error"><i class="fa-solid fa-triangle-exclamation"></i> error</span>' +
+           '<button class="run-btn" onclick="runModule(' + pk + ')" title="Retry"><i class="fa-solid fa-rotate-right"></i></button>';
+  } else {
+    html = '<button class="run-btn run-go" onclick="runModule(' + pk + ')" title="Clone, build and run locally">' +
+           '<i class="fa-brands fa-docker"></i> Run local</button>';
+  }
+  html += '<button class="run-btn" onclick="toggleRunLog(' + pk + ')" title="Show log" style="margin-left:auto;"><i class="fa-solid fa-terminal"></i></button>';
+  row.innerHTML = html;
+  var log = document.getElementById('runlog-' + pk);
+  if (log && d.log !== undefined) { log.textContent = d.log; log.scrollTop = log.scrollHeight; }
+}
+
+async function runModule(pk) {
+  var r = await post('/modules/' + pk + '/run/');
+  var d = await r.json();
+  if (!r.ok) { alert(d.error || 'Run failed'); return; }
+  renderRuntime(pk, d);
+  document.getElementById('runlog-' + pk).style.display = 'block';
+  pollRuntime(pk);
+}
+
+async function stopModule(pk) {
+  var r = await post('/modules/' + pk + '/stop/');
+  var d = await r.json();
+  renderRuntime(pk, d);
+}
+
+function pollRuntime(pk) {
+  clearTimeout(RUN_POLLERS[pk]);
+  RUN_POLLERS[pk] = setTimeout(async function () {
+    var r = await fetch('/modules/' + pk + '/runtime/');
+    var d = await r.json();
+    renderRuntime(pk, d);
+    if (d.status === 'cloning' || d.status === 'building') pollRuntime(pk);
+  }, 2500);
+}
+
+function toggleRunLog(pk) {
+  var log = document.getElementById('runlog-' + pk);
+  log.style.display = log.style.display === 'none' ? 'block' : 'none';
+  if (log.style.display === 'block') log.scrollTop = log.scrollHeight;
 }
 </script>
 {% endblock %}

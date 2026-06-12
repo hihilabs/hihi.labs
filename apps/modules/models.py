@@ -82,3 +82,30 @@ class HihiModule(models.Model):
     @property
     def display_source_url(self):
         return self.source_url or self.github_url
+
+
+class ModuleInstance(models.Model):
+    """A locally-running docker container for a module — clone/build/run
+    lifecycle driven by apps.modules.runner."""
+    STATUS = [
+        ('cloning',  'Cloning'),
+        ('building', 'Building'),
+        ('running',  'Running'),
+        ('stopped',  'Stopped'),
+        ('error',    'Error'),
+    ]
+
+    module     = models.OneToOneField(HihiModule, on_delete=models.CASCADE,
+                                      related_name='instance')
+    status     = models.CharField(max_length=10, choices=STATUS, default='cloning')
+    container  = models.CharField(max_length=120, blank=True)
+    port       = models.PositiveIntegerField(default=0)
+    host       = models.CharField(max_length=200, blank=True)  # <slug>.local.hihilabs.xyz
+    log        = models.TextField(blank=True)
+    started_by = models.ForeignKey('auth.User', null=True, on_delete=models.SET_NULL,
+                                   related_name='module_instances')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.module.slug} [{self.status}]'

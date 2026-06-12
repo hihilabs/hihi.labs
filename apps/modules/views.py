@@ -9,7 +9,8 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
-from .models import HihiModule
+from .models import HihiModule, ModuleInstance
+from . import runner
 
 GITHUB_ORG   = getattr(settings, 'GITHUB_ORG',   'hihilabs')
 GITHUB_TOKEN = getattr(settings, 'GITHUB_TOKEN',  '')
@@ -303,3 +304,47 @@ def contact(request):
             body=body_preview, link="/modules/",
         )
     return JsonResponse({"ok": True})
+
+
+# ── Local docker controls ──────────────────────────────────────────────────────
+
+def _instance_payload(inst):
+    return {
+        'status': inst.status,
+        'port': inst.port,
+        'host': inst.host,
+        'url_traefik': f'https://{inst.host}/' if inst.host else '',
+        'url_direct': f'http://{runner.BIND_IP}:{inst.port}/' if inst.port else '',
+        'log': inst.log[-4000:],
+        'updated': inst.updated_at.strftime('%-I:%M:%S %p') if inst.updated_at else '',
+    }
+
+
+@staff_member_required
+@require_POST
+def module_run(request, pk):
+    module = get_object_or_404(HihiModule, pk=pk)
+    if not (module.github_url or module.source_url):
+        return JsonResponse({'error': 'Module has no repo URL'}, status=400)
+    inst = runner.start(module, request.user)
+    return JsonResponse(_instance_payload(inst))
+
+
+@staff_member_required
+@require_POST
+def module_stop(request, pk):
+    module = get_object_or_404(HihiModule, pk=pk)
+    inst = getattr(module, 'instance', None)
+    if not inst:
+        return JsonResponse({'error': 'No instance'}, status=404)
+    runner.stop(inst)
+    return JsonResponse(_instance_payload(inst))
+
+
+@staff_member_required
+def module_runtime(request, pk):
+    module = get_object_or_404(HihiModule, pk=pk)
+    inst = getattr(module, 'instance', None)
+    if not inst:
+        return JsonResponse({'status': 'none'})
+    return JsonResponse(_instance_payload(inst))
