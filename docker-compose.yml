@@ -27,6 +27,16 @@ services:
       - "traefik.http.services.hihilabs.loadbalancer.server.port=8000"
     networks:
       - traefik
+    depends_on:
+      - hihilabs-redis
+
+  # channel layer backend (rooms websockets) — REDIS_CHANNEL_URL in .env
+  hihilabs-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly no --save ""
+    networks:
+      - traefik
 
 networks:
   traefik:
