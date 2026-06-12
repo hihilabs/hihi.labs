@@ -66,6 +66,9 @@ def _set_status(inst, status, line=None):
         _log(inst, line)
     else:
         inst.save(update_fields=['status', 'updated_at'])
+    if status in ('running', 'stopped', 'error'):
+        from . import wikidoc
+        wikidoc.update_module_page(inst.module)
 
 
 def _clone_url(module):
@@ -249,3 +252,5 @@ def stop(inst):
         pass
     inst.status = 'stopped'
     inst.save(update_fields=['status', 'updated_at'])
+    from . import wikidoc
+    wikidoc.update_module_page(inst.module)

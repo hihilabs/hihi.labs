@@ -152,6 +152,8 @@ def sync_github(request):
         else:
             updated += 1
 
+    from . import wikidoc
+    wikidoc.update_all()
     return JsonResponse({'ok': True, 'created': created, 'updated': updated, 'total': len(repos)})
 
 
