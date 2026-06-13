@@ -169,6 +169,14 @@ def _module_payload(m):
 @login_required
 def sandbox_state(request, pk):
     board = _room_board(pk, request.user)
+    if not settings.SANDBOX_ENABLED:
+        return JsonResponse({
+            'templates': [],
+            'sandboxes': [_sandbox_payload(s) for s in
+                          board.sandboxes.filter(status='running')],
+            'modules': [],
+            'sandbox_enabled': False,
+        })
     from apps.modules.models import HihiModule
     modules = [_module_payload(m) for m in
                HihiModule.objects.filter(is_active=True).exclude(github_url='')
@@ -179,6 +187,7 @@ def sandbox_state(request, pk):
         'sandboxes': [_sandbox_payload(s) for s in
                       board.sandboxes.filter(status='running')],
         'modules': modules,
+        'sandbox_enabled': True,
     })
 
 
@@ -186,6 +195,9 @@ def sandbox_state(request, pk):
 @require_POST
 def room_module_run(request, pk, module_pk):
     """Spin a real module from inside a room and announce it in the transcript."""
+    if not settings.SANDBOX_ENABLED:
+        return JsonResponse({'error': 'Module spinups run on the Tokyo7 dev '
+                                       'server only'}, status=400)
     board = _room_board(pk, request.user)
     from apps.modules.models import HihiModule
     from apps.modules import runner as module_runner
@@ -202,6 +214,9 @@ def room_module_run(request, pk, module_pk):
 @login_required
 @require_POST
 def sandbox_new(request, pk):
+    if not settings.SANDBOX_ENABLED:
+        return JsonResponse({'error': 'Sandboxes run on the Tokyo7 dev '
+                                       'server only'}, status=400)
     board = _room_board(pk, request.user)
     data = json.loads(request.body)
     try:

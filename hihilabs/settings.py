@@ -157,6 +157,10 @@ CLAUDE_CHAT_MODEL = 'claude-sonnet-4-6'               # chat + self-editing
 CLAUDE_SMART_MODEL = 'claude-sonnet-4-6'              # templates, complex tasks
 WHISPER_MODEL = 'whisper-1'
 
+# Room sandboxes/modules (docker spinups) — needs docker.sock access + a
+# /workspace-style writable mount, set up on Tokyo7 dev only for now.
+SANDBOX_ENABLED = os.environ.get('SANDBOX_ENABLED', 'True') == 'True'
+
 # LiveKit (rooms video/audio)
 LIVEKIT_API_KEY = os.environ.get('LIVEKIT_API_KEY', '')
 LIVEKIT_API_SECRET = os.environ.get('LIVEKIT_API_SECRET', '')
