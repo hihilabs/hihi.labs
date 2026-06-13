@@ -95,7 +95,14 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            'hosts': [os.environ.get('REDIS_CHANNEL_URL', 'redis://127.0.0.1:6379/5')],
+            'hosts': [{
+                'address': os.environ.get('REDIS_CHANNEL_URL', 'redis://127.0.0.1:6379/5'),
+                # redis-py>=5 defaults socket_timeout to 5s, which races
+                # against channels_redis's BZPOPMIN(timeout=5) and causes
+                # spurious disconnects (websocket reconnect loops). Give it
+                # headroom so the blocking pop's own timeout wins cleanly.
+                'socket_timeout': 20,
+            }],
             'prefix': 'hihilabs:asgi:',
         },
     },
