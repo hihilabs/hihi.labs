@@ -751,8 +751,14 @@ function renderPicker() {
   } else if (sbState.sandbox_enabled === false) {
     const note = document.createElement('div'); note.className = 'pk-item';
     note.style.opacity = '0.6'; note.style.cursor = 'default';
-    note.textContent = 'Sandboxes & module spinups run on the Tokyo7 dev server only';
+    note.textContent = 'Sandboxes & module spinups run on the Tokyo7 dev server';
     box.appendChild(note);
+    const link = document.createElement('a'); link.className = 'pk-item';
+    link.href = 'https://local.hihilabs.xyz/whiteboards/';
+    link.target = '_blank'; link.rel = 'noopener';
+    link.style.textDecoration = 'none'; link.style.color = 'var(--accent, #7c6af7)';
+    link.textContent = 'Open Tokyo7 dev whiteboards →';
+    box.appendChild(link);
   }
   if (sbState.modules && sbState.modules.length) {
     const h3 = document.createElement('div'); h3.className = 'pk-head'; h3.textContent = 'Real modules';
